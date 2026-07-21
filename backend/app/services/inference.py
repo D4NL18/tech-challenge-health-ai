@@ -1,0 +1,53 @@
+from app.ml.tabular import TabularPredictor
+from app.ml.text import TextPredictor
+from app.ml.vision import VisionPredictor
+from app.ml.ensemble import EnsemblePredictor
+from app.models.schemas import AnamnesisPayload
+
+class InferenceService:
+    def __init__(self):
+        self.tabular_model = TabularPredictor()
+        self.text_model = TextPredictor()
+        self.vision_model = VisionPredictor()
+        self.ensemble_model = EnsemblePredictor()
+
+    def load_all_models(self):
+        """
+        Carrega os pesos (arquivos físicos) de todos os modelos.
+        """
+        self.tabular_model.load_model()
+        self.text_model.load_model()
+        self.vision_model.load_model()
+        self.ensemble_model.load_model()
+
+    def analyze_full_anamnesis(self, payload: AnamnesisPayload, image_bytes: bytes = None) -> dict:
+        """
+        Orquestra a passagem dos dados pelos modelos e retorna o diagnóstico final.
+        """
+        # 1. Tabular (XGBoost)
+        tab_score = self.tabular_model.predict(
+            age=payload.age,
+            medical_history=payload.medical_history or ""
+        )
+
+        # 2. Texto (ClinicalBERT)
+        txt_score = self.text_model.predict(
+            text=payload.symptoms
+        )
+
+        # 3. Visão (MobileNet)
+        vis_score = None
+        if image_bytes:
+            vis_score = self.vision_model.predict(image_bytes=image_bytes)
+
+        # 4. Ensemble (Regressão Logística final)
+        final_result = self.ensemble_model.predict(
+            tabular_score=tab_score,
+            text_score=txt_score,
+            vision_score=vis_score
+        )
+        
+        return final_result
+
+# Instância Singleton do serviço (será injetada pelo router ou importada)
+inference_service = InferenceService()
