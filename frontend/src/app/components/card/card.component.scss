@@ -1,0 +1,38 @@
+.card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: var(--glass-border);
+  overflow: hidden;
+  transition: var(--transition);
+  height: 100%;
+
+  &:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-4px);
+    border-color: rgba(255, 255, 255, 0.8);
+  }
+
+  &__header {
+    padding: 2rem 2rem 0.5rem;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 1.4rem;
+    color: var(--text-main);
+    font-weight: 600;
+  }
+
+  &__subtitle {
+    margin: 0.25rem 0 0;
+    font-size: 0.95rem;
+    color: var(--text-muted);
+  }
+
+  &__content {
+    padding: 1.5rem 2rem 2rem;
+  }
+}

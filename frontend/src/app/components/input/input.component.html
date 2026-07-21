@@ -1,0 +1,27 @@
+<div class="input-group">
+  <label *ngIf="label" [for]="id" class="input-group__label">{{ label }}</label>
+  
+  <ng-container *ngIf="type !== 'textarea'; else textareaTpl">
+    <input 
+      [id]="id"
+      [type]="type"
+      [value]="value"
+      [placeholder]="placeholder"
+      class="input-group__control"
+      (input)="handleInput($event)"
+      (blur)="onTouched()"
+    />
+  </ng-container>
+
+  <ng-template #textareaTpl>
+    <textarea 
+      [id]="id"
+      [value]="value"
+      [placeholder]="placeholder"
+      class="input-group__control input-group__control--textarea"
+      (input)="handleInput($event)"
+      (blur)="onTouched()"
+      rows="4"
+    ></textarea>
+  </ng-template>
+</div>

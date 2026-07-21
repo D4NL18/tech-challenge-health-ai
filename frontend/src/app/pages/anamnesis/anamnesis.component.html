@@ -1,0 +1,45 @@
+<div class="container animate-slide-up stagger-1">
+  <div class="page-header text-center">
+    <div class="icon-wrap">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="url(#gradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <defs>
+          <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#FF4B72" />
+            <stop offset="100%" stop-color="#7B61FF" />
+          </linearGradient>
+        </defs>
+        <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+      </svg>
+    </div>
+    <h1>Triagem Inteligente</h1>
+    <p>Nossa IA analisa instantaneamente relatos e exames para auxiliar o diagnóstico.</p>
+  </div>
+
+  <div class="animate-slide-up stagger-2">
+    <app-card>
+      <form (ngSubmit)="onSubmit()" class="form-grid">
+        <app-input label="Nome Completo" placeholder="Ex: Maria da Silva" [(ngModel)]="patientData.name" name="name"></app-input>
+        <app-input label="Idade" type="number" placeholder="Ex: 45" [(ngModel)]="patientData.age" name="age"></app-input>
+        
+        <div class="full-width">
+          <app-input label="Relato de Sintomas (Texto Livre)" type="textarea" placeholder="Descreva o que a paciente está sentindo detalhadamente..." [(ngModel)]="patientData.symptoms" name="symptoms"></app-input>
+        </div>
+
+        <div class="full-width upload-section">
+          <label class="upload-label">Anexo de Exames (Mamografia / Ultrassom)</label>
+          <div class="upload-area">
+            <div class="upload-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9BA3BB" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            </div>
+            <p>Arraste os arquivos DICOM/JPEG aqui ou <span>clique para buscar</span></p>
+            <input type="file" accept="image/*" class="file-input" />
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <app-button type="submit" label="Iniciar Análise da IA" variant="primary"></app-button>
+        </div>
+      </form>
+    </app-card>
+  </div>
+</div>

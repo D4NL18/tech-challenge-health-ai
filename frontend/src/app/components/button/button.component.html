@@ -1,0 +1,8 @@
+<button 
+  [type]="type"
+  [class]="'btn btn--' + variant"
+  [class.btn--full]="fullWidth"
+  [disabled]="disabled"
+  (click)="handleClick()">
+  {{ label }}
+</button>

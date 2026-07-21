@@ -1,0 +1,151 @@
+.page-header {
+  margin-bottom: 2.5rem;
+  padding-top: 2rem;
+}
+
+.header-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--text-main), var(--secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.patient-info {
+  font-size: 1.1rem;
+  .highlight {
+    font-weight: 600;
+    color: var(--primary);
+  }
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 1.5rem;
+}
+
+.full-span {
+  grid-column: 1 / -1;
+}
+
+.h-100 {
+  height: 100%;
+}
+
+.result-block {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  background-color: white;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+  transition: var(--transition);
+  border-left: 5px solid transparent;
+  
+  &.risk-high {
+    border-color: var(--danger);
+    background: linear-gradient(90deg, rgba(255, 90, 95, 0.08), transparent);
+  }
+  
+  &.risk-moderate {
+    border-color: var(--warning-color);
+    background: linear-gradient(90deg, rgba(255, 179, 0, 0.08), transparent);
+  }
+
+  &:hover {
+    transform: translateX(5px);
+  }
+}
+
+.pulse-danger {
+  animation: pulseGlow 2.5s infinite;
+}
+
+.result-details {
+  h4 {
+    margin-bottom: 0.25rem;
+    font-size: 1.15rem;
+  }
+  p {
+    color: var(--text-main);
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+}
+
+.danger-text { color: var(--danger) !important; }
+.warning-text { color: var(--warning-color) !important; }
+
+/* Circular Chart */
+.score-ring {
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.circular-chart {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  max-height: 250px;
+}
+.circle-bg {
+  fill: none;
+  stroke: #eee;
+  stroke-width: 3;
+}
+.circle {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke: var(--danger);
+  animation: progress 1.2s ease-out forwards;
+}
+.circular-chart.warning .circle {
+  stroke: var(--warning-color);
+}
+@keyframes progress {
+  0% { stroke-dasharray: 0 100; }
+}
+.percentage {
+  fill: var(--text-main);
+  font-family: inherit;
+  font-size: 0.6em;
+  text-anchor: middle;
+  font-weight: 700;
+}
+
+.summary-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, rgba(255,75,114,0.05), rgba(123,97,255,0.05));
+  border-radius: var(--radius);
+  border: 1px solid rgba(255,75,114,0.1);
+}
+
+.icon-pulse {
+  color: var(--primary);
+  padding: 0.75rem;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 4px 10px rgba(255,75,114,0.2);
+}
+
+.summary-text {
+  font-size: 1.15rem;
+  color: var(--text-main);
+  margin: 0;
+  strong {
+    color: var(--danger);
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+}

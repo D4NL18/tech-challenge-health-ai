@@ -1,0 +1,46 @@
+.input-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1.5rem;
+  position: relative;
+
+  &__label {
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--text-main);
+    font-size: 0.95rem;
+    transition: var(--transition);
+  }
+
+  &__control {
+    padding: 1rem 1.25rem;
+    font-size: 1rem;
+    font-family: inherit;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    background-color: rgba(255, 255, 255, 0.6);
+    color: var(--text-main);
+    transition: var(--transition);
+    backdrop-filter: blur(4px);
+
+    &::placeholder {
+      color: #B4B9C9;
+    }
+
+    &:hover {
+      background-color: #fff;
+    }
+
+    &:focus {
+      outline: none;
+      background-color: #fff;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(255, 75, 114, 0.15);
+    }
+
+    &--textarea {
+      resize: vertical;
+      min-height: 120px;
+    }
+  }
+}
