@@ -15,31 +15,96 @@
     <p>Nossa IA analisa instantaneamente relatos e exames para auxiliar o diagnóstico.</p>
   </div>
 
-  <div class="animate-slide-up stagger-2">
+  <div class="dust-container" [ngClass]="animationState === 'in' ? 'dust-anim-in' : 'dust-anim-out'">
     <app-card>
-      <form (ngSubmit)="onSubmit()" class="form-grid">
-        <app-input label="Nome Completo" placeholder="Ex: Maria da Silva" [(ngModel)]="patientData.name" name="name"></app-input>
-        <app-input label="Idade" type="number" placeholder="Ex: 45" [(ngModel)]="patientData.age" name="age"></app-input>
-        
-        <div class="full-width">
-          <app-input label="Relato de Sintomas (Texto Livre)" type="textarea" placeholder="Descreva o que a paciente está sentindo detalhadamente..." [(ngModel)]="patientData.symptoms" name="symptoms"></app-input>
-        </div>
-
-        <div class="full-width upload-section">
-          <label class="upload-label">Anexo de Exames (Mamografia / Ultrassom)</label>
-          <div class="upload-area">
-            <div class="upload-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9BA3BB" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-            </div>
-            <p>Arraste os arquivos DICOM/JPEG aqui ou <span>clique para buscar</span></p>
-            <input type="file" accept="image/*" class="file-input" />
+      
+      <!-- STEP 1 -->
+      <div *ngIf="currentStep === 1" class="form-step">
+        <h2 class="step-title">Passo 1: Identificação</h2>
+        <p class="step-desc">Por favor, insira os dados básicos da paciente.</p>
+        <div class="form-grid">
+          <app-input label="Nome Completo" placeholder="Ex: Maria da Silva" [(ngModel)]="patientData.name" name="name"></app-input>
+          <app-input label="Idade" type="number" placeholder="Ex: 45" [(ngModel)]="patientData.age" name="age"></app-input>
+          
+          <div class="form-actions form-actions--right full-width">
+            <app-button label="Próximo Passo" variant="primary" (click)="nextStep()" [disabled]="!patientData.name || !patientData.age"></app-button>
           </div>
         </div>
+      </div>
 
-        <div class="form-actions">
-          <app-button type="submit" label="Iniciar Análise da IA" variant="primary"></app-button>
+      <!-- STEP 2 -->
+      <div *ngIf="currentStep === 2" class="form-step">
+        <h2 class="step-title">Passo 2: Sintomas Atuais</h2>
+        <p class="step-desc">Descreva detalhadamente o que a paciente está sentindo.</p>
+        <div class="form-grid">
+          <div class="full-width">
+            <app-input label="Relato de Sintomas (Texto Livre)" type="textarea" placeholder="Descreva os sintomas, tempo de início, intensidade..." [(ngModel)]="patientData.symptoms" name="symptoms"></app-input>
+          </div>
+          
+          <div class="form-actions form-actions--between full-width">
+            <button class="btn-text" (click)="prevStep()">Voltar</button>
+            <app-button label="Próximo Passo" variant="primary" (click)="nextStep()" [disabled]="!patientData.symptoms"></app-button>
+          </div>
         </div>
-      </form>
+      </div>
+
+      <!-- STEP 3 -->
+      <div *ngIf="currentStep === 3" class="form-step">
+        <h2 class="step-title">Passo 3: Histórico e Exames</h2>
+        <p class="step-desc">Informe o histórico médico (opcional) e anexe exames relevantes.</p>
+        <form (ngSubmit)="onSubmit()" class="form-grid">
+          <div class="full-width">
+            <app-input label="Histórico Médico Familiar/Pregresso (Opcional)" type="textarea" placeholder="Ex: Mãe teve câncer de mama, ou paciente tem histórico de cistos..." [(ngModel)]="patientData.medicalHistory" name="medicalHistory"></app-input>
+          </div>
+
+          <div class="full-width upload-section">
+            <label class="upload-label">Anexo de Exames (Opcional)</label>
+            <div class="upload-area">
+              <div class="upload-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9BA3BB" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              </div>
+              <p>Arraste arquivos DICOM/JPEG aqui ou <span>clique para buscar</span></p>
+              <input type="file" accept="image/*" class="file-input" (change)="onFileSelected($event)" />
+            </div>
+            <p class="file-name" *ngIf="selectedFile">Arquivo selecionado: {{ selectedFile.name }}</p>
+          </div>
+          
+          <div class="form-actions form-actions--between full-width">
+            <button type="button" class="btn-text" (click)="prevStep()">Voltar</button>
+            <app-button type="submit" label="Receber Previsão da IA" variant="primary"></app-button>
+          </div>
+        </form>
+      </div>
+
+      <!-- STEP 4: LOADING -->
+      <div *ngIf="currentStep === 4" class="form-step loading-step">
+        <div class="spinner"></div>
+        <h2 class="step-title">Processando...</h2>
+        <p class="step-desc">Nossa Inteligência Artificial está analisando os dados e exames.</p>
+      </div>
+
+      <!-- STEP 5: RESULT -->
+      <div *ngIf="currentStep === 5 && predictionResult" class="form-step result-step">
+        <div class="result-header" [ngClass]="predictionResult.risk_level.toLowerCase()">
+          <h2 class="step-title">Risco Estimado: {{ predictionResult.risk_level | uppercase }}</h2>
+          <p class="confidence">Confiança da IA: {{ (predictionResult.confidence * 100) | number:'1.1-1' }}%</p>
+        </div>
+        
+        <div class="result-body">
+          <p class="result-desc">{{ predictionResult.description }}</p>
+          <p class="model-used" *ngIf="predictionResult.model_used">Modelo base utilizado: {{ predictionResult.model_used }}</p>
+        </div>
+
+        <div class="disclaimer">
+          <strong>Aviso Importante:</strong>
+          <p>Este sistema é uma ferramenta de triagem baseada em IA e <strong>não substitui um diagnóstico médico profissional</strong>. Recomenda-se que o paciente consulte um médico especialista para avaliação detalhada e próximos passos.</p>
+        </div>
+
+        <div class="form-actions form-actions--center full-width mt-4">
+          <app-button label="Nova Triagem" variant="primary" (click)="startOver()"></app-button>
+        </div>
+      </div>
+
     </app-card>
   </div>
 </div>

@@ -1,0 +1,427 @@
+// Variáveis BEM globais
+$primary-color: #6366f1;
+$bg-main: #0f172a;
+$card-bg: #1e293b;
+$card-border: #334155;
+$text-light: #f8fafc;
+$text-muted: #94a3b8;
+$accent-color: #10b981;
+
+.dashboard {
+  min-height: 100vh;
+  background-color: $bg-main;
+  color: $text-light;
+  font-family: 'Inter', 'Roboto', sans-serif;
+  margin-bottom: -3rem;
+  padding-bottom: 3rem;
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 48px;
+    background-color: $card-bg;
+    border-bottom: 1px solid $card-border;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+
+  &__title {
+    margin: 0 0 4px;
+    font-size: 24px;
+    font-weight: 700;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .info-icon {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: $primary-color;
+      color: #fff;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+
+      &:hover {
+        filter: brightness(1.1);
+      }
+    }
+  }
+
+  &__subtitle {
+    margin: 0;
+    color: $text-muted;
+    font-size: 14px;
+  }
+
+  &__logout {
+    background: transparent;
+    color: $text-muted;
+    border: 1px solid $card-border;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      color: #ef4444;
+      border-color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+    }
+  }
+
+  &__loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 100px;
+    color: $text-muted;
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(99, 102, 241, 0.2);
+      border-top-color: $primary-color;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
+  }
+
+  &__main {
+    padding: 40px 48px;
+  }
+
+  &__section {
+    margin-bottom: 56px;
+  }
+
+  &__section-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 24px;
+    color: $primary-color;
+    border-bottom: 2px solid rgba(99, 102, 241, 0.2);
+    padding-bottom: 8px;
+    display: inline-block;
+  }
+}
+
+.model-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+.model-card {
+  background-color: $card-bg;
+  border: 1px solid $card-border;
+  border-radius: 16px;
+  padding: 24px;
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    border-color: rgba(99, 102, 241, 0.5);
+  }
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 1.5rem;
+  }
+
+  &__name {
+    margin: 0;
+    font-size: 18px;
+    color: #fff;
+    letter-spacing: 0.5px;
+    word-break: break-word;
+    line-height: 1.3;
+  }
+
+  &__metrics {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    background: rgba(0,0,0,0.2);
+    padding: 12px;
+    border-radius: 8px;
+    
+    .metric {
+      display: flex;
+      flex-direction: column;
+
+      &__label {
+        font-size: 12px;
+        color: $text-muted;
+        text-transform: uppercase;
+      }
+
+      &__value {
+        font-size: 18px;
+        font-weight: 700;
+        color: $accent-color;
+      }
+    }
+  }
+
+  &__matrix {
+    margin-bottom: 20px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 200px;
+
+    img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    
+    &-placeholder {
+      color: $text-muted;
+      font-size: 14px;
+    }
+  }
+
+  }
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.btn-activate {
+  background: transparent;
+  color: $primary-color;
+  border: 1px solid $primary-color;
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: $primary-color;
+    color: #fff;
+  }
+}
+
+.badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+
+  &::before {
+    content: '';
+    display: block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  &--active {
+    background-color: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+
+    &::before {
+      background-color: #10b981;
+      box-shadow: 0 0 6px #10b981;
+    }
+  }
+}
+
+/* Modals */
+.modal {
+  &__backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+  }
+
+  &__content {
+    background: $card-bg;
+    border: 1px solid $card-border;
+    border-radius: 16px;
+    width: 95%;
+    max-width: 1200px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    padding: 32px;
+    position: relative;
+
+    &--small {
+      max-width: 500px;
+    }
+
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+    &::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.2); 
+      border-radius: 8px;
+      margin: 4px;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: $card-border; 
+      border-radius: 8px;
+    }
+    &::-webkit-scrollbar-thumb:hover {
+      background: $text-muted;
+    }
+  }
+
+  &__header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 24px;
+    border-bottom: 1px solid $card-border;
+    padding-bottom: 16px;
+    position: relative;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 20px;
+    color: #fff;
+    text-align: center;
+  }
+
+  &__close {
+    background: transparent;
+    border: none;
+    color: $text-muted;
+    font-size: 28px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    transition: color 0.2s;
+    position: absolute;
+    right: 0;
+
+    &:hover {
+      color: #ef4444;
+    }
+  }
+
+  &__body {
+    color: $text-light;
+    line-height: 1.6;
+
+    p {
+      margin-top: 0;
+      margin-bottom: 16px;
+
+      strong {
+        color: $primary-color;
+      }
+    }
+  }
+
+  &__metrics {
+    display: flex;
+    justify-content: center;
+    gap: 64px;
+    margin-bottom: 24px;
+    background: rgba(0,0,0,0.2);
+    padding: 16px 24px;
+    border-radius: 8px;
+
+    .metric {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+
+      &__label {
+        font-size: 13px;
+        color: $text-muted;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+
+      &__value {
+        font-size: 24px;
+        font-weight: 700;
+        color: $accent-color;
+      }
+    }
+  }
+
+  &__summary {
+    font-size: 15px;
+    color: #cbd5e1;
+    margin-bottom: 24px;
+  }
+
+  &__image {
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    img {
+      width: 100%;
+      height: auto;
+      max-height: 450px;
+      object-fit: contain;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 24px;
+    gap: 16px;
+
+    .btn-activate--modal {
+      font-size: 1rem;
+      padding: 0.6rem 1.2rem;
+    }
+
+    .badge--modal {
+      font-size: 0.9rem;
+      padding: 0.4rem 1rem;
+    }
+  }
+}
+

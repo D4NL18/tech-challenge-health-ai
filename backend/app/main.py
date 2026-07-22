@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from app.api.routers import anamnesis
+from app.api.routers import anamnesis, admin
 from app.services.inference import inference_service
 
 @asynccontextmanager
@@ -23,7 +23,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:4200"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -31,6 +31,7 @@ app.add_middleware(
 
 # Registra os roteadores modularizados
 app.include_router(anamnesis.router)
+app.include_router(admin.router)
 
 @app.get("/")
 def read_root():

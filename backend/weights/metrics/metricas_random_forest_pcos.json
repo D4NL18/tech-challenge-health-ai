@@ -1,0 +1,139 @@
+{
+    "Saudavel (0)": {
+        "precision": 0.9210526315789473,
+        "recall": 0.958904109589041,
+        "f1-score": 0.9395973154362416,
+        "support": 73.0
+    },
+    "PCOS (1)": {
+        "precision": 0.9090909090909091,
+        "recall": 0.8333333333333334,
+        "f1-score": 0.8695652173913043,
+        "support": 36.0
+    },
+    "accuracy": 0.9174311926605505,
+    "macro avg": {
+        "precision": 0.9150717703349283,
+        "recall": 0.8961187214611872,
+        "f1-score": 0.9045812664137729,
+        "support": 109.0
+    },
+    "weighted avg": {
+        "precision": 0.917101970940696,
+        "recall": 0.9174311926605505,
+        "f1-score": 0.9164674481920422,
+        "support": 109.0
+    },
+    "accuracy_global": 0.9174311926605505,
+    "roc_auc": 0.9322678843226788,
+    "feature_importances": [
+        {
+            "Feature": "Follicle No. (R)",
+            "Importance": 0.25336243110779627
+        },
+        {
+            "Feature": "Follicle No. (L)",
+            "Importance": 0.16234460363759654
+        },
+        {
+            "Feature": "Skin darkening (Y/N)",
+            "Importance": 0.08672411039019504
+        },
+        {
+            "Feature": "Cycle length(days)",
+            "Importance": 0.051340917817882505
+        },
+        {
+            "Feature": "hair growth(Y/N)",
+            "Importance": 0.051072569751918345
+        },
+        {
+            "Feature": "Weight gain(Y/N)",
+            "Importance": 0.05073471586915234
+        },
+        {
+            "Feature": "Fast food (Y/N)",
+            "Importance": 0.03513557681868586
+        },
+        {
+            "Feature": "Cycle(R/I)",
+            "Importance": 0.02349524167443237
+        },
+        {
+            "Feature": "Weight (Kg)",
+            "Importance": 0.020643104897966627
+        },
+        {
+            "Feature": "BMI",
+            "Importance": 0.02005602425348065
+        },
+        {
+            "Feature": "RBS(mg/dl)",
+            "Importance": 0.019995262652432844
+        },
+        {
+            "Feature": "LH(mIU/mL)",
+            "Importance": 0.018678719665646874
+        },
+        {
+            "Feature": "  I   beta-HCG(mIU/mL)",
+            "Importance": 0.01724170559889061
+        },
+        {
+            "Feature": "Endometrium (mm)",
+            "Importance": 0.016070876085864112
+        },
+        {
+            "Feature": "Avg. F size (L) (mm)",
+            "Importance": 0.015278374934931177
+        },
+        {
+            "Feature": "TSH (mIU/L)",
+            "Importance": 0.014836825265013107
+        },
+        {
+            "Feature": " Age (yrs)",
+            "Importance": 0.014638812117375829
+        },
+        {
+            "Feature": "Waist(inch)",
+            "Importance": 0.014248697179645081
+        },
+        {
+            "Feature": "Avg. F size (R) (mm)",
+            "Importance": 0.014219481169120139
+        },
+        {
+            "Feature": "Marraige Status (Yrs)",
+            "Importance": 0.014172042575089755
+        },
+        {
+            "Feature": "FSH(mIU/mL)",
+            "Importance": 0.01285573333123657
+        },
+        {
+            "Feature": "Hip(inch)",
+            "Importance": 0.012657257929900386
+        },
+        {
+            "Feature": "Vit D3 (ng/mL)",
+            "Importance": 0.01255431619801159
+        },
+        {
+            "Feature": "PRL(ng/mL)",
+            "Importance": 0.012387472720809497
+        },
+        {
+            "Feature": "Hb(g/dl)",
+            "Importance": 0.012353333608392476
+        },
+        {
+            "Feature": "PRG(ng/mL)",
+            "Importance": 0.011500267012607
+        },
+        {
+            "Feature": "Height(Cm) ",
+            "Importance": 0.01140152573592611
+        }
+    ]
+}

@@ -1,0 +1,4 @@
+{
+  "pcos": "gradient_boosting",
+  "cancer": "random_forest"
+}

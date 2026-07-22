@@ -1,0 +1,95 @@
+{
+    "Saudavel (0)": {
+        "precision": 0.9466666666666667,
+        "recall": 0.9861111111111112,
+        "f1-score": 0.9659863945578231,
+        "support": 72.0
+    },
+    "Cancer (2)": {
+        "precision": 0.9743589743589743,
+        "recall": 0.9047619047619048,
+        "f1-score": 0.9382716049382716,
+        "support": 42.0
+    },
+    "accuracy": 0.956140350877193,
+    "macro avg": {
+        "precision": 0.9605128205128205,
+        "recall": 0.9454365079365079,
+        "f1-score": 0.9521289997480473,
+        "support": 114.0
+    },
+    "weighted avg": {
+        "precision": 0.9568690958164642,
+        "recall": 0.956140350877193,
+        "f1-score": 0.9557756825927252,
+        "support": 114.0
+    },
+    "accuracy_global": 0.956140350877193,
+    "roc_auc": 0.9965277777777777,
+    "feature_importances": [
+        {
+            "Feature": "radius_worst",
+            "Importance": 0.3109209484177359
+        },
+        {
+            "Feature": "concave points_mean",
+            "Importance": 0.14061184484292275
+        },
+        {
+            "Feature": "concave points_worst",
+            "Importance": 0.12069451304797697
+        },
+        {
+            "Feature": "radius_mean",
+            "Importance": 0.09012471259811468
+        },
+        {
+            "Feature": "area_se",
+            "Importance": 0.0629539689847624
+        },
+        {
+            "Feature": "concavity_mean",
+            "Importance": 0.05651891813620815
+        },
+        {
+            "Feature": "concavity_worst",
+            "Importance": 0.054423966729012736
+        },
+        {
+            "Feature": "compactness_mean",
+            "Importance": 0.035134664132884526
+        },
+        {
+            "Feature": "texture_worst",
+            "Importance": 0.027655512298329556
+        },
+        {
+            "Feature": "symmetry_worst",
+            "Importance": 0.018139207199036163
+        },
+        {
+            "Feature": "radius_se",
+            "Importance": 0.017936573779247247
+        },
+        {
+            "Feature": "texture_mean",
+            "Importance": 0.016542702939141313
+        },
+        {
+            "Feature": "smoothness_worst",
+            "Importance": 0.014931231250775544
+        },
+        {
+            "Feature": "compactness_worst",
+            "Importance": 0.01249998924401986
+        },
+        {
+            "Feature": "perimeter_se",
+            "Importance": 0.012103999359495033
+        },
+        {
+            "Feature": "concavity_se",
+            "Importance": 0.008807247040337333
+        }
+    ]
+}

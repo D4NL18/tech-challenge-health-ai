@@ -1,0 +1,42 @@
+<div class="login-wrapper">
+  <div class="login-card">
+    <div class="login-card__header">
+      <h1 class="login-card__title">HealthAI Admin</h1>
+      <p class="login-card__subtitle">Métricas e Inteligência Artificial</p>
+    </div>
+
+    <form class="login-card__form" (submit)="onSubmit($event)">
+      <div class="login-card__input-group">
+        <label class="login-card__label" for="username">Usuário</label>
+        <input 
+          type="text" 
+          id="username" 
+          name="username" 
+          class="login-card__input" 
+          [(ngModel)]="username" 
+          placeholder="Digite o usuário de admin" 
+          required>
+      </div>
+
+      <div class="login-card__input-group">
+        <label class="login-card__label" for="password">Senha</label>
+        <input 
+          type="password" 
+          id="password" 
+          name="password" 
+          class="login-card__input" 
+          [(ngModel)]="password" 
+          placeholder="••••••••" 
+          required>
+      </div>
+
+      <div class="login-card__error" *ngIf="errorMessage">
+        {{ errorMessage }}
+      </div>
+
+      <button type="submit" class="login-card__button" [disabled]="isLoading">
+        {{ isLoading ? 'Autenticando...' : 'Acessar Painel' }}
+      </button>
+    </form>
+  </div>
+</div>

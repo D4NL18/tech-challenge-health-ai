@@ -1,0 +1,167 @@
+// Váriaveis BEM globais de tema escuro e glassmorphism
+$primary-color: #6366f1;
+$primary-hover: #4f46e5;
+$bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+$glass-bg: rgba(255, 255, 255, 0.05);
+$glass-border: rgba(255, 255, 255, 0.1);
+$text-light: #f8fafc;
+$text-muted: #94a3b8;
+$error-color: #ef4444;
+
+.login-wrapper {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: $bg-gradient;
+  font-family: 'Inter', 'Roboto', sans-serif;
+  position: relative;
+  overflow: hidden;
+
+  // Blob animado no fundo para dar visual dinâmico
+  &::before {
+    content: '';
+    position: absolute;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(99,102,241,0.3) 0%, rgba(0,0,0,0) 70%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    animation: pulse 8s infinite alternate ease-in-out;
+  }
+}
+
+.login-card {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 420px;
+  background: $glass-bg;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid $glass-border;
+  border-radius: 24px;
+  padding: 40px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+  transform: translateY(30px);
+
+  &__header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  &__title {
+    font-size: 28px;
+    font-weight: 700;
+    color: $text-light;
+    margin: 0 0 8px;
+    letter-spacing: -0.5px;
+  }
+
+  &__subtitle {
+    font-size: 15px;
+    color: $text-muted;
+    margin: 0;
+  }
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  &__input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &__label {
+    font-size: 14px;
+    font-weight: 500;
+    color: $text-muted;
+  }
+
+  &__input {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid $glass-border;
+    border-radius: 12px;
+    padding: 14px 16px;
+    color: $text-light;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    outline: none;
+
+    &:focus {
+      border-color: $primary-color;
+      box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    &::placeholder {
+      color: rgba(148, 163, 184, 0.5);
+    }
+  }
+
+  &__error {
+    background: rgba(239, 68, 68, 0.1);
+    color: $error-color;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    text-align: center;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    animation: shake 0.4s ease;
+  }
+
+  &__button {
+    background: $primary-color;
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 8px;
+
+    &:hover:not(:disabled) {
+      background: $primary-hover;
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px -10px rgba(99, 102, 241, 0.5);
+    }
+
+    &:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    &:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+  }
+}
+
+// Micro-animações
+@keyframes slideUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  from { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+  to { transform: translate(-50%, -50%) scale(1.5); opacity: 0.8; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}

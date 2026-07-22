@@ -1,0 +1,128 @@
+<div class="dashboard">
+  <header class="dashboard__header">
+    <div class="dashboard__header-content">
+      <h1 class="dashboard__title">Painel de Modelos <span class="info-icon" (click)="openInfoModal()">i</span></h1>
+      <p class="dashboard__subtitle">Visualização e Comparativo de Métricas de Inteligência Artificial</p>
+    </div>
+    <button class="dashboard__logout" (click)="logout()">Sair do Painel</button>
+  </header>
+
+  <div class="dashboard__loading" *ngIf="isLoading">
+    <div class="spinner"></div>
+    <p>Carregando métricas e imagens...</p>
+  </div>
+
+  <main class="dashboard__main" *ngIf="!isLoading">
+    
+    <section class="dashboard__section">
+      <h2 class="dashboard__section-title">Modelos para PCOS (Síndrome do Ovário Policístico)</h2>
+      
+      <div class="model-grid">
+        <div class="model-card" *ngFor="let model of pcosModels" (click)="openModelDetails(model)">
+          <div class="model-card__header">
+            <h3 class="model-card__name">{{ model.model_name | uppercase }}</h3>
+            <span class="badge badge--active" *ngIf="activeModels.pcos === model.model_name">Modelo Ativo</span>
+          </div>
+          
+          <div class="model-card__metrics">
+            <div class="metric">
+              <span class="metric__label">Acurácia Global</span>
+              <span class="metric__value">{{ (model.metrics.accuracy_global * 100) | number:'1.2-2' }}%</span>
+            </div>
+            <div class="metric">
+              <span class="metric__label">ROC-AUC</span>
+              <span class="metric__value">{{ model.metrics.roc_auc ? (model.metrics.roc_auc | number:'1.4-4') : 'N/A' }}</span>
+            </div>
+          </div>
+
+          <div class="model-card__matrix">
+            <img *ngIf="getMatrixSrc(model)" [src]="getMatrixSrc(model)" alt="Matriz de Confusão">
+            <div *ngIf="!getMatrixSrc(model)" class="model-card__matrix-placeholder">Matriz não carregada</div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <section class="dashboard__section">
+      <h2 class="dashboard__section-title">Modelos para Câncer de Mama</h2>
+      
+      <div class="model-grid">
+        <div class="model-card" *ngFor="let model of cancerModels" (click)="openModelDetails(model)">
+          <div class="model-card__header">
+            <h3 class="model-card__name">{{ model.model_name | uppercase }}</h3>
+            <span class="badge badge--active" *ngIf="activeModels.cancer === model.model_name">Modelo Ativo</span>
+          </div>
+          
+          <div class="model-card__metrics">
+            <div class="metric">
+              <span class="metric__label">Acurácia Global</span>
+              <span class="metric__value">{{ (model.metrics.accuracy_global * 100) | number:'1.2-2' }}%</span>
+            </div>
+            <div class="metric">
+              <span class="metric__label">ROC-AUC</span>
+              <span class="metric__value">{{ model.metrics.roc_auc ? (model.metrics.roc_auc | number:'1.4-4') : 'N/A' }}</span>
+            </div>
+          </div>
+
+          <div class="model-card__matrix">
+            <img *ngIf="getMatrixSrc(model)" [src]="getMatrixSrc(model)" alt="Matriz de Confusão">
+            <div *ngIf="!getMatrixSrc(model)" class="model-card__matrix-placeholder">Matriz não carregada</div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal Info -->
+  <div class="modal__backdrop" *ngIf="showInfoModal" (click)="closeInfoModal()">
+    <div class="modal__content modal__content--small" (click)="$event.stopPropagation()">
+      <div class="modal__header">
+        <h2 class="modal__title">Sobre as Métricas</h2>
+        <button class="modal__close" (click)="closeInfoModal()">&times;</button>
+      </div>
+      <div class="modal__body">
+        <p><strong>Acurácia Global:</strong> Mede o percentual de acertos gerais do modelo (verdadeiros positivos e verdadeiros negativos) em relação ao total de casos avaliados. Uma acurácia alta indica um bom desempenho geral.</p>
+        <p><strong>ROC-AUC:</strong> A Área Sob a Curva ROC (Receiver Operating Characteristic) mede a capacidade do modelo de distinguir entre as classes (ex: Saudável vs. Doente). Valores mais próximos de 1.0 indicam um excelente poder de discriminação, enquanto 0.5 indica uma chance aleatória.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Detalhes do Modelo -->
+  <div class="modal__backdrop" *ngIf="selectedModel" (click)="closeModelDetails()">
+    <div class="modal__content" (click)="$event.stopPropagation()">
+      <div class="modal__header">
+        <h2 class="modal__title">Detalhes do Modelo: {{ selectedModel.model_name | uppercase }}</h2>
+        <button class="modal__close" (click)="closeModelDetails()">&times;</button>
+      </div>
+      <div class="modal__body">
+        <div class="modal__metrics">
+          <div class="metric">
+            <span class="metric__label">Acurácia Global</span>
+            <span class="metric__value">{{ (selectedModel.metrics.accuracy_global * 100) | number:'1.2-2' }}%</span>
+          </div>
+          <div class="metric">
+            <span class="metric__label">ROC-AUC</span>
+            <span class="metric__value">{{ selectedModel.metrics.roc_auc ? (selectedModel.metrics.roc_auc | number:'1.4-4') : 'N/A' }}</span>
+          </div>
+        </div>
+        <p class="modal__summary">{{ getModelSummary(selectedModel) }}</p>
+        <div class="modal__actions" *ngIf="selectedModel">
+          <button class="btn-activate btn-activate--modal" 
+                  *ngIf="(selectedModel.disease === 'pcos' && activeModels.pcos !== selectedModel.model_name) || (selectedModel.disease === 'cancer' && activeModels.cancer !== selectedModel.model_name)" 
+                  (click)="setAsActive(selectedModel.disease, selectedModel.model_name)">
+            Tornar Ativo
+          </button>
+          <span class="badge badge--active badge--modal" 
+                *ngIf="(selectedModel.disease === 'pcos' && activeModels.pcos === selectedModel.model_name) || (selectedModel.disease === 'cancer' && activeModels.cancer === selectedModel.model_name)">
+            Modelo Ativo
+          </span>
+        </div>
+        <div class="modal__image">
+          <img *ngIf="getMatrixSrc(selectedModel)" [src]="getMatrixSrc(selectedModel)" alt="Matriz de Confusão Expandida">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
