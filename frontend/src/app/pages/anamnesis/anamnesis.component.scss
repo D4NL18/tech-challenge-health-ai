@@ -2,7 +2,7 @@
   margin-bottom: 2.5rem;
   padding-top: 3rem;
   text-align: center;
-  
+
   h1 {
     font-size: 2.5rem;
     margin-bottom: 0.5rem;
@@ -10,7 +10,7 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-  
+
   p {
     font-size: 1.1rem;
     max-width: 600px;
@@ -57,7 +57,7 @@
   background-color: rgba(255, 255, 255, 0.5);
   position: relative;
   transition: var(--transition);
-  
+
   .upload-icon {
     margin-bottom: 1rem;
     transition: var(--transition);
@@ -67,15 +67,17 @@
     color: var(--text-muted);
     margin: 0;
     font-size: 1.05rem;
+
     span {
       color: var(--primary);
       font-weight: 600;
     }
   }
-  
+
   &:hover {
     border-color: var(--primary);
     background-color: rgba(255, 75, 114, 0.03);
+
     .upload-icon {
       transform: translateY(-5px);
       stroke: var(--primary);
@@ -96,8 +98,210 @@
 .form-actions {
   grid-column: 1 / -1;
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+
+  &.center {
+    justify-content: center;
+  }
+}
+
+/* Dust Animations */
+.step-container {
+  will-change: opacity, transform, filter;
+}
+
+@function generate-glitter($count) {
+  $val: '0px 0px transparent';
+
+  @for $i from 1 through $count {
+    // Massive vertical spread (-600 to +400) from the 50% center
+    $y: (
+      random(200) + random(200) + random(200) + random(200) + random(200) - 600) * 1px;
+
+    // Bell curve for X, safely within 500px left safe zone (0 to -450)
+    $x: (
+      random(150) + random(150) + random(150)) * -1 * 1px;
+
+    $blur: random(4) * 1px;
+    $color: if(random(3)==1, '#FF4B72', if(random(2)==1, '#7B61FF', '#FFD700')
+    );
+
+  $val: '#{$val}, #{$x} #{$y} #{$blur} #{$color}';
+}
+
+@return unquote($val);
+}
+
+%component-target {
+  animation: dissolve-rtl 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation-delay: var(--anim-delay, 0s);
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 0;
+    width: 2px;
+    height: 2px;
+    border-radius: 50%;
+    box-shadow: generate-glitter(8000);
+    // Use edge-fly to track the wipe exactly from 0% to 105%
+    animation: edge-fly-rtl 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation-delay: var(--anim-delay, 0s);
+    pointer-events: none;
+    z-index: 100;
+  }
+}
+
+.dust-out {
+  @extend %component-target;
+}
+
+.dust-in {
+  animation: materialize 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes dissolve-rtl {
+  0% {
+    clip-path: polygon(-500px -500px, 100% -500px, 100% calc(100% + 500px), -500px calc(100% + 500px));
+    opacity: 1;
+  }
+
+  100% {
+    clip-path: polygon(-500px -500px, 0% -500px, 0% calc(100% + 500px), -500px calc(100% + 500px));
+    opacity: 0;
+  }
+}
+
+@keyframes edge-fly-rtl {
+  0% {
+    right: 0%; // Starts exactly at right edge of content because padding-right is 0
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+
+  5% {
+    opacity: 1;
+  }
+
+  60% {
+    opacity: 1;
+  }
+
+  100% {
+    right: 105%; // Moves across content and left padding
+    transform: translateY(-80px) scale(1.1);
+    opacity: 0;
+  }
+}
+
+@keyframes materialize {
+  0% {
+    opacity: 0;
+    filter: blur(10px);
+    transform: scale(0.95) translateY(20px);
+  }
+
+  100% {
+    opacity: 1;
+    filter: blur(0) brightness(1);
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Result styles */
+.result-card {
+  text-align: center;
+  padding: 2rem 0;
+
+  &__level {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    color: var(--primary);
+  }
+
+  &__confidence {
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+    color: var(--text-main);
+  }
+
+  &__desc {
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+  }
+
+  &__disclaimer {
+    background-color: rgba(255, 200, 0, 0.1);
+    border-left: 4px solid #ffc107;
+    padding: 1rem;
+    text-align: left;
+    color: #b78900;
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+    border-radius: 4px;
+  }
+}
+
+/* Disease Selection Styles */
+.disease-selection {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.disease-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  width: 280px;
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition);
+
+  &:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 30px rgba(255, 75, 114, 0.15);
+    border-color: var(--primary);
+
+    .disease-icon {
+      background: var(--primary);
+      color: white;
+      transform: scale(1.1);
+    }
+  }
+
+  h3 {
+    margin: 1rem 0 0.5rem;
+    font-size: 1.25rem;
+    color: var(--text-main);
+  }
+
+  p {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    margin: 0;
+  }
+}
+
+.disease-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255, 75, 114, 0.1);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  transition: var(--transition);
 }

@@ -1,4 +1,4 @@
 {
-  "pcos": "gradient_boosting",
-  "cancer": "random_forest"
+  "cancer": "logistic_regression",
+  "pcos": "svm"
 }

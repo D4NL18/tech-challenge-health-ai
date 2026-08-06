@@ -11,4 +11,6 @@ class AnamnesisPayload(BaseModel):
     patient_id: Optional[str] = None
     age: int = Field(..., description="Idade da paciente")
     symptoms: str = Field(..., description="Texto livre descrevendo os sintomas da paciente")
-    medical_history: Optional[str] = Field(None, description="Informações médicas prévias ou dados tabulares formatados")
+    disease: str = Field(..., description="Doença alvo (pcos ou cancer)")
+    medical_history: Optional[str] = Field(None, description="Histórico")
+    tabular_data: Optional[dict] = Field(None, description="Dicionário com as features tabulares extraídas do frontend")

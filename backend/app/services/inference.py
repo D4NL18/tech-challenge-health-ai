@@ -38,10 +38,10 @@ class InferenceService:
         """
         Orquestra a passagem dos dados pelos modelos e retorna o diagnóstico final.
         """
-        # 1. Tabular (XGBoost)
+        # 1. Tabular (Modelo Treinado)
         tab_score = self.tabular_model.predict(
-            age=payload.age,
-            medical_history=payload.medical_history or ""
+            tabular_data=payload.tabular_data or {},
+            disease=payload.disease
         )
 
         # 2. Texto (ClinicalBERT)
@@ -61,10 +61,8 @@ class InferenceService:
             vision_score=vis_score
         )
         
-        # Injetando qual modelo foi utilizado (para demonstração)
-        disease = "pcos" if "ovário" in str(payload.medical_history).lower() or "menstru" in payload.symptoms.lower() else "cancer"
-        if "mama" in str(payload.medical_history).lower() or "nódulo" in payload.symptoms.lower():
-            disease = "cancer"
+        # O modelo utilizado vem do config
+        disease = payload.disease
             
         active_model = self._get_active_model(disease)
         

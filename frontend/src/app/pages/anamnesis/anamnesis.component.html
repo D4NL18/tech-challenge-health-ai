@@ -15,11 +15,10 @@
     <p>Nossa IA analisa instantaneamente relatos e exames para auxiliar o diagnóstico.</p>
   </div>
 
-  <div class="dust-container" [ngClass]="animationState === 'in' ? 'dust-anim-in' : 'dust-anim-out'">
-    <app-card>
+  <div class="dust-container">
       
       <!-- STEP 1 -->
-      <div *ngIf="currentStep === 1" class="form-step">
+      <div *ngIf="currentStep === 1" class="form-step step-container full-width" [ngClass]="animationClass">
         <h2 class="step-title">Passo 1: Identificação</h2>
         <p class="step-desc">Por favor, insira os dados básicos da paciente.</p>
         <div class="form-grid">
@@ -33,78 +32,195 @@
       </div>
 
       <!-- STEP 2 -->
-      <div *ngIf="currentStep === 2" class="form-step">
-        <h2 class="step-title">Passo 2: Sintomas Atuais</h2>
-        <p class="step-desc">Descreva detalhadamente o que a paciente está sentindo.</p>
-        <div class="form-grid">
-          <div class="full-width">
-            <app-input label="Relato de Sintomas (Texto Livre)" type="textarea" placeholder="Descreva os sintomas, tempo de início, intensidade..." [(ngModel)]="patientData.symptoms" name="symptoms"></app-input>
-          </div>
-          
-          <div class="form-actions form-actions--between full-width">
-            <button class="btn-text" (click)="prevStep()">Voltar</button>
-            <app-button label="Próximo Passo" variant="primary" (click)="nextStep()" [disabled]="!patientData.symptoms"></app-button>
-          </div>
-        </div>
-      </div>
-
-      <!-- STEP 3 -->
-      <div *ngIf="currentStep === 3" class="form-step">
-        <h2 class="step-title">Passo 3: Histórico e Exames</h2>
-        <p class="step-desc">Informe o histórico médico (opcional) e anexe exames relevantes.</p>
-        <form (ngSubmit)="onSubmit()" class="form-grid">
-          <div class="full-width">
-            <app-input label="Histórico Médico Familiar/Pregresso (Opcional)" type="textarea" placeholder="Ex: Mãe teve câncer de mama, ou paciente tem histórico de cistos..." [(ngModel)]="patientData.medicalHistory" name="medicalHistory"></app-input>
-          </div>
-
-          <div class="full-width upload-section">
-            <label class="upload-label">Anexo de Exames (Opcional)</label>
-            <div class="upload-area">
-              <div class="upload-icon">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9BA3BB" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-              </div>
-              <p>Arraste arquivos DICOM/JPEG aqui ou <span>clique para buscar</span></p>
-              <input type="file" accept="image/*" class="file-input" (change)="onFileSelected($event)" />
-            </div>
-            <p class="file-name" *ngIf="selectedFile">Arquivo selecionado: {{ selectedFile.name }}</p>
-          </div>
-          
-          <div class="form-actions form-actions--between full-width">
-            <button type="button" class="btn-text" (click)="prevStep()">Voltar</button>
-            <app-button type="submit" label="Receber Previsão da IA" variant="primary"></app-button>
-          </div>
-        </form>
-      </div>
-
-      <!-- STEP 4: LOADING -->
-      <div *ngIf="currentStep === 4" class="form-step loading-step">
-        <div class="spinner"></div>
-        <h2 class="step-title">Processando...</h2>
-        <p class="step-desc">Nossa Inteligência Artificial está analisando os dados e exames.</p>
-      </div>
-
-      <!-- STEP 5: RESULT -->
-      <div *ngIf="currentStep === 5 && predictionResult" class="form-step result-step">
-        <div class="result-header" [ngClass]="predictionResult.risk_level.toLowerCase()">
-          <h2 class="step-title">Risco Estimado: {{ predictionResult.risk_level | uppercase }}</h2>
-          <p class="confidence">Confiança da IA: {{ (predictionResult.confidence * 100) | number:'1.1-1' }}%</p>
-        </div>
+      <div *ngIf="currentStep === 2" class="form-step step-container full-width" [ngClass]="animationClass">
+        <h2 class="step-title">Passo 2: Foco da Triagem</h2>
+        <p class="step-desc">Selecione qual caminho de triagem deseja seguir para esta paciente.</p>
         
-        <div class="result-body">
-          <p class="result-desc">{{ predictionResult.description }}</p>
-          <p class="model-used" *ngIf="predictionResult.model_used">Modelo base utilizado: {{ predictionResult.model_used }}</p>
+        <div class="disease-selection">
+          <div class="disease-wrapper">
+            <div class="disease-card" (click)="selectDisease('cancer')">
+              <div class="disease-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <circle cx="12" cy="12" r="6"></circle>
+                  <circle cx="12" cy="12" r="2"></circle>
+                </svg>
+              </div>
+              <h3>Câncer de Mama</h3>
+              <p>Avaliação de nódulos, PAAF e histórico mamário.</p>
+            </div>
+          </div>
+          
+          <div class="disease-wrapper">
+            <div class="disease-card" (click)="selectDisease('pcos')">
+              <div class="disease-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 2v6l-5 10c-.5 1-0.1 2.5 1 3h14c1.1-.5 1.5-2 1-3l-5-10V2"></path>
+                  <path d="M6 14h12"></path>
+                  <path d="M9 2h6"></path>
+                </svg>
+              </div>
+              <h3>Síndrome do Ovário Policístico</h3>
+              <p>Avaliação hormonal, ciclo menstrual e sintomas.</p>
+            </div>
+          </div>
         </div>
 
-        <div class="disclaimer">
-          <strong>Aviso Importante:</strong>
-          <p>Este sistema é uma ferramenta de triagem baseada em IA e <strong>não substitui um diagnóstico médico profissional</strong>. Recomenda-se que o paciente consulte um médico especialista para avaliação detalhada e próximos passos.</p>
-        </div>
-
-        <div class="form-actions form-actions--center full-width mt-4">
-          <app-button label="Nova Triagem" variant="primary" (click)="startOver()"></app-button>
+        <div class="form-actions form-actions--left full-width" style="margin-top: 2rem;">
+          <app-button type="button" label="Voltar" variant="secondary" (click)="prevStep()"></app-button>
         </div>
       </div>
 
-    </app-card>
+      <!-- Step 3: Vitals & Visible Symptoms -->
+      <div *ngIf="currentStep === 3" class="step-container full-width" [ngClass]="animationClass">
+        <div class="step-content">
+          <div class="form-grid" *ngIf="selectedDisease === 'cancer'">
+            <!-- Sem campos abertos, vamos direto aos dados numéricos que temos do dataset, ou uma instrução -->
+            <div class="full-width">
+              <h3 style="color: var(--text-main); margin-bottom: 1rem;">Prosseguir para Dados Analíticos</h3>
+              <p style="color: var(--text-muted); margin-bottom: 2rem;">A triagem de câncer de mama é focada nos dados numéricos extraídos da biópsia (PAAF) para maior precisão.</p>
+            </div>
+          </div>
+          <div class="form-grid" *ngIf="selectedDisease === 'pcos'">
+            <app-input label="Peso (Kg)" type="text" placeholder="Ex: 65.5" [(ngModel)]="patientData.pcos.weight" name="weight"></app-input>
+            <app-input label="Altura (cm)" type="text" placeholder="Ex: 160" [(ngModel)]="patientData.pcos.height" name="height"></app-input>
+            
+            <div class="input-group" style="display: flex; flex-direction: column; margin-bottom: 1.5rem;">
+              <label class="input-group__label">Ganho de Peso Recente?</label>
+              <select [(ngModel)]="patientData.pcos.weight_gain" name="weight_gain" style="padding: 1rem; border: 2px solid var(--border); border-radius: var(--radius-sm); font-size: 1rem; background: rgba(255, 255, 255, 0.6); color: var(--text-main);">
+                <option [ngValue]="false">Não</option>
+                <option [ngValue]="true">Sim</option>
+              </select>
+            </div>
+
+            <div class="input-group" style="display: flex; flex-direction: column; margin-bottom: 1.5rem;">
+              <label class="input-group__label">Crescimento de Pelos Incomum?</label>
+              <select [(ngModel)]="patientData.pcos.hair_growth" name="hair_growth" style="padding: 1rem; border: 2px solid var(--border); border-radius: var(--radius-sm); font-size: 1rem; background: rgba(255, 255, 255, 0.6); color: var(--text-main);">
+                <option [ngValue]="false">Não</option>
+                <option [ngValue]="true">Sim</option>
+              </select>
+            </div>
+
+            <div class="input-group" style="display: flex; flex-direction: column; margin-bottom: 1.5rem;">
+              <label class="input-group__label">Escurecimento da Pele?</label>
+              <select [(ngModel)]="patientData.pcos.skin_darkening" name="skin_darkening" style="padding: 1rem; border: 2px solid var(--border); border-radius: var(--radius-sm); font-size: 1rem; background: rgba(255, 255, 255, 0.6); color: var(--text-main);">
+                <option [ngValue]="false">Não</option>
+                <option [ngValue]="true">Sim</option>
+              </select>
+            </div>
+
+            <div class="input-group" style="display: flex; flex-direction: column; margin-bottom: 1.5rem;">
+              <label class="input-group__label">Consumo Frequente de Fast Food?</label>
+              <select [(ngModel)]="patientData.pcos.fast_food" name="fast_food" style="padding: 1rem; border: 2px solid var(--border); border-radius: var(--radius-sm); font-size: 1rem; background: rgba(255, 255, 255, 0.6); color: var(--text-main);">
+                <option [ngValue]="false">Não</option>
+                <option [ngValue]="true">Sim</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="form-actions">
+            <app-button type="button" label="Voltar" variant="secondary" (click)="prevStep()"></app-button>
+            <app-button type="button" label="Avançar" variant="primary" (click)="nextStep()"></app-button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4: Labs & Medical History -->
+      <div *ngIf="currentStep === 4" class="step-container full-width" [ngClass]="animationClass">
+        <div class="step-content">
+          <ng-container *ngIf="selectedDisease === 'cancer'">
+            
+            <div class="full-width"><h3 style="margin: 1.5rem 0 1rem; color: var(--text-main);">Dados do Laudo Citopatológico (PAAF)</h3></div>
+            <div class="form-grid">
+              <app-input label="Raio Médio" type="text" placeholder="Ex: 14.12" [(ngModel)]="patientData.cancer.radius_mean" name="radius_mean"></app-input>
+              <app-input label="Textura Média" type="text" placeholder="Ex: 19.28" [(ngModel)]="patientData.cancer.texture_mean" name="texture_mean"></app-input>
+              <app-input label="Compacidade Média" type="text" placeholder="Ex: 0.11" [(ngModel)]="patientData.cancer.compactness_mean" name="compactness_mean"></app-input>
+              <app-input label="Concavidade Média" type="text" placeholder="Ex: 0.08" [(ngModel)]="patientData.cancer.concavity_mean" name="concavity_mean"></app-input>
+              <app-input label="Pontos Côncavos Médios" type="text" placeholder="Ex: 0.05" [(ngModel)]="patientData.cancer.concave_points_mean" name="concave_points_mean"></app-input>
+              
+              <app-input label="Raio SE" type="text" placeholder="Ex: 0.3" [(ngModel)]="patientData.cancer.radius_se" name="radius_se"></app-input>
+              <app-input label="Perímetro SE" type="text" placeholder="Ex: 2.0" [(ngModel)]="patientData.cancer.perimeter_se" name="perimeter_se"></app-input>
+              <app-input label="Área SE" type="text" placeholder="Ex: 23.5" [(ngModel)]="patientData.cancer.area_se" name="area_se"></app-input>
+              <app-input label="Concavidade SE" type="text" placeholder="Ex: 0.02" [(ngModel)]="patientData.cancer.concavity_se" name="concavity_se"></app-input>
+              
+              <app-input label="Raio Pior" type="text" placeholder="Ex: 16.2" [(ngModel)]="patientData.cancer.radius_worst" name="radius_worst"></app-input>
+              <app-input label="Textura Pior" type="text" placeholder="Ex: 25.4" [(ngModel)]="patientData.cancer.texture_worst" name="texture_worst"></app-input>
+              <app-input label="Suavidade Pior" type="text" placeholder="Ex: 0.13" [(ngModel)]="patientData.cancer.smoothness_worst" name="smoothness_worst"></app-input>
+              <app-input label="Compacidade Pior" type="text" placeholder="Ex: 0.25" [(ngModel)]="patientData.cancer.compactness_worst" name="compactness_worst"></app-input>
+              <app-input label="Concavidade Pior" type="text" placeholder="Ex: 0.3" [(ngModel)]="patientData.cancer.concavity_worst" name="concavity_worst"></app-input>
+              <app-input label="Pontos Côncavos Pior" type="text" placeholder="Ex: 0.1" [(ngModel)]="patientData.cancer.concave_points_worst" name="concave_points_worst"></app-input>
+              <app-input label="Simetria Pior" type="text" placeholder="Ex: 0.29" [(ngModel)]="patientData.cancer.symmetry_worst" name="symmetry_worst"></app-input>
+            </div>
+
+            <div class="full-width upload-section">
+              <label class="upload-label">Anexo de Exames (Opcional)</label>
+              <div class="upload-area">
+                <div class="upload-icon">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9BA3BB" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                </div>
+                <p *ngIf="!selectedFile">Arraste os arquivos aqui ou <span>clique para buscar</span></p>
+                <p *ngIf="selectedFile">Arquivo selecionado: <span style="color:var(--primary)">{{ selectedFile.name }}</span></p>
+                <input type="file" accept="image/*" class="file-input" (change)="onFileSelected($event)" />
+              </div>
+            </div>
+          </ng-container>
+
+          <ng-container *ngIf="selectedDisease === 'pcos'">
+            <div class="full-width"><h3 style="margin: 0 0 1.5rem; color: var(--text-main);">Exames Laboratoriais e Ciclo</h3></div>
+            <div class="form-grid">
+              <app-input label="Duração do Ciclo (Dias)" type="text" placeholder="Ex: 28" [(ngModel)]="patientData.pcos.cycle_length" name="cycle_length"></app-input>
+            </div>
+            
+            <div class="full-width"><h3 style="margin: 1.5rem 0 1rem; color: var(--text-main);">Exames Laboratoriais</h3></div>
+            <div class="form-grid">
+              <app-input label="RBS (Glicemia)" type="text" placeholder="Ex: 92" [(ngModel)]="patientData.pcos.rbs" name="rbs"></app-input>
+              <app-input label="FSH (mIU/mL)" type="text" placeholder="Ex: 5.5" [(ngModel)]="patientData.pcos.fsh" name="fsh"></app-input>
+              <app-input label="LH (mIU/mL)" type="text" placeholder="Ex: 4.2" [(ngModel)]="patientData.pcos.lh" name="lh"></app-input>
+              <app-input label="TSH (mIU/L)" type="text" placeholder="Ex: 2.1" [(ngModel)]="patientData.pcos.tsh" name="tsh"></app-input>
+              <app-input label="Progesterona (PRG)" type="text" placeholder="Ex: 0.8" [(ngModel)]="patientData.pcos.prg" name="prg"></app-input>
+            </div>
+          </ng-container>
+          
+          <div class="form-actions">
+            <app-button type="button" label="Voltar" variant="secondary" (click)="prevStep()"></app-button>
+            <app-button type="button" label="Receber Previsão da IA" variant="primary" (click)="onSubmit()"></app-button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 5: LOADING -->
+      <div *ngIf="currentStep === 5" class="form-step loading-step step-container full-width" [ngClass]="animationClass">
+        <div class="step-content text-center">
+          <div class="spinner"></div>
+          <h2 class="step-title">Processando...</h2>
+          <p class="step-desc">Nossa Inteligência Artificial está analisando os dados e exames.</p>
+        </div>
+      </div>
+
+      <!-- STEP 6: RESULT -->
+      <div *ngIf="currentStep === 6 && predictionResult" class="form-step result-step step-container full-width" [ngClass]="animationClass">
+        <div class="step-content">
+          <div class="result-card">
+            <div class="result-header" [ngClass]="predictionResult.risk_level.toLowerCase()">
+              <h2 class="step-title">Risco Estimado: 
+                <span *ngIf="predictionResult.risk_level.toLowerCase() === 'low'">Baixo</span>
+                <span *ngIf="predictionResult.risk_level.toLowerCase() === 'medium'">Moderado</span>
+                <span *ngIf="predictionResult.risk_level.toLowerCase() === 'high'">Alto</span>
+              </h2>
+              <p class="confidence"></p>
+            </div>
+
+            <div class="disclaimer">
+              <strong>Aviso Importante:</strong>
+              <p>Este sistema é uma ferramenta de triagem baseada em IA e <strong>não substitui um diagnóstico médico profissional</strong>. Recomenda-se que o paciente consulte um médico especialista para avaliação detalhada e próximos passos.</p>
+            </div>
+
+            <div class="form-actions form-actions--center full-width mt-4">
+              <app-button label="Nova Triagem" variant="primary" (click)="restart()"></app-button>
+            </div>
+          </div>
+        </div>
+      </div>
+
   </div>
 </div>

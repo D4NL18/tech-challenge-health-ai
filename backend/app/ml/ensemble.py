@@ -15,12 +15,9 @@ class EnsemblePredictor:
         if not self.is_loaded:
             raise RuntimeError("Meta-modelo Ensemble não foi carregado!")
         
-        # Simulação: Faz a média dos scores providos
-        scores = [tabular_score, text_score]
-        if vision_score is not None:
-            scores.append(vision_score)
-            
-        final_score = sum(scores) / len(scores)
+        # Tabular model is the only one fully trained with clinical data right now.
+        # We will give it 100% weight to avoid the mock NLP from dampening the real score.
+        final_score = tabular_score
         
         risk = "Low"
         if final_score > 0.7:
@@ -28,8 +25,12 @@ class EnsemblePredictor:
         elif final_score > 0.4:
             risk = "Moderate"
             
+        # A confiança na classe prevista (positiva ou negativa)
+        # Se final_score (probabilidade de ser positivo) é 0.0, a confiança de ser Negativo (Low) é 100%.
+        confidence = max(final_score, 1.0 - final_score)
+            
         return {
             "risk_level": risk,
-            "confidence": final_score,
+            "confidence": confidence,
             "description": f"Análise combinada (Ensemble) concluída."
         }
