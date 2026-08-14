@@ -14,9 +14,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar a pasta app e weights
+# Copiar a pasta app, weights e scripts de treinamento (necessários para os modelos importarem as classes corretas)
 COPY app/ ./app/
 COPY weights/ ./weights/
+COPY training_scripts/ ./training_scripts/
 
 # Expor a porta 8080 (padrão do Cloud Run)
 EXPOSE 8080
