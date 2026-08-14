@@ -4,9 +4,8 @@ ARQUIVO: main.py (ENTRYPOINT DO BACKEND)
 ==================================================================================================
 Objetivo:
 Este é o ponto de entrada principal (Entrypoint) da aplicação backend, construída com o framework FastAPI.
-Aqui defino o servidor HTTP, configuro a segurança (CORS), anexo as rotas (Controllers) e,
-mais importante, gerencio o "Ciclo de Vida" (Lifespan) da aplicação, que é o momento onde os
-modelos de Inteligência Artificial pesados são carregados na memória (RAM) antes do servidor começar a aceitar requisições.
+Aqui defino o servidor HTTP, configuro a segurança (CORS e Rate Limiter Exponencial), anexo as rotas
+e gerencio o "Ciclo de Vida" (Lifespan) da aplicação (para carregar modelos pesados na RAM).
 
 Decisão Arquitetural:
 Escolhi o FastAPI porque ele é assíncrono por padrão (ASGI), excelente para serviços que precisam
@@ -14,12 +13,76 @@ esperar chamadas de rede lentas (como as requisições para APIs de LLM externas
 ==================================================================================================
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
+import time
+from collections import defaultdict
 
 from app.api.routers import anamnesis, admin
 from app.services.inference import inference_service
+
+class AdvancedExponentialRateLimiter(BaseHTTPMiddleware):
+    """
+    ----------------------------------------------------------------------------------------------
+    CLASSE: AdvancedExponentialRateLimiter
+    Objetivo: Proteger o Cloud Run contra ataques de DDoS e abuso de API que podem gerar custos.
+    Lógica: Rastreia requisições por IP na memória. Permite 5 requisições por minuto.
+    Se o IP ultrapassar, recebe um cooldown. Se tentar acessar durante o cooldown, a punição
+    dobra de forma exponencial (1min -> 2min -> 4min -> 8min).
+    ----------------------------------------------------------------------------------------------
+    """
+    def __init__(self, app: FastAPI, max_requests: int = 5, window_seconds: int = 60):
+        super().__init__(app)
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        
+        # Dicionário em memória: IP -> Estado do Usuário
+        self.clients = defaultdict(lambda: {"requests": [], "blocked_until": 0, "penalties": 0})
+        
+    async def dispatch(self, request: Request, call_next):
+        # Ignora rate limit para a rota de health check raiz para não bloquear o Load Balancer do GCP
+        if request.url.path == "/":
+            return await call_next(request)
+            
+        client_ip = request.client.host if request.client else "unknown"
+        now = time.time()
+        client_data = self.clients[client_ip]
+        
+        # 1. Verifica se o usuário já está cumprindo suspensão
+        if now < client_data["blocked_until"]:
+            # Se tentou atacar durante o bloqueio, a punição dobra!
+            client_data["penalties"] += 1
+            block_time = self.window_seconds * (2 ** (client_data["penalties"] - 1))
+            client_data["blocked_until"] = now + block_time
+            
+            return JSONResponse(
+                status_code=429, 
+                content={"error": f"Rate limit excedido. IP bloqueado com punição exponencial. Tente novamente em {block_time} segundos."}
+            )
+            
+        # 2. Limpa o histórico de requisições que já saíram da janela de 1 minuto
+        client_data["requests"] = [req for req in client_data["requests"] if req > now - self.window_seconds]
+        
+        # 3. Verifica se atingiu o limite de requisições permitidas (Gatilho inicial)
+        if len(client_data["requests"]) >= self.max_requests:
+            client_data["penalties"] += 1
+            block_time = self.window_seconds * (2 ** (client_data["penalties"] - 1))
+            client_data["blocked_until"] = now + block_time
+            
+            return JSONResponse(
+                status_code=429, 
+                content={"error": f"Rate limit excedido. Muitas requisições. IP bloqueado por {block_time} segundos."}
+            )
+            
+        # 4. Registra a requisição atual como permitida
+        client_data["requests"].append(now)
+        
+        # Passa a requisição para frente
+        response = await call_next(request)
+        return response
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,61 +91,50 @@ async def lifespan(app: FastAPI):
     FUNÇÃO: lifespan(app: FastAPI)
     Objetivo: Gerenciar eventos que ocorrem exata e unicamente quando o servidor LIGA ou DESLIGA.
     Uso: Injetado na inicialização do objeto FastAPI.
-    
-    Detalhe Técnico (IA):
-    Modelos de Machine Learning (como ResNet de Visão ou Random Forest Tabular) dependem de arquivos
-    de pesos (weights/pickles/pth) que pesam gigabytes e demoram segundos ou minutos para serem lidos do HD.
-    Se eu carregasse os modelos a cada requisição (dentro do endpoint HTTP), o tempo de resposta do
-    paciente seria horrível.
-    Portanto, faço o "Warm-up" (carregamento em cache na memória RAM) uma única vez durante
-    este 'lifespan' (Cold Start).
     ----------------------------------------------------------------------------------------------
     """
-    # Executado durante o STARTUP da aplicação (Cold Start)
     print("Iniciando carregamento dos Modelos de Inteligência Artificial para a RAM...")
     inference_service.load_all_models()
     yield
-    # Executado durante o SHUTDOWN da aplicação (quando o servidor é morto, ex: CTRL+C)
     print("Desligando serviço, limpando memória...")
 
 # Instância principal da aplicação FastAPI
 app = FastAPI(
     title="HealthAI Diagnostics Backend",
-    description="Backend Service and AI Engine for HealthAI.",
+    description="Backend Service and AI Engine for HealthAI. Protected by Exponential Rate Limit.",
     version="2.0.0",
-    lifespan=lifespan # Injetando a função de warm-up descrita acima
+    lifespan=lifespan
 )
+
+# Adiciona o middleware customizado de segurança ANTES do CORS
+app.add_middleware(AdvancedExponentialRateLimiter, max_requests=5, window_seconds=60)
 
 """
 ----------------------------------------------------------------------------------------------
-CONFIGURAÇÃO DE CORS (Cross-Origin Resource Sharing)
-Objetivo: Segurança de Navegador.
-Detalhe Técnico: Por padrão, navegadores bloqueiam requisições de um site (ex: localhost:4200 - Frontend Angular)
-para um servidor rodando em outra porta (ex: localhost:8000 - Backend FastAPI). O CORS diz ao backend
-quais sites são 'seguros' e permitidos para consumir a API.
+CONFIGURAÇÃO DE CORS Estrito
+Objetivo: O Backend só aceita tráfego da própria infraestrutura (Firebase Hosting) e do localhost para dev.
+Isso impede que scripts externos em outros domínios consumam nossa API.
 ----------------------------------------------------------------------------------------------
 """
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4200"], # Apenas o Angular é autorizado a bater nesta API localmente
+    allow_origins=[
+        "http://localhost:4200", 
+        "https://healthai-diagnostics.web.app", 
+        "https://healthai-diagnostics.firebaseapp.com"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Registra os roteadores modularizados (separação de responsabilidades / MVC)
-# A rota 'anamnesis' cuida de diagnósticos de IA. A rota 'admin' cuida da troca de modelos ativos.
 app.include_router(anamnesis.router)
 app.include_router(admin.router)
 
 @app.get("/")
 def read_root():
     """
-    ----------------------------------------------------------------------------------------------
-    FUNÇÃO: read_root()
-    Objetivo: Rota de "Health Check" (Checagem de Saúde).
-    Uso: Usada por balanceadores de carga (Load Balancers como NGINX ou AWS ALB) para verificar
-    se o serviço da API subiu e está respondendo com sucesso antes de rotear tráfego real para ele.
-    ----------------------------------------------------------------------------------------------
+    Rota de Health Check (Checagem de Saúde) para o Cloud Run.
     """
-    return {"status": "HealthAI Backend (ML-Ready) is running"}
+    return {"status": "HealthAI Backend (ML-Ready & Rate-Limited) is running"}
