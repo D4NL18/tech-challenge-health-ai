@@ -1,10 +1,16 @@
-# Exemplos de Teste Inéditos para a IA (Triagem)
+# 6. Exemplos de Testes Inéditos (Triagem)
 
-Use estes valores sintéticos (não existentes na base de treinamento original) para testar a capacidade de generalização do modelo de triagem no Frontend. 
+*Read this in other languages: [English](../docs_en/6-exemplos-testes.md) | [Português](6-exemplos-testes.md)*
 
-## 1. Câncer de Mama
+Para testar a acurácia dos modelos e entender se tudo que expliquei nos documentos anteriores está de fato funcionando, criei alguns exemplos sintéticos de pacientes.
 
-### Exemplo 1: Alto Risco (Maligno)
+Você pode colar esses valores no Frontend do Angular e rodar o diagnóstico. Lembre-se: como esses dados não existem na base de treinamento original, estou forçando a IA a inferir algo que ela nunca viu.
+
+---
+
+## 6.1. Câncer de Mama
+
+### Exemplo A: Alto Risco (Maligno)
 *Dados sintéticos projetados com características acentuadas típicas de nódulos malignos (maior volume, textura irregular, alta concavidade).*
 - **Raio Médio**: 21.35
 - **Textura Média**: 24.12
@@ -23,7 +29,7 @@ Use estes valores sintéticos (não existentes na base de treinamento original) 
 - **Pontos Côncavos Pior**: 0.2891
 - **Simetria Pior**: 0.5102
 
-### Exemplo 2: Baixo Risco (Benigno)
+### Exemplo B: Baixo Risco (Benigno)
 *Dados sintéticos projetados com características típicas de nódulos benignos (menor dimensão, bordas suaves, pouca concavidade).*
 - **Raio Médio**: 11.45
 - **Textura Média**: 13.10
@@ -44,9 +50,9 @@ Use estes valores sintéticos (não existentes na base de treinamento original) 
 
 ---
 
-## 2. Síndrome do Ovário Policístico (SOP)
+## 6.2. Síndrome do Ovário Policístico (SOP)
 
-### Exemplo 1: Alto Risco (SOP = Sim)
+### Exemplo C: Alto Risco (SOP = Sim)
 *Dados sintéticos para uma paciente apresentando sintomas clássicos de hiperandrogenismo e desequilíbrio metabólico/hormonal (LH alto em relação ao FSH).*
 - **Peso (Kg)**: 82.5
 - **Altura (cm)**: 162.0
@@ -61,7 +67,7 @@ Use estes valores sintéticos (não existentes na base de treinamento original) 
 - **TSH (mIU/L)**: 3.20
 - **Progesterona (PRG)**: 0.25
 
-### Exemplo 2: Baixo Risco (SOP = Não)
+### Exemplo D: Baixo Risco (SOP = Não)
 *Dados sintéticos para uma paciente saudável, com perfil hormonal equilibrado e sem os sintomas físicos da síndrome.*
 - **Peso (Kg)**: 58.0
 - **Altura (cm)**: 168.0
