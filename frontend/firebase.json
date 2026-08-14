@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "healthai-diagnostics",
     "public": "dist/frontend/browser",
     "ignore": [
       "firebase.json",
