@@ -16,9 +16,10 @@ import { AuthService } from '../../services/auth.service';
 export class AdminDashboardComponent implements OnInit {
   pcosModels: any[] = [];
   cancerModels: any[] = [];
+  visionModels: any[] = [];
   imageUrls: { [key: string]: SafeUrl } = {};
   isLoading = true;
-  activeModels: { pcos: string, cancer: string } = { pcos: '', cancer: '' };
+  activeModels: { pcos: string, cancer: string, vision_cancer: string, llm: string } = { pcos: '', cancer: '', vision_cancer: '', llm: '' };
   
   selectedModel: any = null;
   showInfoModal = false;
@@ -39,14 +40,16 @@ export class AdminDashboardComponent implements OnInit {
         if (response && response.data) {
           this.pcosModels = response.data.filter((m: any) => m.disease === 'pcos');
           this.cancerModels = response.data.filter((m: any) => m.disease === 'cancer');
+          this.visionModels = response.data.filter((m: any) => m.disease === 'vision_cancer');
           
-          this.loadImages([...this.pcosModels, ...this.cancerModels]);
+          this.loadImages([...this.pcosModels, ...this.cancerModels, ...this.visionModels]);
         }
         
         // Busca modelos ativos
         this.adminService.getActiveModels().subscribe({
           next: (activeRes) => {
             this.activeModels = activeRes;
+            if (!this.activeModels.llm) this.activeModels.llm = 'gemini';
             this.isLoading = false;
             this.cdr.detectChanges();
           },
@@ -67,7 +70,8 @@ export class AdminDashboardComponent implements OnInit {
 
   loadImages(models: any[]): void {
     models.forEach(model => {
-      const filename = `matriz_${model.model_name}_${model.disease}.png`;
+      const fileDisease = model.disease === 'vision_cancer' ? 'cancer' : model.disease;
+      const filename = `matriz_${model.model_name}_${fileDisease}.png`;
       const url = this.adminService.getMatrixUrl(filename);
       // Fetch the image as blob with HttpClient to inject Auth Token via Interceptor
       this.http.get(url, { responseType: 'blob' }).subscribe({
@@ -105,7 +109,7 @@ export class AdminDashboardComponent implements OnInit {
 
   getModelSummary(model: any): string {
     if (!model) return '';
-    const diseaseName = model.disease === 'pcos' ? 'Síndrome do Ovário Policístico (PCOS)' : 'Câncer de Mama';
+    const diseaseName = model.disease === 'pcos' ? 'Síndrome do Ovário Policístico (PCOS)' : model.disease === 'cancer' ? 'Câncer de Mama' : model.disease === 'llm' ? 'Sintomas via IA Generativa' : 'Câncer (Visão Computacional)';
     const modelName = model.model_name;
     const formattedName = modelName.replace(/_/g, ' ').toUpperCase();
     
@@ -133,8 +137,27 @@ export class AdminDashboardComponent implements OnInit {
       case 'naive_bayes':
         modelDescription = 'O Naive Bayes é um classificador probabilístico baseado no Teorema de Bayes. Ele assume de forma "ingênua" que todos os sintomas e exames são independentes entre si, sendo um modelo extremamente rápido e eficiente.';
         break;
+      case 'resnet50':
+        modelDescription = 'A ResNet-50 é uma Rede Neural Convolucional profunda com Conexões Residuais, especializada em extrair padrões visuais complexos diretamente de imagens de mamografia para detecção de anomalias.';
+        break;
+      case 'densenet121':
+        modelDescription = 'A DenseNet-121 conecta cada camada a todas as outras camadas da rede. Isso garante máxima preservação de informações (microcalcificações, bordas) extraídas da imagem radiológica original.';
+        break;
+      case 'efficientnet_b2':
+        modelDescription = 'A EfficientNet-B2 é uma CNN de última geração que balanceia de maneira ótima a resolução, a profundidade e a largura da rede neural, conseguindo altíssima acurácia no processamento da imagem.';
+        break;
+      case 'gemini':
+        modelDescription = 'O Gemini é a IA de fronteira do Google, capaz de ler relatos médicos complexos, entender nuances e contexto em descrições de sintomas e formatar hipóteses médicas em frações de segundo.';
+        break;
+      case 'gpt':
+        modelDescription = 'O GPT é a IA de ponta da OpenAI (conhecida pelo ChatGPT), destacando-se pela fluidez no entendimento da linguagem natural e capacidade de raciocínio clínico textual avançado.';
+        break;
       default:
         modelDescription = 'Este modelo utiliza aprendizado de máquina para prever as probabilidades e classificar novos casos com base no padrão aprendido com os dados históricos.';
+    }
+
+    if (model.disease === 'llm') {
+      return `O ${formattedName} está sendo utilizado para interpretar o relato aberto do paciente. ${modelDescription}`;
     }
 
     return `O modelo ${formattedName} está focado no diagnóstico de ${diseaseName}. ${modelDescription} A matriz abaixo detalha a performance separando os acertos (diagonal principal) e os erros nas previsões.`;
@@ -149,6 +172,8 @@ export class AdminDashboardComponent implements OnInit {
     // Optimistic update
     if (disease === 'pcos') this.activeModels.pcos = modelName;
     if (disease === 'cancer') this.activeModels.cancer = modelName;
+    if (disease === 'vision_cancer') this.activeModels.vision_cancer = modelName;
+    if (disease === 'llm') this.activeModels.llm = modelName;
     
     this.adminService.setActiveModel(disease, modelName).subscribe({
       next: (res) => {

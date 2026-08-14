@@ -14,3 +14,4 @@ class AnamnesisPayload(BaseModel):
     disease: str = Field(..., description="Doença alvo (pcos ou cancer)")
     medical_history: Optional[str] = Field(None, description="Histórico")
     tabular_data: Optional[dict] = Field(None, description="Dicionário com as features tabulares extraídas do frontend")
+    open_text: Optional[str] = Field(None, description="Texto livre preenchido pelo usuário para IA Generativa")

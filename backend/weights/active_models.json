@@ -1,4 +1,6 @@
 {
+  "pcos": "svm",
   "cancer": "logistic_regression",
-  "pcos": "svm"
+  "vision_cancer": "efficientnet_b2",
+  "llm": "gemini"
 }

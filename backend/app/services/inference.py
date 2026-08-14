@@ -25,49 +25,52 @@ class InferenceService:
     def _get_active_model(self, disease: str) -> str:
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         active_models_path = os.path.join(base_dir, "weights", "active_models.json")
+        default_model = "gemini" if disease == "llm" else "resnet50" if disease == "vision_cancer" else "random_forest"
         try:
             if os.path.exists(active_models_path):
                 with open(active_models_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    return data.get(disease, "random_forest")
+                    return data.get(disease, default_model)
         except Exception:
             pass
-        return "random_forest"
+        return default_model
 
     def analyze_full_anamnesis(self, payload: AnamnesisPayload, image_bytes: bytes = None) -> dict:
         """
         Orquestra a passagem dos dados pelos modelos e retorna o diagnóstico final.
         """
+        disease = payload.disease
+        active_model = self._get_active_model(disease)
+        active_llm = self._get_active_model("llm")
+
         # 1. Tabular (Modelo Treinado)
         tab_score = self.tabular_model.predict(
             tabular_data=payload.tabular_data or {},
-            disease=payload.disease
+            disease=disease
         )
 
-        # 2. Texto (ClinicalBERT)
-        txt_score = self.text_model.predict(
-            text=payload.symptoms
-        )
+        # 2. Texto (LLM Generativa)
+        txt_score = None
+        if payload.open_text:
+            txt_score = self.text_model.predict(
+                text=payload.open_text,
+                disease=disease,
+                active_llm=active_llm
+            )
 
-        # 3. Visão (MobileNet)
+        # 3. Visão (ResNet/DenseNet)
         vis_score = None
         if image_bytes:
             vis_score = self.vision_model.predict(image_bytes=image_bytes)
 
-        # 4. Ensemble (Regressão Logística final)
+        # 4. Ensemble (Lógica de pesos atualizada)
         final_result = self.ensemble_model.predict(
             tabular_score=tab_score,
             text_score=txt_score,
             vision_score=vis_score
         )
         
-        # O modelo utilizado vem do config
-        disease = payload.disease
-            
-        active_model = self._get_active_model(disease)
-        
         final_result["model_used"] = active_model
-        final_result["description"] = f"{final_result['description']} [Predição realizada pelo modelo ativo: {active_model.upper()}]"
         
         return final_result
 

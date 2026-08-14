@@ -73,6 +73,68 @@
         </div>
       </div>
     </section>
+
+    <section class="dashboard__section">
+      <h2 class="dashboard__section-title">Modelos de Visão Computacional para Câncer de Mama</h2>
+      
+      <div class="model-grid">
+        <div class="model-card" *ngFor="let model of visionModels" (click)="openModelDetails(model)">
+          <div class="model-card__header">
+            <h3 class="model-card__name">{{ model.model_name | uppercase }}</h3>
+            <span class="badge badge--active" *ngIf="activeModels.vision_cancer === model.model_name">Modelo Ativo</span>
+          </div>
+          
+          <div class="model-card__metrics">
+            <div class="metric">
+              <span class="metric__label">Acurácia Global</span>
+              <span class="metric__value">{{ (model.metrics.accuracy_global * 100) | number:'1.2-2' }}%</span>
+            </div>
+            <div class="metric">
+              <span class="metric__label">ROC-AUC</span>
+              <span class="metric__value">{{ model.metrics.roc_auc ? (model.metrics.roc_auc | number:'1.4-4') : 'N/A' }}</span>
+            </div>
+          </div>
+
+          <div class="model-card__matrix">
+            <img *ngIf="getMatrixSrc(model)" [src]="getMatrixSrc(model)" alt="Matriz de Confusão">
+            <div *ngIf="!getMatrixSrc(model)" class="model-card__matrix-placeholder">Matriz não carregada</div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <section class="dashboard__section">
+      <h2 class="dashboard__section-title">Modelos de Processamento de Linguagem Natural (LLM)</h2>
+      
+      <div class="model-grid">
+        <div class="model-card" (click)="openModelDetails({model_name: 'gemini', disease: 'llm', metrics: {accuracy_global: 1.0}})">
+          <div class="model-card__header">
+            <h3 class="model-card__name">GEMINI (Google)</h3>
+            <span class="badge badge--active" *ngIf="activeModels.llm === 'gemini'">Modelo Ativo</span>
+          </div>
+          <div class="model-card__metrics">
+            <div class="metric">
+              <span class="metric__label">Status</span>
+              <span class="metric__value">Disponível</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="model-card" (click)="openModelDetails({model_name: 'gpt', disease: 'llm', metrics: {accuracy_global: 1.0}})">
+          <div class="model-card__header">
+            <h3 class="model-card__name">GPT (OpenAI)</h3>
+            <span class="badge badge--active" *ngIf="activeModels.llm === 'gpt'">Modelo Ativo</span>
+          </div>
+          <div class="model-card__metrics">
+            <div class="metric">
+              <span class="metric__label">Status</span>
+              <span class="metric__value">Disponível</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 
   <!-- Modal Info -->
@@ -97,7 +159,7 @@
         <button class="modal__close" (click)="closeModelDetails()">&times;</button>
       </div>
       <div class="modal__body">
-        <div class="modal__metrics">
+        <div class="modal__metrics" *ngIf="selectedModel.disease !== 'llm'">
           <div class="metric">
             <span class="metric__label">Acurácia Global</span>
             <span class="metric__value">{{ (selectedModel.metrics.accuracy_global * 100) | number:'1.2-2' }}%</span>
@@ -110,12 +172,12 @@
         <p class="modal__summary">{{ getModelSummary(selectedModel) }}</p>
         <div class="modal__actions" *ngIf="selectedModel">
           <button class="btn-activate btn-activate--modal" 
-                  *ngIf="(selectedModel.disease === 'pcos' && activeModels.pcos !== selectedModel.model_name) || (selectedModel.disease === 'cancer' && activeModels.cancer !== selectedModel.model_name)" 
+                  *ngIf="(selectedModel.disease === 'pcos' && activeModels.pcos !== selectedModel.model_name) || (selectedModel.disease === 'cancer' && activeModels.cancer !== selectedModel.model_name) || (selectedModel.disease === 'vision_cancer' && activeModels.vision_cancer !== selectedModel.model_name) || (selectedModel.disease === 'llm' && activeModels.llm !== selectedModel.model_name)" 
                   (click)="setAsActive(selectedModel.disease, selectedModel.model_name)">
             Tornar Ativo
           </button>
           <span class="badge badge--active badge--modal" 
-                *ngIf="(selectedModel.disease === 'pcos' && activeModels.pcos === selectedModel.model_name) || (selectedModel.disease === 'cancer' && activeModels.cancer === selectedModel.model_name)">
+                *ngIf="(selectedModel.disease === 'pcos' && activeModels.pcos === selectedModel.model_name) || (selectedModel.disease === 'cancer' && activeModels.cancer === selectedModel.model_name) || (selectedModel.disease === 'vision_cancer' && activeModels.vision_cancer === selectedModel.model_name) || (selectedModel.disease === 'llm' && activeModels.llm === selectedModel.model_name)">
             Modelo Ativo
           </span>
         </div>

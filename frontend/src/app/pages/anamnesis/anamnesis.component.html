@@ -181,6 +181,18 @@
             </div>
           </ng-container>
           
+          <!-- Open Text Box for IA LLM -->
+          <div class="full-width"><h3 style="margin: 1.5rem 0 1rem; color: var(--text-main);">Observações Clínicas (Opcional)</h3></div>
+          <div class="full-width" style="margin-bottom: 2rem;">
+            <textarea 
+              class="input-field" 
+              style="width: 100%; min-height: 120px; padding: 1rem; border: 2px solid var(--border); border-radius: var(--radius-sm); font-size: 1rem; background: rgba(255, 255, 255, 0.6); color: var(--text-main); font-family: inherit; resize: vertical;"
+              placeholder="Descreva sintomas adicionais, histórico familiar ou queixas que serão interpretadas pela nossa Inteligência Artificial (Gemini/GPT)..."
+              [(ngModel)]="patientData.openTextSymptoms"
+              name="openTextSymptoms"
+            ></textarea>
+          </div>
+          
           <div class="form-actions">
             <app-button type="button" label="Voltar" variant="secondary" (click)="prevStep()"></app-button>
             <app-button type="button" label="Receber Previsão da IA" variant="primary" (click)="onSubmit()"></app-button>
@@ -204,10 +216,16 @@
             <div class="result-header" [ngClass]="predictionResult.risk_level.toLowerCase()">
               <h2 class="step-title">Risco Estimado: 
                 <span *ngIf="predictionResult.risk_level.toLowerCase() === 'low'">Baixo</span>
-                <span *ngIf="predictionResult.risk_level.toLowerCase() === 'medium'">Moderado</span>
+                <span *ngIf="predictionResult.risk_level.toLowerCase() === 'moderate' || predictionResult.risk_level.toLowerCase() === 'medium'">Moderado</span>
                 <span *ngIf="predictionResult.risk_level.toLowerCase() === 'high'">Alto</span>
               </h2>
-              <p class="confidence"></p>
+              <p class="confidence">Confiança da IA: <strong>{{ (predictionResult.confidence * 100) | number:'1.1-1' }}%</strong></p>
+            </div>
+            
+            <div class="result-body">
+              <p class="description" style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 2rem; text-align: center;">
+                {{ predictionResult.description }}
+              </p>
             </div>
 
             <div class="disclaimer">

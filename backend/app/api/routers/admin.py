@@ -90,9 +90,16 @@ async def get_all_metrics(admin: str = Depends(get_current_admin)):
         else:
             model_name = "_".join(parts[1:])
             
+        if disease == "cancer" and model_name in ["resnet50", "densenet121", "efficientnet_b2"]:
+            disease = "vision_cancer"
+            
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
+                
+            # Garante que a acurácia global esteja presente para os modelos de visão
+            if "accuracy" in data and "accuracy_global" not in data:
+                data["accuracy_global"] = data["accuracy"]
                 
             results.append({
                 "model_name": model_name,
@@ -131,13 +138,19 @@ async def get_active_models():
     active_models_path = os.path.join(base_dir, "weights", "active_models.json")
     
     if not os.path.exists(active_models_path):
-        return {"pcos": "random_forest", "cancer": "random_forest"}
+        return {"pcos": "random_forest", "cancer": "random_forest", "vision_cancer": "resnet50", "llm": "gemini"}
         
     try:
         with open(active_models_path, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+            # Garante que vision_cancer e llm existam se o JSON for antigo
+            if "vision_cancer" not in data:
+                data["vision_cancer"] = "resnet50"
+            if "llm" not in data:
+                data["llm"] = "gemini"
+            return data
     except Exception:
-        return {"pcos": "random_forest", "cancer": "random_forest"}
+        return {"pcos": "random_forest", "cancer": "random_forest", "vision_cancer": "resnet50", "llm": "gemini"}
 
 @router.post("/active-models")
 async def set_active_model(update: ActiveModelUpdate, admin: str = Depends(get_current_admin)):
@@ -148,16 +161,20 @@ async def set_active_model(update: ActiveModelUpdate, admin: str = Depends(get_c
     active_models_path = os.path.join(base_dir, "weights", "active_models.json")
     
     # Tenta carregar o existente
-    active_models = {"pcos": "random_forest", "cancer": "random_forest"}
+    active_models = {"pcos": "random_forest", "cancer": "random_forest", "vision_cancer": "resnet50", "llm": "gemini"}
     if os.path.exists(active_models_path):
         try:
             with open(active_models_path, "r", encoding="utf-8") as f:
-                active_models = json.load(f)
+                loaded_models = json.load(f)
+                active_models.update(loaded_models)
         except Exception:
             pass
             
+    # Garantir que a lista de doenças permitidas inclua vision_cancer e llm
+    valid_diseases = ["pcos", "cancer", "vision_cancer", "llm"]
+            
     # Atualiza
-    if update.disease in active_models:
+    if update.disease in valid_diseases:
         active_models[update.disease] = update.model_name
         
         # Salva

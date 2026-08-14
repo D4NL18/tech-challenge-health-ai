@@ -23,6 +23,7 @@ export class AnamnesisComponent {
   patientData = {
     name: '',
     age: '',
+    openTextSymptoms: '',
     // Campos legados para compatibilidade e texto
     breast_symptoms: '',
     breast_history: '',
@@ -195,6 +196,7 @@ export class AnamnesisComponent {
         patient_name: this.patientData.name,
         age: parseInt(this.patientData.age) || 0,
         symptoms: finalSymptoms,
+        open_text: this.patientData.openTextSymptoms,
         medical_history: finalHistory,
         disease: this.selectedDisease,
         tabular_data: tabularData
@@ -240,7 +242,7 @@ export class AnamnesisComponent {
     this.transitionToStep(1);
     this.selectedDisease = '';
     this.patientData = { 
-      name: '', age: '', 
+      name: '', age: '', openTextSymptoms: '',
       breast_symptoms: '', breast_history: '', pcos_symptoms: '', pcos_history: '',
       pcos: { weight: '', height: '', cycle_length: '', fsh: '', lh: '', tsh: '', prg: '', rbs: '', weight_gain: false, hair_growth: false, skin_darkening: false, fast_food: false },
       cancer: { radius_mean: '', texture_mean: '', compactness_mean: '', concavity_mean: '', concave_points_mean: '', radius_se: '', perimeter_se: '', area_se: '', concavity_se: '', radius_worst: '', texture_worst: '', smoothness_worst: '', compactness_worst: '', concavity_worst: '', concave_points_worst: '', symmetry_worst: '' }

@@ -12,7 +12,6 @@ from training_scripts.utils.vision_data_treatment import get_vision_dataloaders
 from training_scripts.utils.vision_model_builder import build_and_evaluate_vision_model
 from training_scripts.models import resnet50_vision, densenet121_vision, efficientnet_b2_vision
 
-# Em vez de instanciar os modelos todos de uma vez (o que lota a memória RAM/VRAM), 
 # guardamos apenas a referência da função que cria o modelo.
 MODEL_BUILDERS = [
     resnet50_vision.get_model_config,
@@ -56,4 +55,4 @@ def run_full_vision_pipeline(epochs=3, batch_size=4):
 
 
 if __name__ == "__main__":
-    run_full_vision_pipeline(epochs=30, batch_size=4)
+    run_full_vision_pipeline(epochs=30, batch_size=16)

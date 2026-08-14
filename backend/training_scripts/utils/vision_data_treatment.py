@@ -16,28 +16,49 @@ def apply_clahe(img_np):
     """
     Aplica CLAHE (Contrast Limited Adaptive Histogram Equalization) para
     realçar microcalcificações e estruturas nas mamografias.
+    
+    Conceito e Motivação:
+    Mamografias geralmente têm baixo contraste inerente, tornando difícil distinguir
+    massas sutis e microcalcificações do tecido mamário normal denso.
+    O CLAHE divide a imagem em pequenos blocos (tiles) e aplica a equalização
+    de histograma localmente. Ele também limita o contraste para evitar a amplificação
+    de ruído, comum em imagens médicas, fornecendo um realce de bordas superior
+    em comparação com a equalização de histograma global.
     """
     if len(img_np.shape) == 3:
         img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
     
+    # clipLimit define o quão agressivo será o contraste. 2.0 é um bom equilíbrio para não gerar artefatos.
+    # tileGridSize (8,8) é o tamanho do grid para o processamento local.
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     clahe_img = clahe.apply(img_np)
     
-    # Converter de volta para RGB (necessário para ResNet, DenseNet, etc)
+    # Converter de volta para RGB (necessário para ResNet, DenseNet, etc, que esperam 3 canais)
     clahe_img = cv2.cvtColor(clahe_img, cv2.COLOR_GRAY2RGB)
     return clahe_img
 
 def auto_crop_breast(img_np):
     """
     Remove o fundo preto excessivo isolando apenas o tecido mamário.
+    
+    Conceito e Motivação:
+    Muitas imagens médicas vêm com grandes bordas pretas (ar) ao redor da região de interesse.
+    Processar essas áreas vazias desperdiça processamento e pode confundir a CNN.
+    Esta função utiliza limiarização (threshold) e detecção de contornos para
+    identificar a maior massa brilhante (a mama) e faz um recorte (bounding box) exato dela,
+    focando a atenção da rede neural no que importa.
     """
     gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY) if len(img_np.shape) == 3 else img_np
+    # Cria uma máscara binária separando os pixels escuros (fundo) dos claros (tecido)
     _, thresh = cv2.threshold(gray, 10, 255, cv2.THRESH_BINARY)
+    # Encontra os contornos na máscara
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
         return img_np
+    # Assume que o maior contorno encontrado é o tecido mamário
     c = max(contours, key=cv2.contourArea)
     x, y, w, h = cv2.boundingRect(c)
+    # Retorna o recorte (crop) da região delimitada pelo retângulo
     return img_np[y:y+h, x:x+w]
 
 class BreastCancerDataset(Dataset):
@@ -145,12 +166,20 @@ def load_and_treat_vision_data():
 def get_vision_dataloaders(batch_size=8):
     train_paths, test_paths, y_train, y_test = load_and_treat_vision_data()
     
+    # Data Augmentation e Pré-processamento
+    # Motivação: Data augmentation gera variações artificiais das imagens (rotações, flips, brilho)
+    # para prevenir que a rede neural decore (overfit) as imagens de treino e melhore a generalização
+    # para novos pacientes.
     train_transforms = transforms.Compose([
-        transforms.Resize((512, 512)),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomVerticalFlip(),
-        transforms.RandomAffine(degrees=15, translate=(0.1, 0.1), scale=(0.9, 1.1)),
-        transforms.ToTensor(),
+        transforms.Resize((512, 512)), # Padroniza o tamanho da entrada. 512 preserva detalhes finos sem estourar VRAM
+        transforms.RandomHorizontalFlip(), # Inverte mamas (espelha dir/esq)
+        transforms.RandomVerticalFlip(), # Espelhamento vertical (ajuda em views diferentes)
+        transforms.RandomAffine(degrees=15, translate=(0.1, 0.1), scale=(0.9, 1.1)), # Simula pequenos erros de posicionamento na máquina
+        transforms.ColorJitter(brightness=0.2, contrast=0.2), # Simula variações na exposição do raio-x
+        transforms.ToTensor(), # Converte PIL Image (0-255) para Tensor PyTorch (0.0-1.0)
+        # Normalização com as médias e desvios padrão do ImageNet.
+        # CRUCIAL: Como usamos arquiteturas pré-treinadas no ImageNet, os tensores devem
+        # ter a mesma distribuição estatística que a rede viu originalmente para acelerar a convergência.
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     
@@ -163,7 +192,10 @@ def get_vision_dataloaders(batch_size=8):
     train_dataset = BreastCancerDataset(train_paths, y_train, transform=train_transforms)
     test_dataset = BreastCancerDataset(test_paths, y_test, transform=test_transforms)
     
-    # Calcular pesos das classes para lidar com o desbalanceamento
+    # WeightedRandomSampler: Trata o Desbalanceamento de Classes (ex: muitos benignos, poucos malignos)
+    # Conceito: Em vez de amostrar sequencialmente as imagens, usamos pesos inversamente proporcionais 
+    # à frequência da classe. A rede verá, na média, 50% malignos e 50% benignos por epoch.
+    # Evita que a rede fique "preguiçosa" e aprenda apenas a chutar a classe majoritária.
     class_counts = np.bincount(y_train)
     class_weights = 1.0 / class_counts
     sample_weights = [class_weights[int(label)] for label in y_train]

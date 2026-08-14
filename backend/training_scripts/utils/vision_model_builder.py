@@ -43,13 +43,24 @@ def build_and_evaluate_vision_model(model_config, train_loader, test_loader, y_t
     
     model = model.to(device)
     
-    # Utilizando BCE normal pois o dataloader já lida com o desbalanceamento através do WeightedRandomSampler
+    # BCEWithLogitsLoss (Binary Cross Entropy with Logits)
+    # Conceito: Uma função de perda (loss) para classificação binária.
+    # Por que 'WithLogits'? Ela combina a função de ativação Sigmoid e a BCELoss numa única camada matemática.
+    # Isso traz uma estabilidade numérica muito maior (evita underflow/overflow) do que aplicar Sigmoid e BCELoss separadamente.
+    # Obs: Estamos utilizando a BCE normal pois o dataloader já lida com o desbalanceamento através do WeightedRandomSampler.
+    # Se não houvesse o Sampler, poderíamos usar a FocalLoss.
     criterion = nn.BCEWithLogitsLoss()
+    # Otimizador AdamW (Adam com Weight Decay fixo)
+    # Motivação: Otimiza a atualização dos pesos da rede. O AdamW melhora a regularização do modelo (weight decay)
+    # comparado ao Adam original, resultando numa melhor capacidade de generalização e menor overfitting.
     # Com o Batch Size reduzido para 4, um Learning Rate de 1e-4 é muito agressivo e causa instabilidade.
-    # O ideal é usar um LR menor (ex: 2e-5) desde o começo.
+    # O ideal é usar um LR menor (ex: 2e-5) desde o começo para não "pular" o mínimo global.
     optimizer = optim.AdamW(model.parameters(), lr=2e-5, weight_decay=weight_decay)
     
-    # Scheduler: Corta o LR se a loss não melhorar após 1 época
+    # Scheduler: ReduceLROnPlateau
+    # Motivação: Observa a métrica (ex: Val Loss). Se a métrica parar de melhorar após 'patience' épocas (plateau),
+    # ele reduz o Learning Rate pela metade (factor=0.5). Isso permite que o modelo faça ajustes mais finos
+    # nos pesos conforme se aproxima da convergência ótima.
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=1)
     
     best_val_loss = float('inf')
@@ -61,7 +72,11 @@ def build_and_evaluate_vision_model(model_config, train_loader, test_loader, y_t
         model.train()
         running_loss = 0.0
         
-        # Gradient Accumulation: acumula gradientes por múltiplos passos antes de atualizar os pesos, simulando um batch size maior.
+        # Gradient Accumulation (Acúmulo de Gradientes)
+        # Motivação: Imagens médicas são grandes (512x512) e os modelos (ResNet, DenseNet) são pesados, limitando o
+        # tamanho do batch que cabe na VRAM da placa de vídeo (ex: batch=4). Batches pequenos geram gradientes ruidosos.
+        # O acúmulo calcula a perda e os gradientes por vários micro-batches, mas só atualiza os pesos da rede (optimizer.step())
+        # após 'accumulation_steps', simulando matematicamente um batch size maior (ex: 4 * 4 = batch efetivo de 16).
         accumulation_steps = 4 
         optimizer.zero_grad()
         
@@ -106,10 +121,13 @@ def build_and_evaluate_vision_model(model_config, train_loader, test_loader, y_t
         scheduler.step(val_loss)
         
         # Early Stopping e Model Checkpointing
+        # Conceito: Monitora a Loss de Validação (dados nunca vistos pela rede no treino).
+        # Se a Validation Loss começar a aumentar enquanto a Training Loss diminui, o modelo está decorando os dados (overfitting).
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            # Salvar em memória os pesos do melhor modelo
-            # Isso é extremamente importante para não perdermos o ponto ótimo
+            # Salvar em memória os pesos do melhor modelo (Checkpointing)
+            # Isso é extremamente importante para não perdermos o ponto ótimo, pois as épocas 
+            # subsequentes podem piorar a generalização do modelo.
             import copy
             best_model_state = copy.deepcopy(model.state_dict())
             epochs_no_improve = 0
