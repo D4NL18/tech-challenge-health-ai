@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface AnamnesisPredictionResult {
   risk_level: string;
@@ -13,7 +14,7 @@ export interface AnamnesisPredictionResult {
   providedIn: 'root'
 })
 export class AnamnesisService {
-  private apiUrl = 'http://localhost:8000/api/v1/anamnesis';
+  private apiUrl = `${environment.apiUrl}/api/v1/anamnesis`;
 
   constructor(private http: HttpClient) {}
 

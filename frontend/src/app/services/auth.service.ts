@@ -1,13 +1,13 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
-  // O environment URL ainda não existe, então usaremos hardcoded por hora ou fallback
-  private apiUrl = 'http://localhost:8000/admin';
+  private apiUrl = `${environment.apiUrl}/admin`;
   private tokenKey = 'admin_jwt_token';
 
   constructor(private http: HttpClient) {}
