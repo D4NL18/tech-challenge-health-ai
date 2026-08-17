@@ -176,6 +176,7 @@ export class AnamnesisComponent {
                         `Fast Food: ${this.patientData.pcos.fast_food ? 'Sim' : 'Não'}`;
         finalHistory = `Avaliação Hormonal.`;
         tabularData = {
+          ' Age (yrs)': parseInt(this.patientData.age) || 0,
           'Weight (Kg)': parseFloatSafe(this.patientData.pcos.weight),
           'Height(Cm) ': parseFloatSafe(this.patientData.pcos.height),
           'Weight gain(Y/N)': this.patientData.pcos.weight_gain ? 1 : 0,

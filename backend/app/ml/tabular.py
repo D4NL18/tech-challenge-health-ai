@@ -100,7 +100,19 @@ class TabularPredictor:
         # (KNNImputer ou SimpleImputer) embutidas no .pkl lidarão com eles preenchendo a média automaticamente.
         for k, v in tabular_data.items():
             if k in df.columns and v is not None:
-                df.at[0, k] = float(v)
+                try:
+                    if isinstance(v, str):
+                        v_lower = v.lower()
+                        if v_lower in ['sim', 'yes', 'true', '1']:
+                            v = 1.0
+                        elif v_lower in ['não', 'nao', 'no', 'false', '0', '']:
+                            v = 0.0
+                        else:
+                            v = float(v.replace(',', '.'))
+                    df.at[0, k] = float(v)
+                except ValueError:
+                    print(f"TabularPredictor: Falha ao converter campo '{k}' com valor '{v}'. Ignorando.")
+                    df.at[0, k] = np.nan
                 
         # Feature Engineering On-the-fly (Engenharia de Recursos em Tempo Real):
         # O BMI (IMC) era uma feature fortíssima no treino, então calculo aqui antes de enviar.
