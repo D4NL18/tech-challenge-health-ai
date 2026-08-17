@@ -171,13 +171,15 @@
               <app-input label="Duração do Ciclo (Dias)" type="text" placeholder="Ex: 28" [(ngModel)]="patientData.pcos.cycle_length" name="cycle_length"></app-input>
             </div>
             
-            <div class="full-width"><h3 style="margin: 1.5rem 0 1rem; color: var(--text-main);">Exames Laboratoriais</h3></div>
+            <div class="full-width"><h3 style="margin: 1.5rem 0 1rem; color: var(--text-main);">Exames Laboratoriais e Imagem</h3></div>
             <div class="form-grid">
               <app-input label="RBS (Glicemia)" type="text" placeholder="Ex: 92" [(ngModel)]="patientData.pcos.rbs" name="rbs"></app-input>
               <app-input label="FSH (mIU/mL)" type="text" placeholder="Ex: 5.5" [(ngModel)]="patientData.pcos.fsh" name="fsh"></app-input>
               <app-input label="LH (mIU/mL)" type="text" placeholder="Ex: 4.2" [(ngModel)]="patientData.pcos.lh" name="lh"></app-input>
               <app-input label="TSH (mIU/L)" type="text" placeholder="Ex: 2.1" [(ngModel)]="patientData.pcos.tsh" name="tsh"></app-input>
               <app-input label="Progesterona (PRG)" type="text" placeholder="Ex: 0.8" [(ngModel)]="patientData.pcos.prg" name="prg"></app-input>
+              <app-input label="Folículos (Ovário Esq.)" type="text" placeholder="Ex: 15" [(ngModel)]="patientData.pcos.follicle_l" name="follicle_l"></app-input>
+              <app-input label="Folículos (Ovário Dir.)" type="text" placeholder="Ex: 15" [(ngModel)]="patientData.pcos.follicle_r" name="follicle_r"></app-input>
             </div>
           </ng-container>
           

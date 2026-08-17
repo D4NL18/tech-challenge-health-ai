@@ -39,6 +39,8 @@ export class AnamnesisComponent {
       tsh: '',
       prg: '',
       rbs: '',
+      follicle_l: '',
+      follicle_r: '',
       weight_gain: false,
       hair_growth: false,
       skin_darkening: false,
@@ -138,10 +140,11 @@ export class AnamnesisComponent {
       this.isLoading = true;
       this.cdr.detectChanges();
 
-      const parseFloatSafe = (val: any): number => {
-        if (!val) return 0;
+      const parseFloatSafe = (val: any): number | null => {
+        if (val === '' || val === null || val === undefined) return null;
         if (typeof val === 'number') return val;
-        return parseFloat(val.toString().replace(',', '.')) || 0;
+        const parsed = parseFloat(val.toString().replace(',', '.'));
+        return isNaN(parsed) ? null : parsed;
       };
 
       let finalSymptoms = '';
@@ -176,7 +179,7 @@ export class AnamnesisComponent {
                         `Fast Food: ${this.patientData.pcos.fast_food ? 'Sim' : 'Não'}`;
         finalHistory = `Avaliação Hormonal.`;
         tabularData = {
-          ' Age (yrs)': parseInt(this.patientData.age) || 0,
+          ' Age (yrs)': parseInt(this.patientData.age) || null,
           'Weight (Kg)': parseFloatSafe(this.patientData.pcos.weight),
           'Height(Cm) ': parseFloatSafe(this.patientData.pcos.height),
           'Weight gain(Y/N)': this.patientData.pcos.weight_gain ? 1 : 0,
@@ -188,7 +191,9 @@ export class AnamnesisComponent {
           'FSH(mIU/mL)': parseFloatSafe(this.patientData.pcos.fsh),
           'LH(mIU/mL)': parseFloatSafe(this.patientData.pcos.lh),
           'TSH (mIU/L)': parseFloatSafe(this.patientData.pcos.tsh),
-          'PRG(ng/mL)': parseFloatSafe(this.patientData.pcos.prg)
+          'PRG(ng/mL)': parseFloatSafe(this.patientData.pcos.prg),
+          'Follicle No. (L)': parseFloatSafe(this.patientData.pcos.follicle_l),
+          'Follicle No. (R)': parseFloatSafe(this.patientData.pcos.follicle_r)
         };
       }
 
@@ -245,7 +250,7 @@ export class AnamnesisComponent {
     this.patientData = { 
       name: '', age: '', openTextSymptoms: '',
       breast_symptoms: '', breast_history: '', pcos_symptoms: '', pcos_history: '',
-      pcos: { weight: '', height: '', cycle_length: '', fsh: '', lh: '', tsh: '', prg: '', rbs: '', weight_gain: false, hair_growth: false, skin_darkening: false, fast_food: false },
+      pcos: { weight: '', height: '', cycle_length: '', fsh: '', lh: '', tsh: '', prg: '', rbs: '', follicle_l: '', follicle_r: '', weight_gain: false, hair_growth: false, skin_darkening: false, fast_food: false },
       cancer: { radius_mean: '', texture_mean: '', compactness_mean: '', concavity_mean: '', concave_points_mean: '', radius_se: '', perimeter_se: '', area_se: '', concavity_se: '', radius_worst: '', texture_worst: '', smoothness_worst: '', compactness_worst: '', concavity_worst: '', concave_points_worst: '', symmetry_worst: '' }
     };
     this.selectedFile = null;
