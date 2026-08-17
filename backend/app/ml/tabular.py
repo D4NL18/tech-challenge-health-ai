@@ -66,8 +66,11 @@ class TabularPredictor:
                     try:
                         self.models[disease] = joblib.load(model_path)
                     except Exception as fallback_err:
-                        with open(model_path, "rb") as mf:
-                            self.models[disease] = pickle.load(mf)
+                        try:
+                            with open(model_path, "rb") as mf:
+                                self.models[disease] = pickle.load(mf)
+                        except Exception as inner_err:
+                            print(f"Erro CRÍTICO ao carregar modelo tabular para {disease}: {inner_err}")
                         
             print("TabularPredictor: Modelos carregados com sucesso.", list(self.models.keys()))
             self.is_loaded = True
