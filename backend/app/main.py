@@ -53,14 +53,10 @@ class AdvancedExponentialRateLimiter(BaseHTTPMiddleware):
         
         # 1. Verifica se o usuário já está cumprindo suspensão
         if now < client_data["blocked_until"]:
-            # Se tentou atacar durante o bloqueio, a punição dobra!
-            client_data["penalties"] += 1
-            block_time = self.window_seconds * (2 ** (client_data["penalties"] - 1))
-            client_data["blocked_until"] = now + block_time
-            
+            remaining_time = int(client_data["blocked_until"] - now)
             return JSONResponse(
                 status_code=429, 
-                content={"error": f"Rate limit excedido. IP bloqueado com punição exponencial. Tente novamente em {block_time} segundos."}
+                content={"error": f"Rate limit excedido. Aguarde {remaining_time} segundos."}
             )
             
         # 2. Limpa o histórico de requisições que já saíram da janela de 1 minuto
@@ -69,7 +65,8 @@ class AdvancedExponentialRateLimiter(BaseHTTPMiddleware):
         # 3. Verifica se atingiu o limite de requisições permitidas (Gatilho inicial)
         if len(client_data["requests"]) >= self.max_requests:
             client_data["penalties"] += 1
-            block_time = self.window_seconds * (2 ** (client_data["penalties"] - 1))
+            # Limita a punição máxima a 1 hora (3600 segundos) para não ser infinito
+            block_time = min(self.window_seconds * (2 ** (client_data["penalties"] - 1)), 3600)
             client_data["blocked_until"] = now + block_time
             
             return JSONResponse(
@@ -107,7 +104,7 @@ app = FastAPI(
 )
 
 # Adiciona o middleware customizado de segurança ANTES do CORS
-app.add_middleware(AdvancedExponentialRateLimiter, max_requests=5, window_seconds=60)
+app.add_middleware(AdvancedExponentialRateLimiter, max_requests=30, window_seconds=60)
 
 """
 ----------------------------------------------------------------------------------------------
