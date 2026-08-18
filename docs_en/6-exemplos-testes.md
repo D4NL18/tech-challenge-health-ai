@@ -66,6 +66,8 @@ You can paste these values into the Angular Frontend and run the diagnosis. Reme
 - **LH (mIU/mL)**: 9.35
 - **TSH (mIU/L)**: 3.20
 - **Progesterone (PRG)**: 0.25
+- **Follicle No. (Left)**: 25
+- **Follicle No. (Right)**: 16
 
 ### Example D: Low Risk (PCOS = No)
 *Synthetic data for a healthy patient, with a balanced hormonal profile and without physical symptoms of the syndrome.*
@@ -81,3 +83,5 @@ You can paste these values into the Angular Frontend and run the diagnosis. Reme
 - **LH (mIU/mL)**: 3.10
 - **TSH (mIU/L)**: 1.80
 - **Progesterone (PRG)**: 0.95
+- **Follicle No. (Left)**: 6
+- **Follicle No. (Right)**: 5

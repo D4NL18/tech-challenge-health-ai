@@ -101,8 +101,12 @@ class TabularPredictor:
         # Preenche os campos fornecidos pelo frontend iterando pelo JSON.
         # Campos que o paciente pulou no formulário permanecerão como NaN. As pipelines de Imputação
         # (KNNImputer ou SimpleImputer) embutidas no .pkl lidarão com eles preenchendo a média automaticamente.
-        for k, v in tabular_data.items():
-            if k in df.columns and v is not None:
+        processed_data = {}
+        for k in req_cols:
+            v = tabular_data.get(k)
+            if v is None:
+                processed_data[k] = np.nan
+            else:
                 try:
                     if isinstance(v, str):
                         v_lower = v.lower()
@@ -112,10 +116,11 @@ class TabularPredictor:
                             v = 0.0
                         else:
                             v = float(v.replace(',', '.'))
-                    df.at[0, k] = float(v)
-                except ValueError:
-                    print(f"TabularPredictor: Falha ao converter campo '{k}' com valor '{v}'. Ignorando.")
-                    df.at[0, k] = np.nan
+                    processed_data[k] = float(v)
+                except (ValueError, TypeError):
+                    processed_data[k] = np.nan
+        
+        df = pd.DataFrame([processed_data])
                 
         # Feature Engineering On-the-fly (Engenharia de Recursos em Tempo Real):
         # O BMI (IMC) era uma feature fortíssima no treino, então calculo aqui antes de enviar.

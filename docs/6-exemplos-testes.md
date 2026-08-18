@@ -66,6 +66,8 @@ Você pode colar esses valores no Frontend do Angular e rodar o diagnóstico. Le
 - **LH (mIU/mL)**: 9.35
 - **TSH (mIU/L)**: 3.20
 - **Progesterona (PRG)**: 0.25
+- **Nº de Folículos (Esq)**: 25
+- **Nº de Folículos (Dir)**: 16
 
 ### Exemplo D: Baixo Risco (SOP = Não)
 *Dados sintéticos para uma paciente saudável, com perfil hormonal equilibrado e sem os sintomas físicos da síndrome.*
@@ -81,3 +83,5 @@ Você pode colar esses valores no Frontend do Angular e rodar o diagnóstico. Le
 - **LH (mIU/mL)**: 3.10
 - **TSH (mIU/L)**: 1.80
 - **Progesterona (PRG)**: 0.95
+- **Nº de Folículos (Esq)**: 6
+- **Nº de Folículos (Dir)**: 5
