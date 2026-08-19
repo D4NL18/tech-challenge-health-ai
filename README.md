@@ -16,6 +16,7 @@ Como este repositório é o meu guia de estudos, documentei absolutamente todas 
 4. [Frontend e Angular](docs/4-frontend-angular.md)
 5. [MLOps e Ciclo de Vida do Treinamento](docs/5-mlops-treinamento.md)
 6. [Dados de Teste Sintéticos](docs/6-exemplos-testes.md)
+7. [Relatório Técnico](docs/relatorio-tecnico.md)
 
 ---
 

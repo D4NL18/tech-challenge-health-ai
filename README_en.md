@@ -10,12 +10,13 @@ The platform's goal is to act as a medical triage assistant. Unlike traditional 
 
 Since this repository is my study guide, I have documented absolutely all architecture and code decisions. I suggest reading the documents below in order, as they tell the "story" of how the project was built:
 
-1. [Overview and Serverless Architecture](docs_en/1-visao-geral-arquitetura.md)
-2. [Deep Dive: Artificial Intelligence Engine](docs_en/2-inteligencia-artificial.md)
+1. [Overview and Serverless Architecture](docs_en/1-overview-architecture.md)
+2. [Deep Dive: Artificial Intelligence Engine](docs_en/2-artificial-intelligence.md)
 3. [Backend and FastAPI](docs_en/3-backend-fastapi.md)
 4. [Frontend and Angular](docs_en/4-frontend-angular.md)
-5. [MLOps and Training Lifecycle](docs_en/5-mlops-treinamento.md)
-6. [Synthetic Test Data](docs_en/6-exemplos-testes.md)
+5. [MLOps and Training Lifecycle](docs_en/5-mlops-training.md)
+6. [Synthetic Test Data](docs_en/6-test-examples.md)
+7. [Technical Report](docs_en/technical-report.md)
 
 ---
 
