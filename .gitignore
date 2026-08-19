@@ -20,6 +20,9 @@ dist/
 # Datasets
 backend/datasets/
 
+# Vector DB (ChromaDB)
+backend/knowledge_base/vector_db/
+
 # GCP Keys
 gcp_key.json
 *.zip

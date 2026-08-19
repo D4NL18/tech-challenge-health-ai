@@ -25,7 +25,7 @@ class EnsemblePredictor:
         print("EnsemblePredictor: Meta-modelo carregado com sucesso.")
         self.is_loaded = True
 
-    def predict(self, tabular_score: float, text_score: float = None, vision_score: float = None) -> dict:
+    def predict(self, tabular_score: float = None, text_score: float = None, vision_score: float = None) -> dict:
         """
         ----------------------------------------------------------------------------------------------
         FUNÇÃO: predict (Meta-Predição)
@@ -35,44 +35,71 @@ class EnsemblePredictor:
         Sistemas robustos não devem falhar ("quebrar a tela") se um componente cair.
         Se a API do Gemini falhar (ou o usuário não digitar texto) o text_score chega como 'None'.
         Se não houver upload de imagem, o vision_score é 'None'.
+        Se não houver dados preenchidos, o tabular_score é 'None'.
         Em vez de gerar um erro, o Ensemble recalcula os pesos matematicamente ignorando o modelo
         faltante, focando apenas nos modelos que tiveram sucesso (Degradação Graciosa).
         ----------------------------------------------------------------------------------------------
         """
         if not self.is_loaded:
             raise RuntimeError("Meta-modelo Ensemble não foi carregado!")
+            
+        if tabular_score is None and vision_score is None and text_score is None:
+            return {"risk_level": "Low", "confidence": 0.0, "description": "Nenhum dado clínico válido foi fornecido para análise. Preencha a anamnese, os dados laboratoriais ou envie uma imagem."}
         
         # Regras de Ponderação Matemáticas:
-        # Se tenho as 3 fontes de dados ativas: Tabular leva 50%, Imagem e Texto dividem o restante.
-        if vision_score is not None and text_score is not None:
+        
+        # 1. As 3 fontes de dados ativas: Tabular leva 50%, Imagem e Texto dividem o restante.
+        if tabular_score is not None and vision_score is not None and text_score is not None:
             final_score = (tabular_score * 0.50) + (vision_score * 0.25) + (text_score * 0.25)
             weight_tabular, weight_vision, weight_text = 50, 25, 25
             desc = (f"Nossa inteligência artificial cruzou as informações fornecidas. "
                     f"Neste cálculo, os dados tabulares (laboratoriais) tiveram peso de {weight_tabular}%, "
-                    f"a imagem médica {weight_vision}% e o relato de sintomas analisado pela IA generativa teve peso de {weight_text}%.")
+                    f"a imagem médica {weight_vision}% e o relato analisado pela IA generativa {weight_text}%.")
                     
-        # Se a Imagem Falta/Falha: Distribuo 2/3 da força para Tabular e 1/3 para NLP (Texto)
-        elif vision_score is None and text_score is not None:
+        # 2. Tabular + Texto (Sem Imagem)
+        elif tabular_score is not None and vision_score is None and text_score is not None:
             final_score = (tabular_score * 0.666) + (text_score * 0.333)
             weight_tabular, weight_text = 66.6, 33.3
             desc = (f"Nossa inteligência artificial cruzou as informações fornecidas. "
                     f"Não havendo imagem médica, os dados tabulares (laboratoriais) representaram {weight_tabular:.1f}% da decisão, "
                     f"enquanto o seu relato analisado pela IA generativa teve peso de {weight_text:.1f}%.")
                     
-        # Se o Texto Falta/Falha: Distribuo 2/3 para Tabular e 1/3 para Imagem
-        elif vision_score is not None and text_score is None:
+        # 3. Tabular + Imagem (Sem Texto)
+        elif tabular_score is not None and vision_score is not None and text_score is None:
             final_score = (tabular_score * 0.666) + (vision_score * 0.333)
             weight_tabular, weight_vision = 66.6, 33.3
             desc = (f"Nossa inteligência artificial cruzou as informações fornecidas. "
                     f"Sem relato textual detalhado, os dados tabulares representaram {weight_tabular:.1f}% da decisão, "
                     f"e a imagem médica (radiologia/biópsia) {weight_vision:.1f}%.")
                     
-        # Fallback Extremo: Só há dados numéricos preenchidos
-        else:
+        # 4. Imagem + Texto (Sem Tabular)
+        elif tabular_score is None and vision_score is not None and text_score is not None:
+            final_score = (vision_score * 0.50) + (text_score * 0.50)
+            weight_vision, weight_text = 50, 50
+            desc = (f"Nossa inteligência artificial cruzou as informações fornecidas. "
+                    f"Como nenhum dado laboratorial/tabular foi preenchido, "
+                    f"a imagem médica representou {weight_vision}% da decisão e o relato textual {weight_text}%.")
+                    
+        # 5. Apenas Tabular
+        elif tabular_score is not None and vision_score is None and text_score is None:
             final_score = tabular_score
             desc = (f"Nossa inteligência artificial analisou seu formulário. "
                     f"Como não houve envio de imagem ou relato textual detalhado, "
                     f"o cálculo se baseou 100% nos seus dados clínicos e laboratoriais.")
+                    
+        # 6. Apenas Texto
+        elif tabular_score is None and vision_score is None and text_score is not None:
+            final_score = text_score
+            desc = (f"Nossa inteligência artificial analisou o caso. "
+                    f"Como não houve envio de imagem médica ou dados de exames preenchidos, "
+                    f"o cálculo se baseou 100% na análise textual do seu relato.")
+                    
+        # 7. Apenas Imagem
+        else: # tabular_score is None and vision_score is not None and text_score is None
+            final_score = vision_score
+            desc = (f"Nossa inteligência artificial analisou o caso. "
+                    f"Como apenas a imagem médica foi fornecida, o cálculo de risco "
+                    f"se baseou 100% na análise de visão computacional da radiologia/biópsia.")
         
         # Limiares Clássicos de Decisão Clínica (Thresholds)
         # Convertendo o percentual final contínuo em uma classificação de risco categórica

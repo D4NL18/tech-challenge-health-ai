@@ -20,8 +20,13 @@ import io
 import json
 import cv2
 import numpy as np
-import torch
-from torchvision import transforms
+try:
+    import torch
+    from torchvision import transforms
+    TORCH_AVAILABLE = True
+except Exception as e:
+    print(f"Aviso: PyTorch não pôde ser carregado ({e}). Visão computacional será desativada.")
+    TORCH_AVAILABLE = False
 from PIL import Image
 
 def apply_clahe(img_np):
@@ -73,6 +78,9 @@ class VisionPredictor:
     def __init__(self):
         self.model = None
         self.is_loaded = False
+        if not TORCH_AVAILABLE:
+            return
+
         # Hardware Acceleration: Se o servidor tiver placa de vídeo da NVIDIA (CUDA), o PyTorch
         # rodará 100x mais rápido. Se não, fará fallback seguro para o Processador (CPU).
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -96,6 +104,10 @@ class VisionPredictor:
         montar o "Esqueleto" da rede antes de aplicar o estado.
         ----------------------------------------------------------------------------------------------
         """
+        if not TORCH_AVAILABLE:
+            print("VisionPredictor: Ignorando carregamento do modelo pois PyTorch não está disponível.")
+            return
+
         try:
             base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             active_models_path = os.path.join(base_dir, "weights", "active_models.json")

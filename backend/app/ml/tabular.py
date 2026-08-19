@@ -94,6 +94,18 @@ class TabularPredictor:
         model = self.models[disease]
         req_cols = self.cancer_cols if disease == "cancer" else self.pcos_cols
         
+        # Verifica se há pelo menos UM dado preenchido. Se tudo for nulo,
+        # retornamos None para que o Ensemble não utilize a média global como predição real.
+        has_valid_data = False
+        for k in req_cols:
+            v = tabular_data.get(k)
+            if v is not None and v != "":
+                has_valid_data = True
+                break
+                
+        if not has_valid_data:
+            return None
+        
         # Cria um dataframe vazio com as colunas na ordem exata e preenche com NaN (Not a Number)
         df = pd.DataFrame(columns=req_cols)
         df.loc[0] = np.nan

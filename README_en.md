@@ -42,7 +42,10 @@ source venv/bin/activate
 # 4. Install the heavy dependencies (PyTorch, FastAPI, Pandas, etc)
 pip install -r requirements.txt
 
-# 5. Start the FastAPI server on port 8000
+# 5. Generate the local vector database (RAG / ChromaDB) from medical PDFs
+python knowledge_base/ingest_docs.py
+
+# 6. Start the FastAPI server on port 8000
 python -m uvicorn app.main:app --reload
 ```
 The API will be running at `http://localhost:8000`. You can access the interactive Swagger documentation at `http://localhost:8000/docs`.
