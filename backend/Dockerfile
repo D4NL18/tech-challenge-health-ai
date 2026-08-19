@@ -14,17 +14,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar a pasta app, weights, scripts de treinamento e a base de conhecimento
+# Copiar a pasta app, weights, scripts de treinamento e a base de conhecimento (incluindo vector_db)
 COPY app/ ./app/
 COPY weights/ ./weights/
 COPY training_scripts/ ./training_scripts/
 COPY knowledge_base/ ./knowledge_base/
-
-# Gerar o banco de dados vetorial do ChromaDB no momento da build da imagem!
-# Como o modelo do HuggingFace é local, ele fará o download da rede neural
-# e embutirá os vetores matemáticos na própria imagem Docker,
-# garantindo uma inicialização extremamente rápida no Cloud Run.
-RUN python knowledge_base/ingest_docs.py
 
 # Expor a porta 8080 (padrão do Cloud Run)
 EXPOSE 8080
