@@ -21,7 +21,7 @@ from contextlib import asynccontextmanager
 import time
 from collections import defaultdict
 
-from app.api.routers import anamnesis, admin
+from app.api.routers import anamnesis, admin, routes_router
 from app.services.inference import inference_service
 
 class AdvancedExponentialRateLimiter(BaseHTTPMiddleware):
@@ -128,6 +128,7 @@ app.add_middleware(
 # Registra os roteadores modularizados (separação de responsabilidades / MVC)
 app.include_router(anamnesis.router)
 app.include_router(admin.router)
+app.include_router(routes_router.router)
 
 @app.get("/")
 def read_root():

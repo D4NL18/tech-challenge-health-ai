@@ -1,0 +1,698 @@
+<div class="routes-page routes-container">
+  <!-- Cabeçalho da Página -->
+  <div class="page-header">
+    <div class="page-header__title-area">
+      <h1 class="page-title">Distribuição Inteligente de Medicamentos (VRP)</h1>
+      <p class="page-subtitle">
+        Roteamento de frotas hospitalares com restrições severas de prioridade clínica, <strong>divisão inteligente de urgências entre motoristas</strong> e grafos viários reais em <strong>Salvador - BA</strong>.
+      </p>
+    </div>
+  </div>
+
+  <!-- Toast Flutuante de Feedback -->
+  <div *ngIf="toastMessage()" class="toast-notification animate-slide-up">
+    {{ toastMessage() }}
+  </div>
+
+  <!-- Alerta de Erro -->
+  <div *ngIf="errorMessage()" class="alert alert--danger">
+    ⚠️ {{ errorMessage() }}
+  </div>
+
+  <!-- 1. Instruções e Métricas (acima da busca - Resumido com 'i') -->
+  <div class="hint-banner">
+    <div class="hint-banner__info">
+      <span class="hint-banner__icon">💡</span>
+      <span class="hint-banner__title">Instruções de Adição e Roteamento</span>
+      <span class="info-tooltip">
+        <span class="info-icon">i</span>
+        <span class="tooltip-bubble tooltip-bubble--banner">
+          Clique em qualquer ponto do mapa para abrir o formulário. O modal permite definir o nome do local, se é a <strong>Base Central</strong> ou <strong>Parada de Entrega</strong>, a urgência clínica (Crítica, Alta ou Regular) e vinculação opcional a um motorista. A IA divide as urgências de forma estritamente equilibrada e otimizada entre os motoristas.
+        </span>
+      </span>
+    </div>
+
+    <div class="hint-banner__stats">
+      <span><strong>{{ deliveries.length }}</strong> paradas</span>
+      <span>•</span>
+      <span class="text-critical"><strong>{{ getCriticalCount() }}</strong> críticas 🚨</span>
+      <span>•</span>
+      <span class="text-high"><strong>{{ getHighCount() }}</strong> alta prioridade ⚡</span>
+      <ng-container *ngIf="getAssignedCount() > 0">
+        <span>•</span>
+        <span class="text-fixed"><strong>{{ getAssignedCount() }}</strong> van dedicada 🚐</span>
+      </ng-container>
+    </div>
+  </div>
+
+  <!-- 2. Barra de Pesquisa de Endereços com Favoritos & Autocomplete (abaixo das instruções) -->
+  <div class="search-bar-wrapper">
+    <div class="search-input-box">
+      <span class="search-icon">🔍</span>
+      <input 
+        type="text" 
+        [(ngModel)]="searchQuery" 
+        (focus)="onSearchFocus()"
+        (input)="onSearchInput()" 
+        (keydown.enter)="executeAddressSearch()"
+        placeholder="Buscar endereço, bairro ou hospital em Salvador (ex: Barra, HUPES, Pituba, Pelourinho, Brotas, Ondina)..."
+        class="search-input"
+      />
+      <button *ngIf="searchQuery" class="search-clear-btn" (click)="searchQuery = ''; showSearchDropdown.set(favorites().length > 0)">✕</button>
+      <button class="btn btn--primary btn--sm search-submit-btn" (click)="executeAddressSearch()" [disabled]="isSearchingAddress()">
+        <span *ngIf="!isSearchingAddress()">Buscar</span>
+        <span *ngIf="isSearchingAddress()">Buscando...</span>
+      </button>
+    </div>
+
+    <!-- Dropdown Unificado: Favoritos Salvos + Resultados da Busca -->
+    <div *ngIf="showSearchDropdown() && (getFilteredFavorites().length > 0 || searchResults().length > 0 || isSearchingAddress())" class="search-dropdown animate-slide-up">
+      <div class="dropdown-header">
+        <span>Opções de Localização</span>
+        <button class="dropdown-close" (click)="showSearchDropdown.set(false)">✕ Fechar</button>
+      </div>
+
+      <!-- SEÇÃO DE FAVORITOS SALVOS -->
+      <div *ngIf="getFilteredFavorites().length > 0" class="dropdown-section">
+        <div class="dropdown-section-title">⭐ Meus Locais Favoritos (Salvador)</div>
+        <div 
+          *ngFor="let fav of getFilteredFavorites()" 
+          class="search-result-item search-result-item--favorite"
+          (click)="selectFavorite(fav)"
+        >
+          <span class="result-icon">⭐</span>
+          <div class="result-text">
+            <div class="result-title">{{ fav.name }}</div>
+            <div class="result-subtitle">Coord: {{ fav.lat.toFixed(4) }}, {{ fav.lon.toFixed(4) }}</div>
+          </div>
+          <span *ngIf="fav.critical" class="tag tag--critical">🚨 Urgente</span>
+          <button 
+            class="fav-delete-btn" 
+            title="Excluir dos favoritos" 
+            (click)="removeFavoriteById(fav.id, $event)"
+          >
+            🗑️
+          </button>
+        </div>
+      </div>
+
+      <!-- SEÇÃO DE RESULTADOS DO OPENSTREETMAP -->
+      <div *ngIf="searchResults().length > 0" class="dropdown-section">
+        <div class="dropdown-section-title">🔍 Resultados no OpenStreetMap</div>
+        <div 
+          *ngFor="let item of searchResults()" 
+          class="search-result-item"
+          (click)="selectAddressOption(item)"
+        >
+          <span class="result-icon">📍</span>
+          <div class="result-text">
+            <div class="result-title">{{ item.name }}</div>
+            <div class="result-subtitle">{{ item.display_name }}</div>
+          </div>
+          <span class="result-badge">Ver no mapa ➔</span>
+        </div>
+      </div>
+
+      <!-- Feedback de busca em andamento -->
+      <div *ngIf="isSearchingAddress()" class="dropdown-loading">
+        <span class="spinner-mini">⏳</span> Buscando endereços em Salvador...
+      </div>
+    </div>
+  </div>
+
+  <!-- Layout Principal em Grid Amplo (Mapa Dominante + Painel Lateral) -->
+  <div class="routes-grid">
+    <!-- Coluna Esquerda: Mapa em Grande Escala & Parâmetros -->
+    <div class="routes-grid__col-map">
+      <!-- Card do Mapa Interativo com Altura Generosa (620px) -->
+      <div class="card map-card">
+        <div class="card-header">
+          <div class="card-header__title">
+            <span>🗺️</span> Mapa de Rotas e Entregas
+          </div>
+
+          <div class="card-header__right">
+            <div class="legend">
+              <span class="legend-item"><span class="dot dot--hub"></span> 🏢 Base Central</span>
+              <span class="legend-item"><span class="dot dot--critical"></span> 🚨 Urgência Crítica</span>
+              <span class="legend-item"><span class="dot dot--high"></span> ⚡ Alta Prioridade</span>
+              <span class="legend-item"><span class="dot dot--regular"></span> 📦 Regular</span>
+              <ng-container *ngIf="optimizationResult">
+                <span *ngFor="let route of optimizationResult.routes" class="legend-item legend-item--route">
+                  <span class="route-line-badge" [style.background]="getVehicleColor(route.vehicle_id)"></span>
+                  🚐 Van {{ route.vehicle_id }}
+                </span>
+              </ng-container>
+            </div>
+
+            <!-- Seletor Intuitivo de Motoristas no Cabeçalho do Mapa -->
+            <div class="map-driver-counter" title="Definir quantidade de motoristas para a divisão equilibrada das rotas">
+              <span class="map-driver-label">🚐 Motoristas:</span>
+              <div class="driver-stepper">
+                <button 
+                  type="button" 
+                  class="stepper-btn" 
+                  (click)="setNumVehicles(numVehicles - 1)" 
+                  [disabled]="numVehicles <= 1"
+                  title="Diminuir motoristas"
+                >−</button>
+                <span class="stepper-value">{{ numVehicles }}</span>
+                <button 
+                  type="button" 
+                  class="stepper-btn" 
+                  (click)="setNumVehicles(numVehicles + 1)" 
+                  [disabled]="numVehicles >= 6"
+                  title="Aumentar motoristas"
+                >+</button>
+              </div>
+            </div>
+
+            <button class="btn-gear" (click)="openConfigModal()" title="Configurações do Algoritmo Genético & Frota">
+              ⚙️
+            </button>
+          </div>
+        </div>
+
+        <div id="map-container" class="map-container"></div>
+      </div>
+    </div>
+
+    <!-- Coluna Direita: Alternador (Pontos Cadastrados vs Resultados & IA) -->
+    <div class="routes-grid__col-results">
+      <!-- Seletor Superior de Modo da Coluna Lateral -->
+      <div class="sidebar-mode-toggle">
+        <button 
+          class="mode-btn" 
+          [class.active]="activeSidebarTab() === 'points'" 
+          (click)="activeSidebarTab.set('points')"
+        >
+          📍 Pontos de Entrega
+          <span class="counter-badge">{{ deliveries.length }}</span>
+        </button>
+
+        <button 
+          class="mode-btn" 
+          [class.active]="activeSidebarTab() === 'results'" 
+          (click)="activeSidebarTab.set('results')"
+        >
+          🚀 Resultados & IA
+          <span class="status-indicator" [class.status-indicator--active]="optimizationResult">
+            {{ optimizationResult ? 'Otimizado' : 'Aguardando' }}
+          </span>
+        </button>
+      </div>
+
+      <!-- MODO 1: Gerenciamento dos Pontos Cadastrados -->
+      <div *ngIf="activeSidebarTab() === 'points'" class="card sidebar-card animate-slide-up">
+        <div class="card-header">
+          <div class="card-header__title">
+            <span>📋</span> Paradas Cadastradas
+          </div>
+        </div>
+
+        <!-- Card da Base Central Salva / Não Definida -->
+        <div class="depot-wrapper">
+          <div *ngIf="depot() as curDepot" class="depot-card depot-card--active">
+            <div class="depot-card__header">
+              <span class="depot-tag">🏢 BASE CENTRAL PADRÃO (SALVA)</span>
+              <div class="depot-card__actions">
+                <button class="btn-icon" (click)="openEditDepotModal()" title="Editar Base Central">✏️</button>
+                <button class="btn-icon btn-icon--danger" (click)="clearCustomDepot()" title="Remover Base Central">✕</button>
+              </div>
+            </div>
+            <div class="depot-card__title">{{ curDepot.name }}</div>
+            <div class="depot-card__coords">
+              <span>📍 Lat: {{ curDepot.lat.toFixed(4) }}, Lon: {{ curDepot.lon.toFixed(4) }}</span>
+              <span class="depot-badge-saved">Ponto de Partida e Retorno</span>
+            </div>
+          </div>
+
+          <div *ngIf="!depot()" class="depot-card depot-card--missing">
+            <div class="depot-card__missing-icon">⚠️</div>
+            <div class="depot-card__missing-text">
+              <strong>Nenhuma Base Central definida</strong>
+              <p>Clique no mapa e marque <em>"🏢 Base Central"</em> para definir onde a frota de vans inicia e encerra suas rotas.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Se o mapa estiver zerado -->
+        <div *ngIf="deliveries.length === 0" class="empty-state">
+          <span class="empty-icon">🗺️</span>
+          <h3>O mapa de Salvador começou zerado!</h3>
+          <p>
+            Dê um clique no mapa para abrir o formulário de parada, pesquise um endereço acima, ou carregue o 
+            <strong>"Cenário Salvador (10 Pontos)"</strong>.
+          </p>
+          <div class="empty-actions">
+            <button class="btn btn--primary btn--sm" (click)="loadDemoScenario('salvador')">
+              🔄 Carregar 10 Hospitais de Salvador
+            </button>
+          </div>
+        </div>
+
+        <!-- Lista de pontos cadastrados com seletor de van -->
+        <div *ngIf="deliveries.length > 0" class="deliveries-list">
+          <div *ngFor="let point of deliveries; let i = index" class="delivery-item" [class.delivery-item--critical]="point.critical_medication || point.priority === 'CRITICAL'" [class.delivery-item--high]="point.priority === 'HIGH' && !point.critical_medication">
+            <div class="delivery-item__num" [class.delivery-item__num--fixed]="point.assigned_vehicle">
+              {{ point.assigned_vehicle ? 'V' + point.assigned_vehicle : i + 1 }}
+            </div>
+
+            <div class="delivery-item__info">
+              <div class="delivery-item__name">
+                <span class="point-name-link" (click)="openEditPointModal(i)" title="Clique para editar">
+                  {{ point.name }}
+                </span>
+              </div>
+
+              <div class="delivery-item__badge-row">
+                <span *ngIf="point.priority === 'CRITICAL' || point.critical_medication" class="tag tag--critical" (click)="cyclePriority(i)" title="Clique para alternar prioridade">🚨 Crítica</span>
+                <span *ngIf="point.priority === 'HIGH' && !point.critical_medication" class="tag tag--high" (click)="cyclePriority(i)" title="Clique para alternar prioridade">⚡ Alta</span>
+                <span *ngIf="(point.priority === 'REGULAR' || !point.priority) && !point.critical_medication" class="tag tag--regular" (click)="cyclePriority(i)" title="Clique para alternar prioridade">📦 Regular</span>
+              </div>
+
+              <!-- Seletor de Motorista / Van Vinculada -->
+              <div class="delivery-item__order-row">
+                <div class="van-assign-group">
+                  <label class="order-label">Motorista:</label>
+                  <select 
+                    class="order-select" 
+                    [ngModel]="point.assigned_vehicle || ''"
+                    (ngModelChange)="onAssignedVehicleChange(i, $event)"
+                  >
+                    <option value="">⚡ Automático (IA equilibra)</option>
+                    <option *ngFor="let vId of getVehicleOptions()" [value]="vId">🚐 Van {{ vId }}</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="delivery-item__actions">
+              <button 
+                class="btn-icon btn-icon--fav"
+                [class.btn-icon--fav-active]="isFavorite(point.lat, point.lon)"
+                [title]="isFavorite(point.lat, point.lon) ? 'Remover dos favoritos' : 'Salvar nos favoritos'"
+                (click)="toggleFavorite(point)"
+              >
+                {{ isFavorite(point.lat, point.lon) ? '⭐' : '☆' }}
+              </button>
+              <button 
+                class="btn-icon" 
+                title="Editar dados desta parada"
+                (click)="openEditPointModal(i)"
+              >
+                ✏️
+              </button>
+              <button 
+                class="btn-icon btn-icon--danger" 
+                title="Remover parada" 
+                (click)="removeDelivery(i)"
+              >
+                🗑️
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="deliveries.length > 0" class="sidebar-footer">
+          <div class="footer-summary">
+            <span>Total: <strong>{{ deliveries.length }}</strong></span>
+            <span>🚨 Críticas: <strong>{{ getCriticalCount() }}</strong></span>
+            <span>⚡ Altas: <strong>{{ getHighCount() }}</strong></span>
+            <span *ngIf="getAssignedCount() > 0">🚐 Dedicadas: <strong>{{ getAssignedCount() }}</strong></span>
+          </div>
+
+          <!-- Controle de Número de Motoristas / Vans -->
+          <div class="driver-count-control">
+            <span class="control-label">🚐 Número de Motoristas:</span>
+            <div class="driver-stepper">
+              <button 
+                type="button"
+                class="stepper-btn" 
+                (click)="setNumVehicles(numVehicles - 1)" 
+                [disabled]="numVehicles <= 1"
+                title="Diminuir motoristas"
+              >−</button>
+              <span class="stepper-value">{{ numVehicles }}</span>
+              <button 
+                type="button"
+                class="stepper-btn" 
+                (click)="setNumVehicles(numVehicles + 1)" 
+                [disabled]="numVehicles >= 6"
+                title="Aumentar motoristas"
+              >+</button>
+            </div>
+          </div>
+
+          <button class="btn btn--primary btn--block" (click)="runOptimization()" [disabled]="isLoading()">
+            ⚡ Otimizar Estas Rotas com AG
+          </button>
+        </div>
+      </div>
+
+      <!-- MODO 2: Resultados da Otimização & Itinerário -->
+      <div *ngIf="activeSidebarTab() === 'results'" class="card sidebar-card animate-slide-up">
+        <!-- Se ainda não houver resultado gerado -->
+        <div *ngIf="!optimizationResult" class="empty-state">
+          <span class="empty-icon">⚡</span>
+          <h3>Nenhuma rota otimizada ainda</h3>
+          <p>
+            Você possui <strong>{{ deliveries.length }} paradas</strong> cadastradas no mapa. 
+            Clique no botão abaixo para calcular os trajetos viários equilibrados.
+          </p>
+          <button class="btn btn--primary" (click)="runOptimization()" [disabled]="deliveries.length === 0 || isLoading()">
+            ⚡ Otimizar Rotas Agora
+          </button>
+        </div>
+
+        <!-- Resultados e Itinerário quando a otimização conclui -->
+        <div *ngIf="optimizationResult">
+          <!-- Métricas Resumo -->
+          <div class="metrics-strip">
+            <div class="metric-card">
+              <span class="metric-card__icon">🚨</span>
+              <div class="metric-card__info">
+                <span class="metric-card__value">{{ optimizationResult.summary.urgency_makespan_minutes || 0 }} min</span>
+                <span class="metric-card__label">Todas Urgências Entregues</span>
+              </div>
+            </div>
+
+            <div class="metric-card">
+              <span class="metric-card__icon">⏱️</span>
+              <div class="metric-card__info">
+                <span class="metric-card__value">{{ getAverageTimeMinutes() }} min</span>
+                <span class="metric-card__label">Tempo Médio / Van</span>
+              </div>
+            </div>
+
+            <div class="metric-card">
+              <span class="metric-card__icon">🛣️</span>
+              <div class="metric-card__info">
+                <span class="metric-card__value">{{ getAverageDistanceKm() }} km</span>
+                <span class="metric-card__label">Distância Média / Van</span>
+              </div>
+            </div>
+
+            <div class="metric-card">
+              <span class="metric-card__icon">🚐</span>
+              <div class="metric-card__info">
+                <span class="metric-card__value">{{ optimizationResult.summary.vehicles_used }}</span>
+                <span class="metric-card__label">Vans Alocadas</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Seção Exclusiva de Itinerário com Filtro de Van no Mapa -->
+          <div class="itinerary-section">
+            <!-- Barra de Filtro de Vans no Mapa & Itinerário -->
+            <div class="vehicle-filter-bar">
+              <span class="filter-label">Filtrar no Mapa:</span>
+              <div class="filter-pills-list">
+                <button 
+                  type="button"
+                  class="vehicle-pill" 
+                  [class.active]="filteredVehicleId() === 0"
+                  (click)="filterByVehicle(0)"
+                >
+                  <span class="pill-icon">🗺️</span> Todas as Vans
+                </button>
+
+                <button 
+                  type="button"
+                  *ngFor="let route of optimizationResult.routes" 
+                  class="vehicle-pill" 
+                  [class.active]="filteredVehicleId() === route.vehicle_id"
+                  (click)="filterByVehicle(route.vehicle_id)"
+                >
+                  <span class="vehicle-color-dot" [style.background]="getVehicleColor(route.vehicle_id)"></span>
+                  Van {{ route.vehicle_id }} ({{ route.route_time_minutes }} min • {{ route.route_distance_km }} km)
+                </button>
+              </div>
+            </div>
+
+            <!-- Listagem do Itinerário Filtrado ou Completo -->
+            <div class="itinerary-cards-list">
+              <div *ngFor="let route of getVisibleRoutes()" class="route-details-card">
+                <div class="route-header-summary" [style.borderLeftColor]="getVehicleColor(route.vehicle_id)">
+                  <div class="route-header-title">
+                    <span class="vehicle-badge" [style.background]="getVehicleColor(route.vehicle_id)">
+                      🚐 Van {{ route.vehicle_id }}
+                    </span>
+                    <span class="route-quick-stats">
+                      <strong>{{ route.route_distance_km }} km</strong> • 
+                      <strong>{{ route.route_time_minutes }} min</strong> • 
+                      {{ route.stops.length }} etapas
+                    </span>
+                  </div>
+                </div>
+
+                <div class="timeline">
+                  <div *ngFor="let stop of route.stops" class="timeline-item" [class.timeline-item--critical]="stop.priority === 'CRITICAL' || stop.critical" [class.timeline-item--high]="stop.priority === 'HIGH'">
+                    <div class="timeline-badge" [style.borderColor]="getVehicleColor(route.vehicle_id)">
+                      <span *ngIf="stop.action === 'DEPARTURE'">🏥</span>
+                      <span *ngIf="stop.action === 'RETURN'">🏁</span>
+                      <span *ngIf="stop.action === 'DELIVERY' && (stop.priority === 'CRITICAL' || stop.critical)">🚨</span>
+                      <span *ngIf="stop.action === 'DELIVERY' && stop.priority === 'HIGH' && !stop.critical">⚡</span>
+                      <span *ngIf="stop.action === 'DELIVERY' && stop.priority !== 'HIGH' && !stop.critical && stop.priority !== 'CRITICAL'">📦</span>
+                    </div>
+                    <div class="timeline-content">
+                      <div class="timeline-title">
+                        {{ stop.name }}
+                        <span *ngIf="stop.priority === 'CRITICAL' || stop.critical" class="tag tag--critical">🚨 Urgência Crítica</span>
+                        <span *ngIf="stop.priority === 'HIGH' && !stop.critical" class="tag tag--high">⚡ Alta Prioridade</span>
+                        <span *ngIf="stop.action === 'DEPARTURE'" class="tag tag--hub">Base Central de Saída</span>
+                        <span *ngIf="stop.action === 'RETURN'" class="tag tag--hub">Retorno à Base Central</span>
+                        <span *ngIf="stop.arrival_time_minutes !== undefined && stop.action === 'DELIVERY'" class="tag tag--time">⏱️ Previsão de chegada: {{ stop.arrival_time_minutes }} min</span>
+                      </div>
+                      <div class="timeline-sub" *ngIf="stop.action === 'DELIVERY'">
+                        Parada #{{ stop.step }} da Van {{ route.vehicle_id }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL OBRIGATÓRIO DE CONFIGURAÇÃO DE PONTO (Nome, Urgência, Base e Posição Fixa) -->
+  <div 
+    *ngIf="showPointModal()" 
+    class="modal-backdrop" 
+    (mousedown)="onBackdropMouseDown($event)"
+    (mouseup)="onBackdropMouseUp($event)"
+  >
+    <div 
+      class="modal-dialog" 
+      (mousedown)="$event.stopPropagation()"
+      (mouseup)="$event.stopPropagation()"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="modal-header">
+        <h3>
+          {{ editingPointIndex === -1 ? '🏢 Editar Base Central da Frota' : (editingPointIndex !== null ? '✏️ Editar Parada Hospitalar' : '📍 Configurar Ponto no Mapa') }}
+        </h3>
+        <button class="modal-close" (click)="closePointModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- 1. Seletor de Função do Ponto: Parada vs Base Central (sem descrições poluídas) -->
+        <div class="form-group" *ngIf="editingPointIndex === null">
+          <label>Função deste Ponto:</label>
+          <div class="point-type-selector">
+            <div 
+              class="type-card" 
+              [class.active]="modalPointType === 'delivery'"
+              (click)="modalPointType = 'delivery'"
+            >
+              <span class="type-icon">📍</span>
+              <span class="type-title">Parada de Entrega</span>
+            </div>
+
+            <div 
+              class="type-card type-card--depot" 
+              [class.active]="modalPointType === 'depot'"
+              (click)="modalPointType = 'depot'"
+            >
+              <span class="type-icon">🏢</span>
+              <span class="type-title">Base Central da Frota</span>
+              <span class="info-tooltip" (click)="$event.stopPropagation()">
+                <span class="info-icon">i</span>
+                <span class="tooltip-bubble">Ao salvar este ponto como Base Central, ele será gravado no seu navegador e carregado por padrão sempre que você acessar a aplicação.</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Nome do Ponto / Base -->
+        <div class="form-group">
+          <label>{{ modalPointType === 'depot' ? 'Nome da Base Central:' : 'Nome do Hospital, UPA ou Local:' }}</label>
+          <input 
+            type="text" 
+            [(ngModel)]="modalPointName" 
+            [placeholder]="modalPointType === 'depot' ? 'Ex: Base Central Salvador, HGE Brotas, Almoxarifado Central...' : 'Ex: Hospital da Bahia, UPA Canela, Hospital São Rafael...'"
+            autofocus
+            class="modal-input"
+          />
+        </div>
+
+        <!-- 3. CAMPOS EXCLUSIVOS DE PARADA DE ENTREGA -->
+        <ng-container *ngIf="modalPointType === 'delivery'">
+          <!-- Grau de Urgência Clínica (3 Níveis) -->
+          <div class="form-group">
+            <label class="label-with-info">
+              <span>Grau de Urgência Clínica:</span>
+              <span class="info-tooltip">
+                <span class="info-icon">i</span>
+                <span class="tooltip-bubble">As urgências são distribuídas de forma equilibrada e otimizada entre os motoristas disponíveis pela IA.</span>
+              </span>
+            </label>
+            <div class="urgency-selector urgency-selector--three">
+              <div 
+                class="urgency-card urgency-card--regular" 
+                [class.active]="modalPointPriority === 'REGULAR'" 
+                (click)="setModalPriority('REGULAR')"
+              >
+                <span class="urgency-icon">📦</span>
+                <span class="urgency-title">Regular</span>
+                <span class="urgency-desc">Rotina / Insumos</span>
+              </div>
+
+              <div 
+                class="urgency-card urgency-card--high" 
+                [class.active]="modalPointPriority === 'HIGH'" 
+                (click)="setModalPriority('HIGH')"
+              >
+                <span class="urgency-icon">⚡</span>
+                <span class="urgency-title">Alta Prioridade</span>
+                <span class="urgency-desc">UTI / Antibióticos</span>
+              </div>
+
+              <div 
+                class="urgency-card urgency-card--critical" 
+                [class.active]="modalPointPriority === 'CRITICAL'" 
+                (click)="setModalPriority('CRITICAL')"
+              >
+                <span class="urgency-icon">🚨</span>
+                <span class="urgency-title">Urgência Crítica</span>
+                <span class="urgency-desc">Frio / Choque / Sangue</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Alocação de Motorista / Van Específica -->
+          <div class="form-group">
+            <label class="label-with-info">
+              <span>Motorista / Van Designada:</span>
+              <span class="info-tooltip">
+                <span class="info-icon">i</span>
+                <span class="tooltip-bubble">Por padrão, a IA divide as urgências de forma estritamente balanceada no menor tempo possível. Se necessário, vincule esta entrega estritamente a uma Van específica.</span>
+              </span>
+            </label>
+            <select class="form-select" [(ngModel)]="modalPointAssignedVehicle">
+              <option [ngValue]="null">⚡ Automático (IA equilibra entre os motoristas)</option>
+              <option *ngFor="let vId of getVehicleOptions()" [ngValue]="vId">🚐 Van {{ vId }} (Motorista {{ vId }})</option>
+            </select>
+          </div>
+
+          <!-- Salvar nos Favoritos (somente para paradas) -->
+          <div class="form-group">
+            <div class="favorite-toggle-card" (click)="modalPointSaveFavorite = !modalPointSaveFavorite">
+              <span class="fav-icon">{{ modalPointSaveFavorite ? '⭐' : '☆' }}</span>
+              <div class="fav-details">
+                <strong>Salvar nos Favoritos</strong>
+                <small>Ficará disponível no topo da busca para acesso rápido</small>
+              </div>
+              <div class="toggle-pill" [class.toggle-pill--active]="modalPointSaveFavorite">
+                <span *ngIf="modalPointSaveFavorite">Salvo ⭐</span>
+                <span *ngIf="!modalPointSaveFavorite">Não</span>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn--outline" (click)="closePointModal()">Cancelar</button>
+        <button class="btn btn--primary" (click)="confirmSavePoint()">
+          <span *ngIf="modalPointType === 'depot'">🏢 Salvar como Base Central</span>
+          <span *ngIf="modalPointType === 'delivery'">{{ editingPointIndex !== null ? '💾 Salvar Alterações' : '➕ Adicionar ao Mapa' }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE CONFIGURAÇÃO DE PARÂMETROS DO AG & FROTA -->
+  <div 
+    *ngIf="showConfigModal()" 
+    class="modal-backdrop" 
+    (mousedown)="onConfigBackdropMouseDown($event)"
+    (mouseup)="onConfigBackdropMouseUp($event)"
+  >
+    <div 
+      class="modal-dialog modal-dialog--config" 
+      (mousedown)="$event.stopPropagation()"
+      (mouseup)="$event.stopPropagation()"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="modal-header">
+        <h3>
+          <span>⚙️</span> Parâmetros do Algoritmo Genético & Frota
+        </h3>
+        <button class="modal-close" (click)="closeConfigModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="config-modal-grid">
+          <!-- 1. Número de Motoristas / Vans -->
+          <div class="config-group-card">
+            <div class="config-label-row">
+              <label>Número de Motoristas / Vans:</label>
+              <strong class="highlight-val">{{ numVehicles }} vans</strong>
+            </div>
+            <input type="range" [(ngModel)]="numVehicles" min="1" max="6" step="1" />
+            <span class="slider-caption">Quantidade de motoristas para dividir as entregas de forma equilibrada.</span>
+          </div>
+
+          <!-- 2. População AG -->
+          <div class="config-group-card">
+            <div class="config-label-row">
+              <label>Tamanho da População (AG):</label>
+              <strong class="highlight-val">{{ populationSize }} indivíduos</strong>
+            </div>
+            <input type="range" [(ngModel)]="populationSize" min="10" max="100" step="10" />
+            <span class="slider-caption">Indivíduos avaliados por época no pool genético.</span>
+          </div>
+
+          <!-- 3. Gerações -->
+          <div class="config-group-card">
+            <div class="config-label-row">
+              <label>Gerações:</label>
+              <strong class="highlight-val">{{ generations }} épocas</strong>
+            </div>
+            <input type="range" [(ngModel)]="generations" min="10" max="60" step="5" />
+            <span class="slider-caption">Ciclos de crossover e mutação para convergência da rota.</span>
+          </div>
+
+          <!-- 4. Taxa de Mutação -->
+          <div class="config-group-card">
+            <div class="config-label-row">
+              <label>Taxa de Mutação (2-opt/Swap):</label>
+              <strong class="highlight-val">{{ (mutationRate * 100).toFixed(0) }}%</strong>
+            </div>
+            <input type="range" [(ngModel)]="mutationRate" min="0.05" max="0.40" step="0.05" />
+            <span class="slider-caption">Probabilidade de mutação para evitar mínimos locais.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn--outline" (click)="resetConfigDefaults()">🔄 Restaurar Padrões</button>
+        <button class="btn btn--primary" (click)="closeConfigModal()">Concluir e Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>

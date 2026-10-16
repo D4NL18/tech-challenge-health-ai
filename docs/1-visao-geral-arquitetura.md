@@ -64,5 +64,14 @@ Essa abordagem foca 100% no algoritmo de Inteligência Artificial, reduzindo eno
 
 ---
 
+## 1.6. Expansão da Fase 2: Algoritmos Genéticos, Mapas OSRM e LLMs
+A Fase 2 expande a plataforma para cobrir os dois desafios do Tech Challenge:
+1. **Otimização de Hiperparâmetros via Algoritmos Genéticos (Projeto 1):** Substituição do GridSearch por busca evolutiva focada em sensibilidade clínica ($F_2$-Score/Recall) e geração de laudos médicos explicativos com LLM.
+2. **Otimização de Rotas Hospitalares (Projeto 2):** Roteamento de veículos (VRP) para entrega de medicamentos críticos e insumos sobre a malha de mapas reais do **OSRM / OpenStreetMap (Custo Zero de API)**.
+   - **Arquitetura de Duas Camadas para Mapas:** A matriz $N \times N$ de tempos e distâncias é obtida em 1 única chamada batch e cacheada localmente em SQLite (`geo_cache.db`). O loop genético roda 100% em RAM em frações de segundo sem disparar requisições externas de rede, garantindo custo zero e ausência de risco de exaustão de cotas.
+
+---
+
 **Próximo Passo:**
-Para entender profundamente como a IA toma a decisão por trás dos panos, leia o documento [2-inteligencia-artificial.md](./2-inteligencia-artificial.md).
+Para entender profundamente como a IA toma a decisão por trás dos panos e como os Algoritmos Genéticos operam, leia o documento [2-inteligencia-artificial.md](./2-inteligencia-artificial.md).
+

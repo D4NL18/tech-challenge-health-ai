@@ -48,5 +48,40 @@ Quando o FastAPI inicializa no Cloud Run, é dessa pasta que ele lê os modelos 
 
 ---
 
+## 5.4. Calibração Hiperparamétrica por Algoritmos Genéticos (Fase 2)
+**Arquivo de Referência:** `backend/training_scripts/train_genetic_hyperopt.py`
+
+Na Fase 2, substituímos o GridSearch tradicional (que testa parâmetros em grade rígida e cara) por um **Algoritmo Genético Bio-Inspirado** (`app/genetic/hyperopt/optimizer.py`):
+- **Cromossomo:** Codifica parâmetros de árvores de decisão e florestas aleatórias (`n_estimators`, `max_depth`, `min_samples_split`, `min_samples_leaf`, `max_features`, `class_weight`, `criterion`).
+- **Operadores Genéticos:** Seleção por Torneio com Elitismo de 10%, Crossover Aritmético/Uniforme e Mutação Gaussiana/Aleatória.
+- **Validação Cruzada Segura:** K-Fold Stratified ($k=5$) em cada indivíduo da população, eliminando qualquer risco de Data Leakage entre treino e validação.
+
+---
+
+## 5.5. Função Fitness Clínica ($F_2$-Score)
+Em diagnósticos médicos (Câncer de Mama e SOP), um **Falso Negativo** (não diagnosticar um paciente doente) é imensamente mais prejudicial que um Falso Positivo.
+Por isso, a função fitness foi desenhada como:
+
+$$\text{Fitness} = 0.70 \times F_2 + 0.20 \times \text{Recall} + 0.10 \times \text{Accuracy} - \text{Penalidade de Complexidade}$$
+
+Onde $F_2$-score confere peso dobrado à revocação ($Recall$) sobre a precisão ($Precision$).
+
+---
+
+## 5.6. Resultados dos 3 Experimentos Sistemáticos
+Executamos 3 experimentos com variações estruturadas de população, gerações e mutação:
+
+| Métrica | Baseline (Fase 1 GridSearch) | Exp 1 (Exploratório) | Exp 2 (Equilibrado) | Exp 3 (Convergência) |
+| :--- | :--- | :--- | :--- | :--- |
+| **População / Gerações** | Grade Fixa | 20 / 10 | 40 / 20 | 80 / 30 |
+| **$F_2$-Score** | 0.9135 | 0.9527 | **0.9566 (+4.7%)** | 0.9566 |
+| **Recall (Maligno)** | 0.9048 | 0.9528 | **0.9576 (+5.8%)** | 0.9576 |
+| **Acurácia** | 0.9386 | 0.9631 | **0.9666 (+3.0%)** | 0.9666 |
+| **Tempo de Execução** | ~18s | 8.2s | 30.7s | 99.4s |
+
+O modelo vencedor do Experimento 2 foi serializado em `backend/weights/modelo_random_forest_cancer_genetic.pkl` e as estatísticas detalhadas gravadas em `backend/weights/genetic_experiments_results.json`.
+
+---
+
 **Próximo Passo:**
 Pronto para testar o sistema? Acesse o último módulo para pegar dados de teste criados sinteticamente para você em [6-exemplos-testes.md](./6-exemplos-testes.md).

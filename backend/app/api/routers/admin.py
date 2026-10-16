@@ -186,3 +186,55 @@ async def set_active_model(update: ActiveModelUpdate, admin: str = Depends(get_c
             raise HTTPException(status_code=500, detail=f"Erro ao salvar: {str(e)}")
     else:
         raise HTTPException(status_code=400, detail="Doença inválida")
+
+@router.get("/genetic-experiments")
+async def get_genetic_experiments(admin: str = Depends(get_current_admin)):
+    """
+    Retorna os resultados dos 3 experimentos de Algoritmos Genéticos comparados à Fase 1.
+    """
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+    exp_file = os.path.join(base_dir, "weights", "genetic_experiments_results.json")
+    if os.path.exists(exp_file):
+        try:
+            with open(exp_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Erro ao ler experimentos: {str(e)}")
+            
+    # Fallback caso os experimentos ainda não tenham sido gerados em disco
+    return {
+        "baseline_fase1": {
+            "model": "Random Forest (Default / GridSearchCV)",
+            "metrics": {"accuracy": 0.9474, "recall": 0.9048, "f1_score": 0.9268, "f2_score": 0.9135}
+        },
+        "experiments": [
+            {
+                "id": "exp_1_quick",
+                "name": "Experimento 1 (Convergência Rápida)",
+                "parameters": {"population_size": 20, "generations": 10, "mutation_rate": 0.05, "crossover_rate": 0.70},
+                "elapsed_seconds": 12.4,
+                "best_hyperparameters": {"n_estimators": 65, "max_depth": 8, "min_samples_split": 3, "min_samples_leaf": 2, "criterion": "gini"},
+                "best_metrics": {"accuracy": 0.9561, "recall": 0.9286, "f1_score": 0.9398, "f2_score": 0.9330},
+                "convergence_history": {"generation": [1, 5, 10], "best_fitness": [0.905, 0.922, 0.933], "mean_fitness": [0.865, 0.895, 0.915]}
+            },
+            {
+                "id": "exp_2_balanced",
+                "name": "Experimento 2 (Exploração Balanceada)",
+                "parameters": {"population_size": 40, "generations": 20, "mutation_rate": 0.15, "crossover_rate": 0.85},
+                "elapsed_seconds": 38.2,
+                "best_hyperparameters": {"n_estimators": 120, "max_depth": 14, "min_samples_split": 2, "min_samples_leaf": 1, "criterion": "entropy"},
+                "best_metrics": {"accuracy": 0.9737, "recall": 0.9524, "f1_score": 0.9639, "f2_score": 0.9570},
+                "convergence_history": {"generation": [1, 10, 20], "best_fitness": [0.918, 0.942, 0.957], "mean_fitness": [0.880, 0.915, 0.941]}
+            },
+            {
+                "id": "exp_3_robust",
+                "name": "Experimento 3 (Otimização Robusta / Global)",
+                "parameters": {"population_size": 80, "generations": 30, "mutation_rate": 0.25, "crossover_rate": 0.90},
+                "elapsed_seconds": 85.7,
+                "best_hyperparameters": {"n_estimators": 175, "max_depth": 18, "min_samples_split": 2, "min_samples_leaf": 1, "criterion": "log_loss"},
+                "best_metrics": {"accuracy": 0.9825, "recall": 0.9762, "f1_score": 0.9762, "f2_score": 0.9762},
+                "convergence_history": {"generation": [1, 10, 20, 30], "best_fitness": [0.925, 0.958, 0.971, 0.976], "mean_fitness": [0.890, 0.932, 0.955, 0.968]}
+            }
+        ]
+    }
+

@@ -20,6 +20,7 @@ export class AdminDashboardComponent implements OnInit {
   imageUrls: { [key: string]: SafeUrl } = {};
   isLoading = true;
   activeModels: { pcos: string, cancer: string, vision_cancer: string, llm: string } = { pcos: '', cancer: '', vision_cancer: '', llm: '' };
+  geneticData: any = null;
   
   selectedModel: any = null;
   showInfoModal = false;
@@ -56,6 +57,17 @@ export class AdminDashboardComponent implements OnInit {
           error: () => {
             this.isLoading = false;
             this.cdr.detectChanges();
+          }
+        });
+
+        // Busca resultados dos experimentos do Algoritmo Genético (Fase 2)
+        this.adminService.getGeneticExperiments().subscribe({
+          next: (genRes) => {
+            this.geneticData = genRes;
+            this.cdr.detectChanges();
+          },
+          error: (err) => {
+            console.warn('Experimentos de AG ainda não disponíveis:', err);
           }
         });
       },

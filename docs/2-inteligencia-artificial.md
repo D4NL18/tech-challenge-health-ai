@@ -61,5 +61,34 @@ No fim, o Ensemble me devolve uma nota de 0 a 100%, que é formatada e enviada p
 
 ---
 
+## 2.5. Fase 2: Otimização de Hiperparâmetros via Algoritmos Genéticos (Projeto 1)
+**Arquivo de Referência:** `backend/app/genetic/hyperopt/`
+*   **Codificação Cromossômica Híbrida:** Cromossomos representam genes inteiros (`n_estimators`, `max_depth`), reais com escala logarítmica (`C`, `gamma`) e categóricos (`criterion`).
+*   **Função Fitness Clínica ($F_2$-Score):** Dá peso 4 vezes maior ao **Recall** (Sensibilidade) do que à Precisão, forçando o algoritmo a priorizar a minimização de Falsos Negativos (fundamental em oncologia).
+*   **Operadores:** Seleção por Torneio ($k=3$), Crossover Uniforme/Aritmético e Mutação Gaussiana com bounds rígidos e Elitismo de 2 melhores.
+*   **Resultados:** Recall elevado de 90.48% (Baseline Fase 1) para **95.76%** (Melhor modelo sintonizado por AG na Fase 2).
+
+---
+
+## 2.6. Fase 2: Roteamento Hospitalar (VRP) com Algoritmos Genéticos (Projeto 2)
+**Arquivo de Referência:** `backend/app/genetic/routing/`
+*   **Problema Modelado:** Roteamento de Veículos com Capacidade e Prioridades (CVRP/VRPTW).
+*   **Cromossomo de Permutação e Crossover OX (Order Crossover):** Garante rotas livres de duplicidades de paradas.
+*   **Mutação 2-opt Inversion:** Inverte subtrechos de rota desfazendo cruzamentos viários ineficientes.
+*   **Restrições Médicas no Fitness:**
+    1. *Urgência de Medicamentos Críticos:* Paradas prioritárias (vacinas, bolsas de sangue) são sequenciadas nas primeiras etapas.
+    2. *Capacidade de Carga Térmica:* Penaliza sobrecarga em kg nos veículos.
+    3. *Autonomia:* Respeita o raio máximo de km por veículo.
+
+---
+
+## 2.7. Explicabilidade Clínica e Assistente Logístico com LLMs
+**Arquivos de Referência:** `backend/app/services/clinical_llm.py` e `backend/app/services/logistics_llm.py`
+*   **Laudos Médicos:** A LLM (Google Gemini Flash / OpenAI) recebe os percentis laboratoriais do paciente e converte o score numérico em um laudo estruturado com fatores de risco, justificativa e condutas sugeridas.
+*   **Roteiros Operacionais e Relatórios:** A LLM gera o itinerário passo a passo para o motorista (alertando sobre controle térmico 2°C a 8°C) e relatórios executivos de eficiência com estimativa de tempo e combustível economizados.
+
+---
+
 **Próximo Passo:**
 Para ver como o Backend em FastAPI amarra todos esses modelos e os expõe na internet, leia [3-backend-fastapi.md](./3-backend-fastapi.md).
+

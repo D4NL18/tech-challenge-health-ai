@@ -75,5 +75,38 @@ Assim, numa única requisição de rede, eu envio tanto os dados tabulares quant
 
 ---
 
+## 3.5. Evolução Fase 2: Roteador de Rotas Médicas (`routes_router.py`)
+**Arquivo de Referência:** `backend/app/api/routers/routes_router.py`
+
+Na Fase 2, adicionamos uma esteira completa de otimização logística médica através de endpoints assíncronos:
+1. `POST /api/v1/routes/optimize`: Recebe lista de pontos de atendimento (depósito/posto de saúde e pacientes com prioridade clínica e janelas de atendimento), executa o algoritmo genético VRP sobre matriz OSRM real e devolve trajeto ótimo sequenciado com telemetria detalhada (distância em km, tempo em min, polyline codificada e waypoints ordenados).
+2. `POST /api/v1/routes/assistant-chat`: Chat assistente especializado em logística de saúde para orientar a equipe médica em campo.
+3. `POST /api/v1/routes/generate-report`: Gera relatório executivo para o comitê hospitalar com análise de custos, mitigação de riscos e impacto em vidas.
+
+Adicionalmente, expandimos `anamnesis.py` com:
+- `POST /api/v1/anamnesis/explain-diagnosis`: Geração de laudo médico explicativo detalhado via LLM (Gemini / OpenAI com fallback heurístico robusto).
+- `GET /api/v1/anamnesis/admin/genetic-experiments`: Histórico comparativo dos 3 experimentos de calibração hiperparamétrica por Algoritmo Genético.
+
+---
+
+## 3.6. Camada Geo & Provedor OSRM com Cache SQLite Local
+**Arquivos de Referência:** `backend/app/services/geo/osrm_provider.py` e `backend/app/services/geo/geo_cache.py`
+
+Para evitar riscos de estouro de cota e custos com APIs pagas de mapas (como Google Maps), adotamos o **OSRM (Open Source Routing Machine) sobre OpenStreetMap**:
+- **Consumo Zero de Cotas Pagas:** API pública aberta e gratuita com fallback automático para Geometria Haversine caso haja indisponibilidade de rede.
+- **Cache Local SQLite (`backend/data/geo_cache.db`):** Armazena matrizes $N \times N$ de tempo/distância por chave hash das coordenadas geográficas. Quando a mesma região ou rota é recalculada, a consulta à internet é 0, respondendo em menos de 1ms.
+- **Arquitetura em Duas Etapas:** O Algoritmo Genético roda centenas de milhares de iterações em memória RAM consumindo a matriz cached em microssegundos. Apenas a rota vencedora final faz 1 chamada de `/route/v1/driving` para obter a polyline de visualização.
+
+---
+
+## 3.7. LLM Clínico e de Logística com Resiliência Heurística
+**Arquivos de Referência:** `backend/app/services/clinical_llm.py` e `backend/app/services/logistics_llm.py`
+
+Integração de Modelos de Linguagem para auxílio à decisão médica e operacional:
+- Suporte dinâmico a provedores modernos (Google Gemini `gemini-1.5-flash` / OpenAI `gpt-4o-mini`).
+- **Resiliência Total:** Caso nenhuma API Key esteja configurada no ambiente, o sistema não quebra: ele aciona automaticamente geradores heurísticos especialistas que analisam regras clínicas (fatores de risco, exames laboratoriais, prioridades SUS) e diretrizes de rota, entregando laudos e respostas estruturadas de alta fidelidade técnica.
+
+---
+
 **Próximo Passo:**
 Para entender como estruturei o Frontend que consome essa API, acesse [4-frontend-angular.md](./4-frontend-angular.md).

@@ -10,6 +10,14 @@
   transition: var(--transition);
   box-shadow: 0 4px 20px rgba(0,0,0,0.03);
 
+  .header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
   .logo {
     display: flex;
     align-items: center;
@@ -28,9 +36,44 @@
       letter-spacing: -0.03em;
     }
   }
+
+  .app-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+
+    .nav-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-muted, #64748b);
+      text-decoration: none;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+
+      &:hover {
+        color: var(--primary, #FF4B72);
+        background: rgba(255, 75, 114, 0.06);
+      }
+
+      &.active {
+        color: #fff;
+        background: linear-gradient(135deg, #FF4B72 0%, #7B61FF 100%);
+        box-shadow: 0 4px 14px rgba(123, 97, 255, 0.3);
+      }
+
+      &--highlight {
+        font-weight: 600;
+      }
+    }
+  }
 }
 
 .app-main {
   min-height: calc(100vh - 80px);
-  padding-bottom: 3rem;
+  padding-bottom: 0.5rem;
 }

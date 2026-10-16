@@ -83,5 +83,54 @@ Você pode colar esses valores no Frontend do Angular e rodar o diagnóstico. Le
 - **LH (mIU/mL)**: 3.10
 - **TSH (mIU/L)**: 1.80
 - **Progesterona (PRG)**: 0.95
-- **Nº de Folículos (Esq)**: 6
-- **Nº de Folículos (Dir)**: 5
+---
+
+## 6.3. Cenário de Teste: Roteamento Médico em São Paulo (Fase 2)
+
+Para testar o módulo de Roteamento Médico (`/routes`), você pode usar o botão "Carregar Cenário Demo (São Paulo)" ou enviar os seguintes pontos via API:
+
+### Depósito / Posto Central de Distribuição:
+- **Nome**: UBS Vila Mariana (Base Central)
+- **Coordenadas**: `[-23.5895, -46.6348]`
+
+### Pacientes para Visita Domiciliar:
+1. **Dona Lurdes (Oncologia / Curativo Pós-Op)**:
+   - Coordenadas: `[-23.6498, -46.7032]` (Santo Amaro)
+   - Prioridade: Alta (Peso 10) | Janela: 08:00 - 10:30
+2. **Sr. João (Monitoramento Cardíaco)**:
+   - Coordenadas: `[-23.6821, -46.6743]` (Cidade Dutra)
+   - Prioridade: Média (Peso 5) | Janela: 09:00 - 12:00
+3. **Dona Maria (Exames Coleta Sangue)**:
+   - Coordenadas: `[-23.5431, -46.5312]` (Tatuapé)
+   - Prioridade: Baixa (Peso 2) | Janela: 10:00 - 14:00
+4. **Criança Enzo (Antibioticoterapia EV)**:
+   - Coordenadas: `[-23.5182, -46.6021]` (Vila Maria)
+   - Prioridade: Alta (Peso 9) | Janela: 08:30 - 11:00
+5. **Sr. Benedito (Sutura Diabética)**:
+   - Coordenadas: `[-23.5612, -46.6558]` (Bela Vista)
+   - Prioridade: Urgência Máxima (Peso 12) | Janela: 07:30 - 09:30
+6. **Dona Francisca (Fisioterapia Respiratória)**:
+   - Coordenadas: `[-23.6015, -46.6912]` (Brooklin)
+   - Prioridade: Média (Peso 4) | Janela: 13:00 - 16:00
+
+O Algoritmo Genético prioriza o atendimento a Dona Lurdes, Criança Enzo e Sr. Benedito nas primeiras horas e minimiza a distância viária real consumindo o grafo do OSRM.
+
+---
+
+## 6.4. Bateria de Testes Automatizados (Pytest)
+
+O projeto conta com uma suíte de testes automatizados com cobertura completa para os módulos da Fase 1 e Fase 2.
+
+### Arquivos de Teste:
+- `backend/tests/test_genetic_hyperopt.py`: Validação de mutação, crossover e convergência do Algoritmo Genético de Hiperparâmetros.
+- `backend/tests/test_vrp_routing.py`: Validação de operadores VRP (Order Crossover OX, Swap/Inversion Mutation) e penalidades de prioridade/janela.
+- `backend/tests/test_osrm_cache.py`: Validação do SQLite Geo Cache e resiliência com fallback Haversine.
+- `backend/tests/test_routes_api.py`: Teste de integração assíncrono dos endpoints `/api/v1/routes/optimize`, `/assistant-chat` e `/generate-report`.
+
+### Como Executar a Suíte:
+```bash
+cd backend
+venv\Scripts\python -m pytest tests/ -v
+```
+**Resultado Homologado:** 11 testes aprovados (100% de sucesso).
+

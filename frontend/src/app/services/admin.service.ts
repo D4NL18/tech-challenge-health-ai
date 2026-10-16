@@ -26,4 +26,8 @@ export class AdminService {
   setActiveModel(disease: string, model_name: string): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/active-models`, { disease, model_name });
   }
+
+  getGeneticExperiments(): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/genetic-experiments`);
+  }
 }

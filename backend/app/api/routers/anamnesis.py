@@ -74,3 +74,30 @@ async def analyze_anamnesis(
     # Retorna os resultados formatados no schema DiagnosticResult, garantindo que o Frontend
     # receba exatamente os campos que ele espera.
     return DiagnosticResult(**result_dict)
+
+
+from app.services.clinical_llm import clinical_llm_service
+from pydantic import BaseModel, Field
+from typing import Dict, Any, Optional
+
+class ExplainDiagnosisPayload(BaseModel):
+    disease: str
+    patient_name: Optional[str] = None
+    patient_age: Optional[int] = None
+    confidence_score: float
+    tabular_data: Dict[str, Any] = Field(default_factory=dict)
+
+@router.post("/explain-diagnosis")
+def explain_diagnosis(payload: ExplainDiagnosisPayload):
+    """
+    Gera laudo explicativo clínico via LLM com base nos dados laboratoriais e probabilidade calculada.
+    """
+    report = clinical_llm_service.generate_clinical_explanation(
+        disease=payload.disease,
+        patient_name=payload.patient_name or "Paciente",
+        patient_age=payload.patient_age,
+        confidence_score=payload.confidence_score,
+        tabular_data=payload.tabular_data
+    )
+    return {"success": True, "clinical_report": report}
+

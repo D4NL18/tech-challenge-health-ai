@@ -52,7 +52,50 @@
           <div class="icon-pulse">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
           </div>
-          <p class="summary-text"><strong>Atenção Recomendada:</strong> A IA indica prioridade alta de atendimento e sugere necessidade de biópsia para confirmação diagnóstica. Encaminhamento mastológico com urgência recomendado.</p>
+          <div class="summary-text-box">
+            <p class="summary-text"><strong>Atenção Recomendada:</strong> A IA indica prioridade alta de atendimento e sugere necessidade de biópsia para confirmação diagnóstica. Encaminhamento mastológico com urgência recomendado.</p>
+            <div class="llm-action" style="margin-top: 1rem;">
+              <button class="btn-llm" (click)="generateClinicalReport()" [disabled]="isGeneratingLLM()">
+                <span *ngIf="!isGeneratingLLM()">✨ Gerar Laudo Médico Explicativo (LLM - Fase 2)</span>
+                <span *ngIf="isGeneratingLLM()">⏳ Interpretando Biomarcadores...</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </app-card>
+    </div>
+
+    <!-- Laudo Explicativo Clínico da LLM (Projeto 1) -->
+    <div *ngIf="clinicalReport()" class="animate-slide-up full-span" style="margin-top: 1rem;">
+      <app-card title="Laudo Clínico Explicativo (Interpretação por LLM)" subtitle="Síntese acionável para o médico patologista e assistente">
+        <div class="clinical-report-body" style="padding: 0.5rem 0;">
+          <div class="report-section" style="margin-bottom: 1.25rem;">
+            <h4 style="color: #7B61FF; margin-bottom: 0.25rem;">📋 Resumo do Caso</h4>
+            <p style="color: #334155; line-height: 1.6;">{{ clinicalReport().summary }}</p>
+          </div>
+
+          <div class="report-section" style="margin-bottom: 1.25rem;">
+            <h4 style="color: #E11D48; margin-bottom: 0.5rem;">🚨 Principais Fatores de Risco Determinantes</h4>
+            <ul style="margin: 0; padding-left: 1.25rem; color: #475569; line-height: 1.6;">
+              <li *ngFor="let factor of clinicalReport().key_risk_factors">{{ factor }}</li>
+            </ul>
+          </div>
+
+          <div class="report-section" style="margin-bottom: 1.25rem;">
+            <h4 style="color: #0284C7; margin-bottom: 0.25rem;">🔍 Justificativa e Raciocínio Clínico</h4>
+            <p style="color: #334155; line-height: 1.6;">{{ clinicalReport().explanation }}</p>
+          </div>
+
+          <div class="report-section" style="margin-bottom: 1.25rem;">
+            <h4 style="color: #059669; margin-bottom: 0.5rem;">🩺 Recomendações e Condutas Sugeridas</h4>
+            <ul style="margin: 0; padding-left: 1.25rem; color: #475569; line-height: 1.6;">
+              <li *ngFor="let rec of clinicalReport().recommendations">{{ rec }}</li>
+            </ul>
+          </div>
+
+          <div class="ethical-alert" style="background: #FFFBEB; border: 1px solid #FDE68A; padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.8rem; color: #92400E; margin-top: 1rem;">
+            ⚖️ {{ clinicalReport().ethical_disclaimer }}
+          </div>
         </div>
       </app-card>
     </div>

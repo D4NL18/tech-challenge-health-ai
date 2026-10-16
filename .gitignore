@@ -23,3 +23,6 @@ backend/datasets/
 # GCP Keys
 gcp_key.json
 *.zip
+
+.agents/
+GEMINI.md
