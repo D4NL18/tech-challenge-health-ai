@@ -1,6 +1,6 @@
 # 2. Motor de Inteligência Artificial (Deep Dive)
 
-*Read this in other languages: [English](../docs_en/2-inteligencia-artificial.md) | [Português](2-inteligencia-artificial.md)*
+*Read this in other languages: [English](../docs_en/2-artificial-intelligence.md) | [Português](2-inteligencia-artificial.md)*
 
 Neste documento, explico em detalhes como estruturei o "Cérebro" da plataforma. A medicina é complexa, e confiar em um único tipo de dado (apenas texto, ou apenas imagem) é perigoso. 
 
@@ -22,14 +22,15 @@ Para esse tipo de dado numérico e categórico, redes neurais profundas costumam
 ---
 
 ## 2.2. O Processamento de Texto (Processamento de Linguagem Natural - NLP)
-**Arquivo de Referência:** `backend/app/ml/text.py`
+**Arquivos de Referência:** `backend/app/ml/text.py`, `backend/knowledge_base/query_rag.py` e `backend/app/services/llm_governance.py`
 
-Perguntas fechadas não conseguem capturar nuances como "sinto uma pontada na cabeça que irradia para o pescoço quando deito". Para isso, abri um campo de "Sintomas Extras" para o paciente digitar texto livre.
+Perguntas fechadas não conseguem capturar nuances como "sinto uma pontada na cabeça que irradia para o pescoço quando deito". Para isso, já na Fase 1 foi adiantado um campo de "Sintomas Extras" com RAG em ChromaDB (`all-MiniLM-L6-v2`), que foi aprimorado na Fase 2 com governança avançada de LLMs:
 
-*   **Modelos de Linguagem Grande (LLMs):** Para extrair significado do texto, eu envio a string para LLMs comerciais via API.
-*   **Cadeia de Fallback (Alta Disponibilidade):** APIs de IA podem cair ou demorar. Implementei uma técnica chamada *Graceful Degradation* (Degradação Graciosa). O sistema tenta usar o Google Gemini 3.6; se falhar, cai para o Gemini 3.5; se a API do Google inteira estiver fora do ar, ele muda automaticamente para a OpenAI (GPT).
-*   **Segurança (Prompt Injection):** Para impedir que usuários mal intencionados "hipnotizem" a IA (ex: pedindo receitas de drogas), eu izolo a instrução do sistema e o texto do usuário usando delimitadores rígidos (```).
-*   **JSON Forçado:** Faço Engenharia de Prompt exigindo que a IA retorne não um texto falado, mas um objeto JSON estrito com uma pontuação de 0.0 a 1.0, para que eu possa decodificar no Python.
+*   **Prompts em Inglês com Saída em Português (Tokenomics):** Os prompts de sistema (`SYSTEM_PROMPT`) são redigidos em inglês técnico conciso (economizando ~25-30% de tokens no tokenizador BPE/SentencePiece e elevando a aderência às instruções), mas exigem que toda resposta ou justificativa final seja gerada em **Português do Brasil (`pt-BR`)**.
+*   **Cadeia de Fallback Multi-Nível e Cross-Provider (Alta Disponibilidade):** O sistema tenta usar o **Google Gemini 2.5 Flash**; se falhar, cai para o **Gemini 2.0 Flash**; se a API do Google inteira estiver indisponível, alterna automaticamente para a **OpenAI (`gpt-4o-mini`)** (ou na ordem inversa caso o admin priorize GPT), e possui degradação graciosa / fallback heurístico offline.
+*   **Segurança Restrita contra Prompt Injection (`PromptSecurityGuard`):** Separa estritamente `system_instruction` (`role="system"`) do input do usuário (`role="user"`), impõe limite rígido de caracteres, neutraliza delimitadores, confina o input em tags XML `<untrusted_user_input>` e bloqueia de forma determinística via Regex (PT/EN) tentativas de *Prompt Injection* e *Jailbreak* antes mesmo de chamar a API.
+*   **Cache em Duas Camadas para Textos Similares (`SimilarityLLMCache`):** Combina cache L1 (Hash SHA-256 sobre texto normalizado sem acentos/pontuação) e cache L2 (Similaridade de Cosseno $\ge 0.85$ sobre 3-gramas de caracteres e palavras), retornando respostas em $< 1\text{ ms}$ a custo zero de tokens para relatos clínicos ou perguntas similares.
+*   **JSON Forçado:** Exige retorno estrito em JSON (`response_mime_type="application/json"` / `json_object`) com `temperature=0.0`.
 
 ---
 

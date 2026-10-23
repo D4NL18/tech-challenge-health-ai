@@ -46,17 +46,22 @@ Essa arquitetura respeita o *Princípio de Responsabilidade Única*.
 
 ---
 
-## 4.5. Estilização: SCSS e Padrão BEM
-Não utilizei Bootstrap ou Tailwind. Preferi ter total controle do layout criando um **Design System Customizado** escrito puramente em SCSS.
+## 4.5. Estilização: Design System "Prontuário", Tokens SCSS e Padrão BEM
+Não utilizei frameworks pré-fabricados genéricos como Bootstrap ou Tailwind. Preferi ter controle estético e funcional total criando o **Design System "Prontuário"**, um design kit documental clínico padronizado em `.agents/docs/design/DESIGN_SYSTEM.md` e testado no espécime visual interativo `.agents/docs/design/specimen/prontuario-kit.html`.
 
-O SCSS me permite criar variáveis (ex: `$color-primary`) e funções de cálculo (ex: clarear cores em X%).
-
-Para não virar uma bagunça de classes no CSS, apliquei a **Metodologia BEM** (Block, Element, Modifier). 
-*   **Block:** O elemento pai, ex: `.card`
-*   **Element:** Um filho do pai, ex: `.card__title`
-*   **Modifier:** Um estado, ex: `.card--highlighted`
-
-Isso me garante que a classe CSS do botão da tela de Admin nunca vai quebrar ou sobrescrever a classe CSS do botão da tela Principal.
+### Fundamentos Visuais do Design System:
+- **Tríade Tipográfica Médica:**
+  - `Source Serif 4`: Cabeçalhos clínicos, títulos de seções e laudos diagnósticos, conferindo sobriedade editorial.
+  - `Public Sans`: Labels de formulários, botões, chips e elementos de interface com máxima legibilidade.
+  - `IBM Plex Mono`: Telemetria, coordenadas geográficas, percentuais de risco, tempos de trajeto e dados tabulares com alinhamento tabular (`font-variant-numeric: tabular-nums`).
+- **Elevações e Sombras Físicas (Dupla Camada):**
+  Tokens de `--shadow-0` (flat com borda hairline) a `--shadow-4` (drawers laterais de auditoria), utilizando projeções mecânicas sem halos luminosos ou *glows* artificiais.
+- **Coreografia Mecânica de Movimento:**
+  Transições espaciais aceleradas por hardware (GPU compositing via `transform` e `opacity`), botões com recuo tátil mecânico (`translateY(1px)` no clique) e respeito estrito a `@media (prefers-reduced-motion: reduce)`.
+- **Metodologia BEM (Block, Element, Modifier):**
+  - **Block:** O componente estrutural, ex: `.c-card`, `.c-button`
+  - **Element:** Sub-elemento dependente, ex: `.c-card__header`, `.c-button__label`
+  - **Modifier:** Estado ou variação, ex: `.c-button--secondary`, `.c-badge--urgent`
 
 ---
 

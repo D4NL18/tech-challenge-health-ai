@@ -14,10 +14,17 @@ export class ButtonComponent {
   @Input() variant: 'primary' | 'secondary' | 'danger' | 'outline' = 'primary';
   @Input() disabled: boolean = false;
   @Input() fullWidth: boolean = false;
+  @Input() loading: boolean = false;
+  @Input() isLoading: boolean = false;
+  @Input() loadingText?: string;
   @Output() onClick = new EventEmitter<void>();
 
+  get isButtonLoading(): boolean {
+    return this.loading || this.isLoading;
+  }
+
   handleClick() {
-    if (!this.disabled) {
+    if (!this.disabled && !this.isButtonLoading) {
       this.onClick.emit();
     }
   }

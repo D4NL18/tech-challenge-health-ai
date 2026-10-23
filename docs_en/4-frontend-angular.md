@@ -2,63 +2,93 @@
 
 *Read this in other languages: [English](4-frontend-angular.md) | [Português](../docs/4-frontend-angular.md)*
 
-In this document, I detail the architectural decisions of the user interface (Frontend). The goal was to create a user-friendly, fast, and scalable screen using **Angular**, without relying on heavy pre-built CSS frameworks.
+In this document, I detail the architectural decisions of the user interface (Frontend). The goal was to build a clean, responsive, and reliable clinical interface using **Angular 18+**, without relying on generic pre-built UI bundles like Bootstrap or Tailwind.
 
 ---
 
 ## 4.1. Single Page Application (SPA)
-Angular compiles everything into a Single Page Application. This means that, from the Server's perspective (Firebase Hosting), there is only one generic `index.html` file.
+Angular compiles the client into a Single Page Application. From the hosting perspective (Firebase Hosting), only one static `index.html` file is served.
 
-All the magic happens in the user's browser via JavaScript. When the doctor transitions between the "Make Diagnosis" screen and the "Settings (Admin)" screen, the page does not blink or reload. Angular simply erases the old component from memory and draws the new one instantly. This dramatically increases the perception of speed.
+All navigation happens directly in the client's browser. When the clinician switches between Anamnesis triage, Medical Routes, or the Admin Dashboard, the page never triggers a full refresh. Angular swaps components in and out of the DOM instantaneously, delivering a fast, desktop-grade user experience.
 
 ---
 
 ## 4.2. Standalone Components
-In older versions of Angular, there was a concept called `NgModule`, where all components had to be declared in a massive central file. This was very verbose and made code reuse difficult.
-
-In this project, I used the modern Angular approach: **Standalone Components**.
-Each component (e.g., `admin-dashboard.component.ts`) is self-sufficient. It imports only what it needs to use (e.g., `CommonModule`, `FormsModule`). This generates the following benefits:
-*   Makes the code much cleaner.
-*   Allows for more efficient **Tree Shaking** (Angular deletes unused code during the final build).
-*   Improves application loading time (easier Lazy Loading).
+The application is built entirely using Angular's modern **Standalone Components** architecture (eliminating legacy `NgModule` boilerplate):
+*   Every component (e.g., `medical-routes.component.ts`, `admin-dashboard.component.ts`) explicitly declares its own dependencies (`CommonModule`, `FormsModule`, `RouterModule`).
+*   Enables fine-grained **Tree Shaking** during production builds, pruning unused code.
+*   Significantly accelerates first contentful paint and modular lazy loading.
 
 ---
 
-## 4.3. Form System (Reactive Forms and ngModel)
-Filling out the anamnesis is the core of the platform.
-
-For the Artificial Intelligence form, I used `ngModel` (Template-driven Forms) to facilitate the direct binding of variables between the HTML and the Typescript (Two-Way Data Binding).
-This allows me, for example, to dynamically change the questions that appear on the screen depending on whether the user selected "Evaluate Breast Cancer" or "Evaluate PCOS" in the main selector.
+## 4.3. Form System (Two-Way Binding and Reactive Controls)
+Clinical triage forms require flexible, dynamic validation:
+*   Template-driven two-way binding (`[(ngModel)]`) binds form inputs directly to TypeScript model states.
+*   The UI dynamically adjusts input fields based on the selected disease context (e.g., swapping breast cancer cytology biomarkers for PCOS hormonal panels).
+*   Dedicated validation slots enforce valid numerical boundaries before allowing submission.
 
 ---
 
 ## 4.4. The Service Layer (Services and HttpClient)
-The `anamnesis.component.ts` file (Component) does not know what my Backend URL is, nor how the network works. It only knows how to draw buttons on the screen and react to clicks.
+UI components follow the *Single Responsibility Principle*: they render templates and handle user interactions, but never make raw HTTP calls directly.
 
-The one who manages the internet call is the **Service** (`inference.service.ts`).
-This architecture respects the *Single Responsibility Principle*.
-
-1. When the patient clicks "Submit", the Component passes the raw data to the Service.
-2. The Service builds the `FormData` in **Multipart** format (attaching the x-ray image and a JSON with the symptoms).
-3. The Service uses Angular's native `HttpClient` class to hit the FastAPI API.
-4. The Service handles network problems (if the server is down) and returns an *Observable*.
-5. The Component listens to the *Observable* and only updates the screen to show the results when the data arrives.
+Network interactions are encapsulated in dedicated Services (`inference.service.ts` and `routes.service.ts`):
+1. The component passes raw form inputs to the service.
+2. The service constructs the `FormData` multipart payload (attaching x-ray image binaries and clinical symptom JSONs) or structured JSON routing requests.
+3. The service calls FastAPI endpoints via Angular's `HttpClient`.
+4. The service handles HTTP error interceptors and returns RxJS `Observable` streams.
+5. The component subscribes to the stream and updates its local reactive state when responses arrive.
 
 ---
 
-## 4.5. Styling: SCSS and BEM Standard
-I did not use Bootstrap or Tailwind. I preferred to have total layout control by creating a **Custom Design System** written purely in SCSS.
+## 4.5. Styling: "Prontuário" Clinical Design System, SCSS Tokens & BEM
+Rather than using generic external CSS libraries, we designed the **"Prontuário" Clinical Design System**, formally documented in `.agents/docs/design/DESIGN_SYSTEM.md` and showcased in the interactive specimen `.agents/docs/design/specimen/prontuario-kit.html`.
 
-SCSS allows me to create variables (e.g., `$color-primary`) and calculation functions (e.g., lighten colors by X%).
+### Visual Foundations:
+- **Clinical Typography Triad:**
+  - `Source Serif 4`: Clinical headers, section titles, and diagnostic summaries, imparting editorial authority.
+  - `Public Sans`: Form labels, buttons, navigation items, and interactive UI controls for crisp readability.
+  - `IBM Plex Mono`: Telemetry, coordinates, risk percentages, transit times, and tabular data using tabular figures (`font-variant-numeric: tabular-nums`).
+- **Physical Elevation & Dual-Layer Shadows:**
+  Scale ranging from `--shadow-0` (flat surface with hairline borders) to `--shadow-4` (sliding audit drawers), eliminating artificial neon glows or diffuse blurs.
+- **Mechanical Motion Choreography:**
+  GPU-composited transitions (`transform` and `opacity`), mechanical button recess (`translateY(1px)` on `:active`), and strict accessibility collapsing via `@media (prefers-reduced-motion: reduce)`.
+- **BEM Methodology (Block, Element, Modifier):**
+  - **Block:** Structural component, e.g., `.c-card`, `.c-button`
+  - **Element:** Internal constituent part, e.g., `.c-card__header`, `.c-button__label`
+  - **Modifier:** Variant or state, e.g., `.c-button--secondary`, `.c-badge--urgent`
 
-To avoid a mess of classes in the CSS, I applied the **BEM Methodology** (Block, Element, Modifier).
-*   **Block:** The parent element, e.g., `.card`
-*   **Element:** A child of the parent, e.g., `.card__title`
-*   **Modifier:** A state, e.g., `.card--highlighted`
+---
 
-This guarantees that the CSS class of the Admin screen button will never break or overwrite the CSS class of the Main screen button.
+## 4.6. Medical Routing Module & Leaflet.js (`pages/medical-routes/`)
+**Reference Component:** `frontend/src/app/pages/medical-routes/medical-routes.component.ts`
+
+In Phase 2, a dedicated route (`/routes`) provides a full hospital logistics dispatch dashboard:
+- **Interactive Leaflet.js Map:** Renders customized markers (green for central hospital/depot, red/orange for urgent home care visits numbered with stop sequence) and plots real street polylines computed by OSRM.
+- **Genetic Parameter Tuning Panel:** Allows operators to tune population size (10 to 200), generations (10 to 100), mutation rates, and clinical urgency penalty weights.
+- **Instant Demo Scenario:** A "Load Demo Scenario" button immediately populates realistic patient stops (with cold-chain requirements, time windows, and clinical priority weights).
+- **Integrated LLM Logistics Assistant:** Tabbed interface featuring "Turn-by-Turn Driver Instructions", "Field Dispatch Chat", and "Executive Hospital Report".
+
+---
+
+## 4.7. Genetic Algorithm Benchmark Audit on Admin Dashboard
+**Reference Component:** `frontend/src/app/pages/admin-dashboard/admin-dashboard.component.ts`
+
+The administrative dashboard consumes the genetic experiment telemetry endpoint (`GET /api/v1/anamnesis/admin/genetic-experiments`) to display:
+- Direct comparison between the Phase 1 GridSearch baseline and the 3 Genetic Algorithm experiments.
+- Visual cards highlighting percentage gains in $F_2$-Score and Recall (clinical reduction of False Negatives).
+- Clear explanation of the weighted clinical fitness formula and hyperparameter evolution trajectories.
+
+---
+
+## 4.8. Clinical Explainability Report with LLM
+**Reference Component:** `frontend/src/app/pages/anamnesis/anamnesis.component.ts`
+
+Following multimodal triage:
+- A prominent button allows clinicians to request "Generate Clinical Explanation (LLM - Phase 2)".
+- The synthesized report renders in a structured clinical card with distinct sections: Diagnostic Summary, Key Risk Factors, Suggested Clinical Actions, and Ethical AI Disclaimers.
 
 ---
 
 **Next Step:**
-To see how the AI was trained and managed outside the web API, access [5-mlops-treinamento.md](./5-mlops-treinamento.md).
+To see how models are trained and managed in MLOps pipelines outside the API, access [5-mlops-training.md](./5-mlops-training.md).

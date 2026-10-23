@@ -1,6 +1,6 @@
 # 1. Visão Geral e Arquitetura
 
-*Read this in other languages: [English](../docs_en/1-visao-geral-arquitetura.md) | [Português](1-visao-geral-arquitetura.md)*
+*Read this in other languages: [English](../docs_en/1-overview-architecture.md) | [Português](1-visao-geral-arquitetura.md)*
 
 Este documento explica as escolhas arquiteturais fundamentais que tomei para construir a plataforma **HealthAI**. Como desenvolvi este projeto sozinho com foco em estudos e eficiência de custos, optei por uma infraestrutura **Serverless** (Sem Servidor) no Google Cloud Platform (GCP).
 

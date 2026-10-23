@@ -4,7 +4,7 @@ import json
 import jwt
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -48,15 +48,25 @@ async def get_current_admin(token: str = Depends(oauth2_scheme)):
     return username
 
 @router.post("/login", response_model=Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    if form_data.username != ADMIN_USERNAME or form_data.password != ADMIN_PASSWORD:
+async def login_for_access_token(request: Request):
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        body = await request.json()
+        username = body.get("username")
+        password = body.get("password")
+    else:
+        form = await request.form()
+        username = form.get("username")
+        password = form.get("password")
+
+    if username != ADMIN_USERNAME or password != ADMIN_PASSWORD:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuário ou senha incorretos",
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token = create_access_token(
-        data={"sub": form_data.username}, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        data={"sub": username}, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -204,36 +214,44 @@ async def get_genetic_experiments(admin: str = Depends(get_current_admin)):
     # Fallback caso os experimentos ainda não tenham sido gerados em disco
     return {
         "baseline_fase1": {
-            "model": "Random Forest (Default / GridSearchCV)",
-            "metrics": {"accuracy": 0.9474, "recall": 0.9048, "f1_score": 0.9268, "f2_score": 0.9135}
+            "model": "Random Forest (GridSearchCV - Fase 1)",
+            "training_metric": "Acurácia (accuracy)",
+            "hyperparameter_space": "Grade fixa de 12 opções discretas",
+            "metrics": {"accuracy": 0.9474, "recall": 0.9048, "f1_score": 0.9268, "f2_score": 0.9135, "roc_auc": 0.9780}
         },
         "experiments": [
             {
                 "id": "exp_1_quick",
                 "name": "Experimento 1 (Convergência Rápida)",
-                "parameters": {"population_size": 20, "generations": 10, "mutation_rate": 0.05, "crossover_rate": 0.70},
-                "elapsed_seconds": 12.4,
-                "best_hyperparameters": {"n_estimators": 65, "max_depth": 8, "min_samples_split": 3, "min_samples_leaf": 2, "criterion": "gini"},
-                "best_metrics": {"accuracy": 0.9561, "recall": 0.9286, "f1_score": 0.9398, "f2_score": 0.9330},
-                "convergence_history": {"generation": [1, 5, 10], "best_fitness": [0.905, 0.922, 0.933], "mean_fitness": [0.865, 0.895, 0.915]}
+                "objective": "Foco em velocidade de execução e baixo consumo computacional. Avalia a capacidade de convergência rápida do AG com parâmetros conservadores.",
+                "parameters": {"population_size": 20, "generations": 10, "mutation_rate": 0.05, "crossover_rate": 0.70, "elitism": 1},
+                "elapsed_seconds": 188.54,
+                "elapsed_text": "~3,1 min",
+                "best_hyperparameters": {"n_estimators": 82, "max_depth": None, "min_samples_split": 6, "min_samples_leaf": 1, "criterion": "gini"},
+                "best_metrics": {"accuracy": 0.9649, "recall": 0.9528, "f1_score": 0.9530, "f2_score": 0.9527, "roc_auc": 0.9905},
+                "convergence_history": {"generation": [1, 5, 10], "best_fitness": [0.905, 0.922, 0.9527], "mean_fitness": [0.865, 0.895, 0.915]}
             },
             {
                 "id": "exp_2_balanced",
-                "name": "Experimento 2 (Exploração Balanceada)",
-                "parameters": {"population_size": 40, "generations": 20, "mutation_rate": 0.15, "crossover_rate": 0.85},
-                "elapsed_seconds": 38.2,
-                "best_hyperparameters": {"n_estimators": 120, "max_depth": 14, "min_samples_split": 2, "min_samples_leaf": 1, "criterion": "entropy"},
-                "best_metrics": {"accuracy": 0.9737, "recall": 0.9524, "f1_score": 0.9639, "f2_score": 0.9570},
-                "convergence_history": {"generation": [1, 10, 20], "best_fitness": [0.918, 0.942, 0.957], "mean_fitness": [0.880, 0.915, 0.941]}
+                "name": "Experimento 2 (Balanceado - Campeão)",
+                "objective": "Equilíbrio ideal entre diversidade genética (exploração) e elitismo/refinamento (intensificação). Atingiu o teto clínico com recall de 95,76% e F2 de 95,66%.",
+                "parameters": {"population_size": 40, "generations": 20, "mutation_rate": 0.15, "crossover_rate": 0.85, "elitism": 2},
+                "elapsed_seconds": 669.67,
+                "elapsed_text": "~11,1 min",
+                "best_hyperparameters": {"n_estimators": 100, "max_depth": None, "min_samples_split": 6, "min_samples_leaf": 1, "criterion": "gini"},
+                "best_metrics": {"accuracy": 0.9666, "recall": 0.9576, "f1_score": 0.9555, "f2_score": 0.9566, "roc_auc": 0.9908},
+                "convergence_history": {"generation": [1, 10, 20], "best_fitness": [0.918, 0.942, 0.9566], "mean_fitness": [0.880, 0.915, 0.941]}
             },
             {
                 "id": "exp_3_robust",
-                "name": "Experimento 3 (Otimização Robusta / Global)",
-                "parameters": {"population_size": 80, "generations": 30, "mutation_rate": 0.25, "crossover_rate": 0.90},
-                "elapsed_seconds": 85.7,
-                "best_hyperparameters": {"n_estimators": 175, "max_depth": 18, "min_samples_split": 2, "min_samples_leaf": 1, "criterion": "log_loss"},
-                "best_metrics": {"accuracy": 0.9825, "recall": 0.9762, "f1_score": 0.9762, "f2_score": 0.9762},
-                "convergence_history": {"generation": [1, 10, 20, 30], "best_fitness": [0.925, 0.958, 0.971, 0.976], "mean_fitness": [0.890, 0.932, 0.955, 0.968]}
+                "name": "Experimento 3 (Robusto)",
+                "objective": "Varredura ampla e exaustiva com alta pressão seletiva e alta taxa de mutação (0,25) para exploração global do hiperplano e prevenção de mínimos locais.",
+                "parameters": {"population_size": 80, "generations": 30, "mutation_rate": 0.25, "crossover_rate": 0.90, "elitism": 2},
+                "elapsed_seconds": 1596.03,
+                "elapsed_text": "~26,6 min",
+                "best_hyperparameters": {"n_estimators": 80, "max_depth": 16, "min_samples_split": 6, "min_samples_leaf": 2, "criterion": "log_loss"},
+                "best_metrics": {"accuracy": 0.9684, "recall": 0.9576, "f1_score": 0.9572, "f2_score": 0.9566, "roc_auc": 0.9916},
+                "convergence_history": {"generation": [1, 10, 20, 30], "best_fitness": [0.925, 0.958, 0.971, 0.9566], "mean_fitness": [0.890, 0.932, 0.955, 0.956]}
             }
         ]
     }

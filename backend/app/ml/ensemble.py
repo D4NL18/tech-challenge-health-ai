@@ -116,5 +116,8 @@ class EnsemblePredictor:
         return {
             "risk_level": risk,
             "confidence": confidence,
-            "description": desc
+            "description": desc,
+            "tabular_score": tabular_score,
+            "text_score": text_score,
+            "vision_score": vision_score
         }

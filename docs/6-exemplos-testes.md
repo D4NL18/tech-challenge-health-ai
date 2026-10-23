@@ -1,6 +1,6 @@
 # 6. Exemplos de Testes Inéditos (Triagem)
 
-*Read this in other languages: [English](../docs_en/6-exemplos-testes.md) | [Português](6-exemplos-testes.md)*
+*Read this in other languages: [English](../docs_en/6-test-examples.md) | [Português](6-exemplos-testes.md)*
 
 Para testar a acurácia dos modelos e entender se tudo que expliquei nos documentos anteriores está de fato funcionando, criei alguns exemplos sintéticos de pacientes.
 
@@ -119,18 +119,45 @@ O Algoritmo Genético prioriza o atendimento a Dona Lurdes, Criança Enzo e Sr. 
 
 ## 6.4. Bateria de Testes Automatizados (Pytest)
 
-O projeto conta com uma suíte de testes automatizados com cobertura completa para os módulos da Fase 1 e Fase 2.
+O projeto conta com uma suíte abrangente de testes automatizados com cobertura rigorosa para os módulos da Fase 1 e Fase 2, totalizando **27 testes unitários e de integração**.
 
-### Arquivos de Teste:
-- `backend/tests/test_genetic_hyperopt.py`: Validação de mutação, crossover e convergência do Algoritmo Genético de Hiperparâmetros.
-- `backend/tests/test_vrp_routing.py`: Validação de operadores VRP (Order Crossover OX, Swap/Inversion Mutation) e penalidades de prioridade/janela.
-- `backend/tests/test_osrm_cache.py`: Validação do SQLite Geo Cache e resiliência com fallback Haversine.
-- `backend/tests/test_routes_api.py`: Teste de integração assíncrono dos endpoints `/api/v1/routes/optimize`, `/assistant-chat` e `/generate-report`.
+### Módulos de Teste Homologados:
+1. `backend/tests/test_genetic_hyperopt.py` (5 testes):
+   - Validação de limites de genes (`int`, `float`, `float_log`, `cat`) e conversão para estimadores válidos do Scikit-Learn.
+   - Operadores de mutação Gaussiana, crossover aritmético/uniforme e seleção por torneio.
+   - Avaliação da função fitness clínica com $F_2$-score em folds estratificados sem data leakage.
+   - Espaços de busca multimodelo (Random Forest, SVM, Gradient Boosting, MLP, KNN, Regressão Logística).
+   - Inicialização e atualização de telemetria do visualizador gráfico.
+2. `backend/tests/test_vrp_routing.py` (7 testes):
+   - Cromossomo de permutação VRP, Order Crossover (OX) e mutação por inversão 2-opt.
+   - Solver genético com respeito a capacidades de carga térmica e janelas de atendimento.
+   - Distribuição de urgência clínica e minimização de tempo máximo de rota (*makespan*).
+   - Atribuição estrita de veículos e balanceamento de prioridades em 3 níveis (Urgência Máxima, Alta, Regular).
+   - Consideração de tempos de permanência (*dwell time*) e fatores de tráfego.
+3. `backend/tests/test_traffic_model.py` (4 testes):
+   - Modelagem de multiplicadores de tráfego dinâmico por portes de cidade (Metrópoles, Capitais, Cidades Médias).
+   - Diferenciação precisa de horários de pico (07:00-09:30 e 17:30-19:30) vs. horários de entrepico.
+   - Atenuação de congestionamento em corredores expressos e anéis rodoviários.
+   - Parsing e formatação de relógios de trânsito (HH:MM).
+4. `backend/tests/test_osrm_cache.py` (2 testes):
+   - Persistência e integridade do banco SQLite local de coordenadas (`geo_cache.db`).
+   - Validação dimensional e consistência das matrizes $N \times N$ retornadas pelo provedor OSRM com tolerância a falhas.
+5. `backend/tests/test_routes_api.py` (4 testes):
+   - Endpoint de cenário demonstrativo (`GET /api/v1/routes/demo-scenario`).
+   - Otimização assíncrona de rotas (`POST /api/v1/routes/optimize`).
+   - Geração de instruções ao motorista (`POST /api/v1/routes/instructions`) e relatório executivo (`POST /api/v1/routes/report`).
+   - Geração de laudo explicativo de diagnóstico (`POST /api/v1/anamnesis/explain-diagnosis`).
+6. `backend/tests/test_llm_governance.py` (5 testes):
+   - Bloqueio de injeção de prompt (Prompt Security Guard) em português e inglês.
+   - Cache semântico de similaridade para chamadas de LLM.
+   - Imposição de System Prompts estritamente em inglês para maior determinismo e economia de tokens.
+   - Cadeias de fallback com degradação graciosa para geradores heurísticos especialistas.
+   - Validação de segurança e formatação dos laudos clínicos e instruções logísticas.
 
-### Como Executar a Suíte:
+### Como Executar a Suíte Completa:
 ```bash
 cd backend
-venv\Scripts\python -m pytest tests/ -v
+python -m pytest tests/ -v
 ```
-**Resultado Homologado:** 11 testes aprovados (100% de sucesso).
+**Resultado Oficial:** 27 testes aprovados (100% de sucesso em ~50s).
 

@@ -1,5 +1,6 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { Router } from '@angular/router';
@@ -9,7 +10,7 @@ import { AuthService } from '../../services/auth.service';
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './admin-dashboard.component.html',
   styleUrls: ['./admin-dashboard.component.scss']
 })
@@ -25,6 +26,20 @@ export class AdminDashboardComponent implements OnInit {
   selectedModel: any = null;
   showInfoModal = false;
 
+  // Configurações Globais de Roteamento & AG (Controladas pelo Administrador)
+  routeConfig = {
+    numVehicles: 2,
+    populationSize: 40,
+    generations: 25,
+    mutationRate: 0.20,
+    departureTime: '08:00',
+    baseCity: 'Salvador',
+    defaultServiceMinutes: 15,
+    capacityPerVehicle: 110.0,
+    maxDistanceKm: 100.0
+  };
+  routeConfigSuccessMessage: string | null = null;
+
   constructor(
     private adminService: AdminService, 
     private authService: AuthService,
@@ -35,6 +50,8 @@ export class AdminDashboardComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.loadRouteConfig();
+
     // Busca métricas
     this.adminService.getMetrics().subscribe({
       next: (response) => {
@@ -203,5 +220,46 @@ export class AdminDashboardComponent implements OnInit {
         });
       }
     });
+  }
+
+  loadRouteConfig(): void {
+    try {
+      const saved = localStorage.getItem('healthai_route_config');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        this.routeConfig = { ...this.routeConfig, ...parsed };
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar configurações de rotas:', e);
+    }
+  }
+
+  saveRouteConfig(): void {
+    try {
+      localStorage.setItem('healthai_route_config', JSON.stringify(this.routeConfig));
+      this.routeConfigSuccessMessage = 'Parâmetros globais de roteamento salvos com sucesso! A tela de rotas utilizará estes valores.';
+      this.cdr.detectChanges();
+      setTimeout(() => {
+        this.routeConfigSuccessMessage = null;
+        this.cdr.detectChanges();
+      }, 4500);
+    } catch (e) {
+      console.error('Erro ao salvar configurações de rotas:', e);
+    }
+  }
+
+  resetRouteConfigDefaults(): void {
+    this.routeConfig = {
+      numVehicles: 2,
+      populationSize: 40,
+      generations: 25,
+      mutationRate: 0.20,
+      departureTime: '08:00',
+      baseCity: 'Salvador',
+      defaultServiceMinutes: 15,
+      capacityPerVehicle: 110.0,
+      maxDistanceKm: 100.0
+    };
+    this.saveRouteConfig();
   }
 }

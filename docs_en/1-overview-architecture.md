@@ -1,6 +1,6 @@
 # 1. Overview and Architecture
 
-*Read this in other languages: [English](1-visao-geral-arquitetura.md) | [Português](../docs/1-visao-geral-arquitetura.md)*
+*Read this in other languages: [English](1-overview-architecture.md) | [Português](../docs/1-visao-geral-arquitetura.md)*
 
 This document explains the fundamental architectural choices I made to build the **HealthAI** platform. Since I developed this project alone with a focus on studying and cost efficiency, I opted for a **Serverless** infrastructure on Google Cloud Platform (GCP).
 
@@ -29,7 +29,7 @@ The separation of responsibilities was established as follows:
 I chose Angular because it is an extremely structured and robust framework.
 Unlike generating screens within Python (such as using Jinja2 or Django Templates), Angular allows me to create a **Single Page Application (SPA)**.
 
-This means the browser downloads all the HTML/CSS/JS code at once. When the patient navigates between the Anamnesis and Dashboard screens, the transition is instantaneous and asynchronous, without reloading the page.
+This means the browser downloads all the HTML/CSS/JS code at once. When the clinician navigates between the Anamnesis, Medical Routes, and Admin Dashboard screens, the transition is instantaneous and asynchronous, without reloading the page.
 
 **Hosting (Firebase Hosting):**
 Since Angular generates only static files at the end of the *build* process, I don't need a running server. I host these static files on Firebase Hosting, which has a generous free tier, global CDN, and automatically configured SSL certificate.
@@ -64,5 +64,13 @@ This approach focuses 100% on the Artificial Intelligence algorithm, enormously 
 
 ---
 
+## 1.6. Phase 2 Expansion: Genetic Algorithms, OSRM Road Graphs, and LLMs
+Phase 2 expands the platform to comprehensively address both challenges of the Tech Challenge:
+1. **Hyperparameter Optimization via Genetic Algorithms (Project 1):** Replaces rigid GridSearch with an evolutionary search engine focused on clinical sensitivity ($F_2$-Score/Recall) and integrates Google Gemini / OpenAI LLMs to generate explainable medical reports from numerical feature importances.
+2. **Hospital Logistics and Medical Routing (Project 2):** Solves the Vehicle Routing Problem (VRP) for urgent deliveries, cold-chain medical supplies (2°C to 8°C), and home care patient visits over the real road network of **OSRM / OpenStreetMap (Zero API Cost)**.
+   - **Two-Tier Architecture for Maps:** The $N \times N$ matrix of travel times and distances is fetched in a single batch query and cached locally in SQLite (`geo_cache.db`). The genetic algorithm loop runs 100% in memory in fractions of a second without external network calls, guaranteeing zero cost and eliminating any risk of API quota exhaustion.
+
+---
+
 **Next Step:**
-To deeply understand how the AI makes decisions behind the scenes, read the document [2-inteligencia-artificial.md](./2-inteligencia-artificial.md).
+To deeply understand how the AI makes decisions behind the scenes and how the Genetic Algorithms operate, read [2-artificial-intelligence.md](./2-artificial-intelligence.md).

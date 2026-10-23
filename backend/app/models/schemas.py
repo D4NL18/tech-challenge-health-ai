@@ -26,6 +26,9 @@ class DiagnosticResult(BaseModel):
     confidence: float = Field(..., description="Grau de confiança/probabilidade da IA na predição (0.0 a 1.0)")
     description: str = Field(..., description="Descrição legível ou laudo simplificado do diagnóstico")
     model_used: Optional[str] = Field(None, description="Nome do algoritmo principal que gerou este laudo")
+    tabular_score: Optional[float] = Field(None, description="Score preditivo do modelo tabular")
+    text_score: Optional[float] = Field(None, description="Score de risco do relato via NLP/LLM")
+    vision_score: Optional[float] = Field(None, description="Score de risco da imagem médica via CNN")
 
 class AnamnesisPayload(BaseModel):
     """

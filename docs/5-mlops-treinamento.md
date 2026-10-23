@@ -1,6 +1,6 @@
 # 5. MLOps e Treinamento de Modelos
 
-*Read this in other languages: [English](../docs_en/5-mlops-treinamento.md) | [Português](5-mlops-treinamento.md)*
+*Read this in other languages: [English](../docs_en/5-mlops-training.md) | [Português](5-mlops-treinamento.md)*
 
 Este documento detalha o ciclo de vida dos modelos de Machine Learning neste projeto. Ele responde à pergunta: *"Como um modelo sai de um experimento de dados para um produto de software rodando na internet?"*
 
@@ -51,10 +51,23 @@ Quando o FastAPI inicializa no Cloud Run, é dessa pasta que ele lê os modelos 
 ## 5.4. Calibração Hiperparamétrica por Algoritmos Genéticos (Fase 2)
 **Arquivo de Referência:** `backend/training_scripts/train_genetic_hyperopt.py`
 
-Na Fase 2, substituímos o GridSearch tradicional (que testa parâmetros em grade rígida e cara) por um **Algoritmo Genético Bio-Inspirado** (`app/genetic/hyperopt/optimizer.py`):
-- **Cromossomo:** Codifica parâmetros de árvores de decisão e florestas aleatórias (`n_estimators`, `max_depth`, `min_samples_split`, `min_samples_leaf`, `max_features`, `class_weight`, `criterion`).
-- **Operadores Genéticos:** Seleção por Torneio com Elitismo de 10%, Crossover Aritmético/Uniforme e Mutação Gaussiana/Aleatória.
-- **Validação Cruzada Segura:** K-Fold Stratified ($k=5$) em cada indivíduo da população, eliminando qualquer risco de Data Leakage entre treino e validação.
+Na Fase 2, substituímos o GridSearch tradicional (que testa parâmetros em grade rígida e cara) por um **Algoritmo Genético Bio-Inspirado** (`app/genetic/hyperopt/optimizer.py`), oferecendo dois modos de operação via CLI:
+
+1. **Modo Benchmark (`--mode benchmark`):**
+   Executa a bateria clássica dos 3 experimentos exigidos pelo desafio (Quick, Balanced, Robust), compara com o Baseline da Fase 1, gera gráficos de convergência e exporta o relatório `backend/weights/genetic_experiments_results.json` para consumo direto pelo Painel Administrativo.
+   ```bash
+   python training_scripts/train_genetic_hyperopt.py --mode benchmark
+   ```
+
+2. **Modo Multimodelo Clínico (`--mode multimodel`):**
+   Permite otimização hiperparamétrica em 6 famílias de modelos tabulares (`random_forest`, `gradient_boosting`, `svm`, `knn`, `logistic_regression`, `mlp`) em ambos os datasets clínicos (`cancer`, `pcos` ou `both`), com acompanhamento visual em tempo real (`--live-plot`).
+   ```bash
+   python training_scripts/train_genetic_hyperopt.py --mode multimodel --model all --disease both --pop 30 --gen 15 --live-plot
+   ```
+
+- **Cromossomo Híbrido Multitipo:** Codifica genes inteiros (`int`, ex: `n_estimators`), inteiros opcionais (`int_or_none`, ex: `max_depth`), contínuos (`float`), contínuos em escala logarítmica de base 10 (`float_log`, ex: `C`, $\gamma$, `learning_rate` entre $10^{-4}$ e $10^{2}$) e categóricos (`cat`, ex: `criterion`, `class_weight`).
+- **Operadores Genéticos:** Seleção por Torneio ($k=3$) ou Roleta com Elitismo estrito ($E=2$), Crossover Híbrido (Aritmético Ponderado para genes contínuos e Uniforme para discretos/categóricos) e Mutação Gaussiana com reflexão nos limites e perturbação no expoente logarítmico.
+- **Validação Cruzada Segura:** K-Fold Stratified ($k=5$) em cada indivíduo da população dentro de um `Pipeline` com `StandardScaler`, eliminando qualquer risco de Data Leakage entre treino e validação.
 
 ---
 

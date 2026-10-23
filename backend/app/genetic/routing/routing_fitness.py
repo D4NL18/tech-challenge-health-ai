@@ -5,11 +5,12 @@ Otimiza a distribuição viária de urgências entre múltiplos motoristas:
 - Distribuição perfeitamente balanceada das paradas urgentes (diferença máxima de 1 nó entre motoristas)
 - Clusterização espacial inteligente com matriz viária real OSRM
 - Respeito a motorista vinculado estrito (assigned_vehicle) se informado
-- 3 Níveis Clínicos Estritos: Crítica (Perna 1), Alta (Perna 2), Regular (Perna 3)
+- 3 Níveis Clínicos Estritos: Crítica (Trecho 1), Alta (Trecho 2), Regular (Trecho 3)
 """
 
 from typing import List, Dict, Any, Tuple, Optional
 from .vrp_chromosome import VRPChromosome
+from .traffic_model import TrafficPredictor
 
 class VRPFitnessEvaluator:
     def __init__(
@@ -19,7 +20,11 @@ class VRPFitnessEvaluator:
         deliveries_data: List[Dict[str, Any]],
         num_vehicles: int = 2,
         capacity_per_vehicle: float = 100.0,
-        max_distance_km_per_vehicle: float = 150.0
+        max_distance_km_per_vehicle: float = 150.0,
+        departure_time_minutes: Optional[float] = 480.0,
+        default_service_minutes: int = 15,
+        base_city: Optional[str] = "Salvador",
+        points_cities: Optional[List[str]] = None
     ):
         """
         Índice 0 é sempre o Depósito/Hub Hospitalar Central.
@@ -31,11 +36,38 @@ class VRPFitnessEvaluator:
         self.num_vehicles = max(1, num_vehicles)
         self.capacity = capacity_per_vehicle
         self.max_dist_km = max_distance_km_per_vehicle
+        self.departure_time_minutes = departure_time_minutes
+        self.default_service_minutes = default_service_minutes
+        self.base_city = base_city
+        self.points_cities = points_cities or ([""] * len(durations_matrix_sec))
+
+    def _calculate_leg_transit(
+        self,
+        curr_node: int,
+        next_node: int,
+        curr_clock_min: Optional[float]
+    ) -> Tuple[float, float, float, str]:
+        leg_dist_m = self.distances[curr_node][next_node]
+        leg_dist_km = leg_dist_m / 1000.0
+        base_duration_sec = self.durations[curr_node][next_node]
+
+        orig_city = self.points_cities[curr_node] if curr_node < len(self.points_cities) else self.base_city
+        dest_city = self.points_cities[next_node] if next_node < len(self.points_cities) else self.base_city
+
+        traffic_k, traffic_cond = TrafficPredictor.get_traffic_multiplier(
+            time_minutes_from_midnight=curr_clock_min,
+            distance_km=leg_dist_km,
+            origin_city=orig_city,
+            dest_city=dest_city,
+            base_city=self.base_city
+        )
+        adjusted_leg_sec = base_duration_sec * traffic_k
+        return adjusted_leg_sec, leg_dist_m, traffic_k, traffic_cond
 
     def _optimize_subtour_order(self, nodes: List[int], start_loc: int) -> List[int]:
         """
         Ordena um grupo de nós para visitação com menor tempo viário
-        a partir de um ponto de partida (Depósito ou última parada da perna anterior).
+        a partir de um ponto de partida (Depósito ou última parada do trecho anterior).
         """
         if len(nodes) <= 1:
             return nodes
@@ -61,7 +93,7 @@ class VRPFitnessEvaluator:
         1ª PRIORIDADE: Distribuição de entregas críticas entre os motoristas.
         - Equilíbrio estrito baseado em TEMPO e DISTÂNCIA viária (não por contagem de nós).
         - Conclusão no menor tempo possível (minimização do makespan crítico).
-        - Atendimento obrigatório na 1ª perna de cada motorista saindo do Depósito (0).
+        - Atendimento obrigatório no 1º trecho de cada motorista saindo do Depósito (0).
         """
         van_crit: List[List[int]] = [[] for _ in range(k)]
         van_crit_time: List[float] = [0.0 for _ in range(k)]
@@ -138,7 +170,7 @@ class VRPFitnessEvaluator:
         """
         Particiona a sequência de entregas entre os motoristas atendendo a 3 prioridades estritas:
         1ª Prioridade: Críticos distribuídos equilibrando TEMPO e DISTÂNCIA viária (não contagem de pontos),
-                       atendidos obrigatoriamente na primeira perna de cada motorista (makespan mínimo).
+                       atendidos obrigatoriamente no primeiro trecho de cada motorista (makespan mínimo).
         2ª Prioridade: Altas priorizadas sobre regulares, mas com flexibilidade viária: regulares no caminho
                        ou quando o desvio para a alta for excessivo podem vir antes (on-the-way insertion).
         3ª Prioridade: Setorização regional contígua: o mapa é dividido em regiões de atendimento para encurtar
@@ -335,29 +367,41 @@ class VRPFitnessEvaluator:
             vehicle_id_1based = vehicle_idx + 1
             vehicle_load = 0.0
             vehicle_dist_m = 0.0
-            vehicle_time_sec = 0.0
+            vehicle_transit_sec = 0.0
+            vehicle_service_min = 0.0
+            curr_clock_min = self.departure_time_minutes
             last_urg_time_sec = 0.0
 
             for i in range(len(route) - 1):
                 u = route[i]
                 v = route[i + 1]
 
-                step_time = self.durations[u][v]
-                step_dist = self.distances[u][v]
+                step_time, step_dist, traffic_k, traffic_cond = self._calculate_leg_transit(
+                    u, v, curr_clock_min
+                )
 
-                vehicle_time_sec += step_time
+                vehicle_transit_sec += step_time
                 vehicle_dist_m += step_dist
+                if curr_clock_min is not None:
+                    curr_clock_min += (step_time / 60.0)
 
                 if v > 0:
                     deliv = self.deliveries[v - 1]
                     vehicle_load += float(deliv.get("demand", 10.0))
+
+                    # Dwell time / atendimento no hospital
+                    stop_service = deliv.get("service_duration_minutes")
+                    service_min = stop_service if (stop_service is not None and stop_service >= 0) else self.default_service_minutes
+                    vehicle_service_min += service_min
+                    if curr_clock_min is not None:
+                        curr_clock_min += service_min
 
                     prio = str(deliv.get("priority", "REGULAR")).upper()
                     is_crit = (
                         deliv.get("critical_medication", False) 
                         or prio in ("CRITICAL", "IMMEDIATE", "URGENT")
                     )
-                    accumulated_min = vehicle_time_sec / 60.0
+                    accumulated_min = vehicle_transit_sec / 60.0
 
                     # Validação de Veículo Estrito (assigned_vehicle)
                     assigned_v = deliv.get("assigned_vehicle")
@@ -365,22 +409,23 @@ class VRPFitnessEvaluator:
                         if assigned_v != vehicle_id_1based:
                             penalty_strict_violations += 1000.0
 
-                    # Penalidades de Atraso Clínico
+                    # Penalidades de Atraso Clínico (baseadas no tempo de trânsito até atendimento)
                     if is_crit:
-                        last_urg_time_sec = vehicle_time_sec
+                        last_urg_time_sec = vehicle_transit_sec
                         penalty_critical_delay += (accumulated_min ** 1.25) * 5.0
                     elif prio == "HIGH":
-                        last_urg_time_sec = vehicle_time_sec
+                        last_urg_time_sec = vehicle_transit_sec
                         penalty_high_delay += accumulated_min * 2.5
 
             if last_urg_time_sec > 0:
                 urgency_finish_times_min.append(last_urg_time_sec / 60.0)
 
-            v_time_min = vehicle_time_sec / 60.0
+            v_transit_min = vehicle_transit_sec / 60.0
+            v_total_time_min = v_transit_min + vehicle_service_min
             v_dist_km = vehicle_dist_m / 1000.0
-            total_time_sec += vehicle_time_sec
+            total_time_sec += vehicle_transit_sec + (vehicle_service_min * 60.0)
             total_dist_m += vehicle_dist_m
-            vehicle_times_min.append(v_time_min)
+            vehicle_times_min.append(v_total_time_min)
             vehicle_distances_km.append(v_dist_km)
 
             if vehicle_load > self.capacity:

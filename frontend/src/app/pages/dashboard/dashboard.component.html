@@ -1,8 +1,8 @@
-<div class="container animate-slide-up stagger-1">
+<div class="executive-doc-viewport">
   <div class="page-header">
     <div class="header-actions">
       <div>
-        <h1 class="gradient-text">Resultados da Triagem</h1>
+        <h1>Resultados da Triagem</h1>
         <p class="patient-info">Análise de <span class="highlight">{{ mockResults.patientName }}</span> concluída com sucesso.</p>
       </div>
       <app-button label="Nova Avaliação" variant="outline" (onClick)="newTriage()"></app-button>
@@ -10,11 +10,11 @@
   </div>
 
   <div class="dashboard-grid">
-    <div class="animate-slide-up stagger-2 h-100">
+    <div class="h-100">
       <app-card title="Visão Computacional" subtitle="Processamento CNN de Mamografia">
-        <div class="result-block risk-high pulse-danger">
+        <div class="result-block risk-high">
           <div class="score-ring">
-            <svg viewBox="0 0 36 36" class="circular-chart">
+            <svg viewBox="0 0 36 36" class="circular-chart" aria-hidden="true">
               <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
               <path class="circle" stroke-dasharray="87, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
               <text x="18" y="20.35" class="percentage">87%</text>
@@ -28,11 +28,11 @@
       </app-card>
     </div>
 
-    <div class="animate-slide-up stagger-3 h-100">
+    <div class="h-100">
       <app-card title="Análise de Linguagem (NLP)" subtitle="Extração semântica de sintomas via BERT">
         <div class="result-block risk-moderate">
           <div class="score-ring">
-            <svg viewBox="0 0 36 36" class="circular-chart warning">
+            <svg viewBox="0 0 36 36" class="circular-chart warning" aria-hidden="true">
               <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
               <path class="circle" stroke-dasharray="65, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
               <text x="18" y="20.35" class="percentage">65%</text>
@@ -46,18 +46,18 @@
       </app-card>
     </div>
 
-    <div class="animate-slide-up stagger-4 full-span">
+    <div class="full-span">
       <app-card title="Diagnóstico Consolidado (Ensemble AI)">
         <div class="summary-container">
-          <div class="icon-pulse">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          <div class="icon-pulse" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
           </div>
           <div class="summary-text-box">
             <p class="summary-text"><strong>Atenção Recomendada:</strong> A IA indica prioridade alta de atendimento e sugere necessidade de biópsia para confirmação diagnóstica. Encaminhamento mastológico com urgência recomendado.</p>
-            <div class="llm-action" style="margin-top: 1rem;">
-              <button class="btn-llm" (click)="generateClinicalReport()" [disabled]="isGeneratingLLM()">
-                <span *ngIf="!isGeneratingLLM()">✨ Gerar Laudo Médico Explicativo (LLM - Fase 2)</span>
-                <span *ngIf="isGeneratingLLM()">⏳ Interpretando Biomarcadores...</span>
+            <div class="llm-action" style="margin-top: var(--space-3);">
+              <button class="btn-llm" (click)="generateClinicalReport()" [disabled]="isGeneratingLLM()" [class.btn-loading]="isGeneratingLLM()">
+                <span *ngIf="!isGeneratingLLM()" style="display: inline-flex; align-items: center; gap: 0.5rem;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg> Gerar Laudo Médico Explicativo (LLM)</span>
+                <span *ngIf="isGeneratingLLM()" style="display: inline-flex; align-items: center; gap: 0.5rem;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-svg spin"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> Interpretando Biomarcadores...</span>
               </button>
             </div>
           </div>
@@ -66,35 +66,36 @@
     </div>
 
     <!-- Laudo Explicativo Clínico da LLM (Projeto 1) -->
-    <div *ngIf="clinicalReport()" class="animate-slide-up full-span" style="margin-top: 1rem;">
+    <div *ngIf="clinicalReport()" class="full-span" style="margin-top: var(--space-4);">
       <app-card title="Laudo Clínico Explicativo (Interpretação por LLM)" subtitle="Síntese acionável para o médico patologista e assistente">
-        <div class="clinical-report-body" style="padding: 0.5rem 0;">
-          <div class="report-section" style="margin-bottom: 1.25rem;">
-            <h4 style="color: #7B61FF; margin-bottom: 0.25rem;">📋 Resumo do Caso</h4>
-            <p style="color: #334155; line-height: 1.6;">{{ clinicalReport().summary }}</p>
+        <div class="clinical-report-body">
+          <div class="report-section">
+            <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Resumo do Caso</h4>
+            <p>{{ clinicalReport().summary }}</p>
           </div>
 
-          <div class="report-section" style="margin-bottom: 1.25rem;">
-            <h4 style="color: #E11D48; margin-bottom: 0.5rem;">🚨 Principais Fatores de Risco Determinantes</h4>
-            <ul style="margin: 0; padding-left: 1.25rem; color: #475569; line-height: 1.6;">
+          <div class="report-section">
+            <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Principais Fatores de Risco Determinantes</h4>
+            <ul>
               <li *ngFor="let factor of clinicalReport().key_risk_factors">{{ factor }}</li>
             </ul>
           </div>
 
-          <div class="report-section" style="margin-bottom: 1.25rem;">
-            <h4 style="color: #0284C7; margin-bottom: 0.25rem;">🔍 Justificativa e Raciocínio Clínico</h4>
-            <p style="color: #334155; line-height: 1.6;">{{ clinicalReport().explanation }}</p>
+          <div class="report-section">
+            <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Justificativa e Raciocínio Clínico</h4>
+            <p>{{ clinicalReport().explanation }}</p>
           </div>
 
-          <div class="report-section" style="margin-bottom: 1.25rem;">
-            <h4 style="color: #059669; margin-bottom: 0.5rem;">🩺 Recomendações e Condutas Sugeridas</h4>
-            <ul style="margin: 0; padding-left: 1.25rem; color: #475569; line-height: 1.6;">
+          <div class="report-section">
+            <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Recomendações e Condutas Sugeridas</h4>
+            <ul>
               <li *ngFor="let rec of clinicalReport().recommendations">{{ rec }}</li>
             </ul>
           </div>
 
-          <div class="ethical-alert" style="background: #FFFBEB; border: 1px solid #FDE68A; padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.8rem; color: #92400E; margin-top: 1rem;">
-            ⚖️ {{ clinicalReport().ethical_disclaimer }}
+          <div class="ethical-alert">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <div>{{ clinicalReport().ethical_disclaimer }}</div>
           </div>
         </div>
       </app-card>

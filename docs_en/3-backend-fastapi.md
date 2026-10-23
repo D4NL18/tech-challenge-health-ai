@@ -2,9 +2,9 @@
 
 *Read this in other languages: [English](3-backend-fastapi.md) | [Português](../docs/3-backend-fastapi.md)*
 
-In this document, I will focus purely on Software Engineering. I explain how I structured the Python Backend to handle network calls, manage memory intelligently, and validate data.
+In this document, I focus purely on Software Engineering. I explain how I structured the Python Backend to handle network calls, manage memory intelligently, validate data, and orchestrate evolutionary optimization and LLMs.
 
-The project structure follows the **MVC (Model-View-Controller) pattern adapted for Services**, promoting a separation of responsibilities.
+The project structure follows the **MVC (Model-View-Controller) pattern adapted for Services**, promoting a clear separation of concerns.
 
 ---
 
@@ -12,68 +12,109 @@ The project structure follows the **MVC (Model-View-Controller) pattern adapted 
 
 ```text
 backend/app/
-├── main.py                    # Entrypoint: Starts the server, manages CORS and the lifecycle.
-├── api/routers/anamnesis.py   # Controllers: Exposes HTTP endpoints (the API URLs).
-├── models/schemas.py          # DTOs: Defines strict input and output "molds" (Pydantic).
-├── services/inference.py      # Service Layer (Facade): Orchestrates the AI models.
-└── ml/                        # Isolated AI Engines.
-    ├── tabular.py             
-    ├── text.py              
-    ├── vision.py              
-    └── ensemble.py            
+├── main.py                       # Entrypoint: Starts the server, manages CORS and lifespan warm-up.
+├── api/routers/
+│   ├── anamnesis.py              # Diagnostic controllers, LLM explainability, and GA admin stats.
+│   └── routes_router.py          # Hospital logistics, OSRM routing, driver guides, and chat.
+├── models/schemas.py             # DTOs: Strict Pydantic input and output schemas.
+├── services/
+│   ├── inference.py              # Facade orchestrating multimodal ML inference.
+│   ├── clinical_llm.py           # Medical report synthesis with prompt injection defenses.
+│   ├── logistics_llm.py          # Turn-by-turn driver instructions and executive reports.
+│   └── geo/
+│       ├── osrm_provider.py      # OpenStreetMap OSRM client with Haversine fallback.
+│       └── geo_cache.py          # Persistent SQLite cache for distance/duration matrices.
+├── genetic/
+│   ├── hyperopt/                 # Project 1: Evolutionary hyperparameter tuning engine.
+│   └── routing/                  # Project 2: Evolutionary VRP solver for medical logistics.
+└── ml/                           # Frozen models and multimodal predictors.
+    ├── tabular.py                # Tabular inference with predict_proba.
+    ├── text.py                   # NLP symptom narrative analysis.
+    ├── vision.py                 # PyTorch ResNet-18 computer vision.
+    └── ensemble.py               # Weighted soft voting aggregator.
 ```
 
 ### The Request Flow:
-1. Angular sends the data.
-2. The **Router** (`anamnesis.py`) receives the HTTP call.
-3. The **Schema** (`schemas.py`) validates if the data is correct (e.g., if "Age" is an integer).
-4. If valid, the Router passes the problem to the **Service** (`inference.py`).
-5. The Service acts as a manager. It doesn't know how to calculate anything, but it knows how to call the **ML Experts** (`ml/`).
-6. The models calculate the scores, the Service receives them back, and packages them into a standardized JSON object for the Frontend.
+1. Angular sends the request payload.
+2. The **Router** (`anamnesis.py` or `routes_router.py`) receives the HTTP call.
+3. The **Schema** (`schemas.py`) validates that all input types match expected constraints.
+4. The Router delegates processing to the appropriate **Service Layer**.
+5. The Service coordinates the **ML/GA Engines** (`ml/` or `genetic/`).
+6. The models return results, and the Service packages them into a clean JSON response for the Frontend.
 
 ---
 
 ## 3.2. Memory Management (Lifespan / Cold Start)
 **Reference File:** `backend/app/main.py`
 
-This is the most important performance concept of the application.
-Machine Learning models (like a PyTorch neural network) are heavy. They rely on giant mathematical matrices (weights) saved in `.pth` or `.pkl` files on the HDD.
+Machine Learning models (like a PyTorch convolutional network) rely on large weight matrices stored in `.pth` or `.pkl` files on disk. Reading these gigabyte-scale files into RAM takes several seconds.
 
-Loading gigabytes from the HDD into RAM is an I/O operation that takes *seconds*.
-If I did this loading every time a patient clicked "Diagnose", the API would be unbearably slow.
+If this loading happened on every request, latency would be unacceptable.
 
-**The Solution:** I use the FastAPI `@asynccontextmanager` feature called **Lifespan**.
-When I type `npm start` (or Cloud Run starts the container), `main.py` intercepts the initialization event. It opens the `.pkl` and `.pth` files, loads the matrices into RAM (Warm-up), and leaves them there.
-When requests arrive, the AI is already "awake" and responds in milliseconds.
+**The Solution:** We use FastAPI's `@asynccontextmanager` **Lifespan** handler:
+When Cloud Run boots the container (or during local startup), `main.py` intercepts the initialization event, loads model weights into RAM (Warm-up), and initializes singletons. When user requests arrive, the models are already hot and respond in milliseconds.
 
 ---
 
-## 3.3. Strict Data Validation (Pydantic)
+## 3.3. Strict Data Validation (Pydantic v2)
 **Reference File:** `backend/app/models/schemas.py`
 
-FastAPI's main advantage over Flask is its deep integration with **Pydantic**.
-In `schemas.py`, I create Data Classes (DTOs - Data Transfer Objects). I define exactly which fields the Frontend is required to send, and what type they are (`str`, `int`, `float`, `Optional`).
+FastAPI provides native integration with **Pydantic v2**.
+In `schemas.py`, we define Data Transfer Objects (DTOs) with strict type hints (`str`, `int`, `float`, `Optional`).
 
-If the Frontend tries to send "twenty years" in a field that expects the number `20`, Pydantic intercepts the error before it even reaches the Artificial Intelligence and immediately returns a 422 Error (Unprocessable Entity) stating exactly which field was wrong.
-
-This prevents the platform from crashing or generating a bizarre diagnosis due to "dirty" data.
+If a request contains invalid types or values out of acceptable clinical ranges, Pydantic intercepts the payload before it touches business logic, immediately returning an HTTP 422 (Unprocessable Entity) response with exact error locations.
 
 ---
 
 ## 3.4. Multipart Form-Data vs JSON
 **Reference File:** `backend/app/api/routers/anamnesis.py`
 
-REST APIs usually use the `application/json` format to transmit data. But I have a problem: **I need to send the X-Ray photo**.
-JSON was not made to transmit heavy binary files efficiently.
+Standard REST APIs communicate via `application/json`. However, multimodal triage requires uploading binary image files (X-Rays, ultrasounds) alongside structured clinical measurements.
 
-To solve this, I use the **Multipart/Form-Data** pattern in the Controller.
-*   I receive the raw image file in the `image` field.
-*   I receive all the clinical text data in the `anamnesis_data` field as a large String.
-*   In Python, I use `json.loads` to convert this String back into a Dictionary, and pass it to Pydantic for validation.
+We adopt the **Multipart/Form-Data** standard:
+*   The raw image file is received via the `image` field.
+*   The structured patient data is received via the `anamnesis_data` field as a JSON string.
+*   Python deserializes the string via `json.loads` and validates it against Pydantic schemas.
 
-Thus, in a single network request, I send both the tabular data and the Image.
+This enables transferring tabular symptoms and high-resolution medical images in a single atomic HTTP request.
+
+---
+
+## 3.5. Phase 2 Evolution: Medical Routes Router (`routes_router.py`)
+**Reference File:** `backend/app/api/routers/routes_router.py`
+
+In Phase 2, a comprehensive asynchronous medical logistics pipeline was introduced:
+1. `GET /api/v1/routes/demo-scenario`: Returns a realistic benchmark demonstration scenario with a central medical depot and distributed patient stops across Salvador / São Paulo.
+2. `GET /api/v1/routes/geocode`: Direct and reverse geocoding powered by local SQLite caching.
+3. `POST /api/v1/routes/optimize`: Receives depot, deliveries (with clinical urgency tiers and time windows), fleet specs, and GA hyperparameters. Solves the VRP over the real road graph via OSRM and returns sequenced routes with encoded polylines and detailed telemetry.
+4. `POST /api/v1/routes/instructions`: Generates turn-by-turn driving instructions for field personnel with cold-chain maintenance warnings (2°C to 8°C).
+5. `POST /api/v1/routes/report`: Produces an executive hospital audit report analyzing travel time, mileage, route efficiency, and fleet safety.
+6. `POST /api/v1/routes/chat`: Operational logistics chat assistant for drivers and dispatchers in transit.
+
+Additionally, `anamnesis.py` was expanded with:
+- `POST /api/v1/anamnesis/explain-diagnosis`: Synthesizes an explainable clinical report via LLM (Gemini / OpenAI with an offline heuristic fallback).
+- `GET /api/v1/anamnesis/admin/genetic-experiments`: Historical benchmark comparison across the 3 Genetic Algorithm hyperparameter calibration experiments.
+
+---
+
+## 3.6. Geo Layer & OSRM Provider with Local SQLite Caching
+**Reference Files:** `backend/app/services/geo/osrm_provider.py` and `backend/app/services/geo/geo_cache.py`
+
+To eliminate third-party API costs and prevent quota exhaustion, we use **OSRM (Open Source Routing Machine) over OpenStreetMap**:
+- **Zero Paid Quota:** Completely free and open routing engine with automatic mathematical fallback to Haversine distance if network issues occur.
+- **Persistent SQLite Cache (`backend/data/geo_cache.db`):** Stores $N \times N$ duration and distance matrices indexed by coordinate hashes. Repeated requests for identical coordinate sets respond instantly in less than 1ms without outbound network calls.
+- **Two-Stage Optimization:** The Genetic Algorithm executes thousands of evolutionary iterations in memory using cached travel matrices. Only the final optimal route triggers a single `/route/v1/driving` call to retrieve the detailed visualization polyline.
+
+---
+
+## 3.7. Clinical and Logistics LLMs with Resilient Heuristics
+**Reference Files:** `backend/app/services/clinical_llm.py` and `backend/app/services/logistics_llm.py`
+
+Language models assist clinical decision-making and operational logistics:
+- Dynamic multi-provider integration supporting Google Gemini (`gemini-1.5-flash`) and OpenAI (`gpt-4o-mini`).
+- **Complete Offline Resilience:** If API keys are unset or network connectivity is lost, the system gracefully degrades to expert heuristic engines. These generate structured, medically sound clinical reports and operational routing instructions without throwing unhandled exceptions.
 
 ---
 
 **Next Step:**
-To understand how I structured the Frontend that consumes this API, access [4-frontend-angular.md](./4-frontend-angular.md).
+To see how the Angular Frontend consumes these endpoints and renders the user experience, access [4-frontend-angular.md](./4-frontend-angular.md).

@@ -1,4 +1,6 @@
-import { Component, ChangeDetectorRef, ElementRef } from '@angular/core';
+import { Component, ChangeDetectorRef, ElementRef, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -70,8 +72,17 @@ export class AnamnesisComponent {
   selectedFile: File | null = null;
   isLoading = false;
   predictionResult: AnamnesisPredictionResult | null = null;
+  lastTabularPayload: any = {};
+  isGeneratingLLM = signal(false);
+  clinicalReport = signal<any | null>(null);
 
-  constructor(private router: Router, private anamnesisService: AnamnesisService, private cdr: ChangeDetectorRef, private el: ElementRef) {}
+  constructor(
+    private router: Router,
+    private anamnesisService: AnamnesisService,
+    private http: HttpClient,
+    private cdr: ChangeDetectorRef,
+    private el: ElementRef
+  ) {}
 
   selectDisease(disease: 'cancer' | 'pcos') {
     this.selectedDisease = disease;
@@ -208,6 +219,7 @@ export class AnamnesisComponent {
         tabular_data: tabularData
       };
 
+      this.lastTabularPayload = tabularData;
       formData.append('anamnesis_data', JSON.stringify(payload));
       if (this.selectedFile) {
         formData.append('image', this.selectedFile);
@@ -223,6 +235,8 @@ export class AnamnesisComponent {
               this.predictionResult = res;
               this.animationClass = 'dust-in';
               this.cdr.detectChanges();
+              // Dispara automaticamente a explicabilidade clinica por LLM para esta triagem
+              this.generateClinicalReport();
 
               setTimeout(() => {
                 this.isAnimating = false;
@@ -255,5 +269,120 @@ export class AnamnesisComponent {
     };
     this.selectedFile = null;
     this.predictionResult = null;
+    this.clinicalReport.set(null);
+    this.isGeneratingLLM.set(false);
+  }
+
+  fillTestData(disease: 'cancer' | 'pcos', autoSubmit: boolean = false) {
+    if (this.isAnimating) return;
+    this.selectedDisease = disease;
+
+    if (disease === 'cancer') {
+      this.patientData.name = 'Mariana Silva Santos';
+      this.patientData.age = '48';
+      this.patientData.breast_symptoms = 'Nódulo palpável indolor no quadrante superior externo da mama direita há 3 meses com aumento progressivo.';
+      this.patientData.breast_history = 'Histórico familiar de neoplasia mamária em parente de primeiro grau (mãe aos 50 anos).';
+      this.patientData.openTextSymptoms = 'Paciente relata nódulo endurecido em mama direita com ligeira retração de pele há 3 meses. Refere cansaço e histórico materno de neoplasia de mama aos 50 anos. Nega secreção papilar.';
+      this.patientData.cancer = {
+        radius_mean: '17.99',
+        texture_mean: '10.38',
+        compactness_mean: '0.2776',
+        concavity_mean: '0.3001',
+        concave_points_mean: '0.1471',
+        radius_se: '1.095',
+        perimeter_se: '8.589',
+        area_se: '153.4',
+        concavity_se: '0.05373',
+        radius_worst: '25.38',
+        texture_worst: '17.33',
+        smoothness_worst: '0.1622',
+        compactness_worst: '0.6656',
+        concavity_worst: '0.7119',
+        concave_points_worst: '0.2654',
+        symmetry_worst: '0.4601'
+      };
+    } else {
+      this.patientData.name = 'Camila Fernandes Oliveira';
+      this.patientData.age = '26';
+      this.patientData.pcos_symptoms = 'Ciclos menstruais irregulares com intervalos de 42 a 48 dias, ganho de peso e acne persistente.';
+      this.patientData.pcos_history = 'Tentativa de gestação há 1 ano sem sucesso prévio.';
+      this.patientData.openTextSymptoms = 'Paciente jovem apresentando amenorreia secundária com ciclos irregulares de 40 a 45 dias, aumento de oleosidade e acne facial persistente, dificuldade de perda de peso e hirsutismo progressivo.';
+      this.patientData.pcos = {
+        weight: '74.5',
+        height: '162',
+        cycle_length: '42',
+        fsh: '5.2',
+        lh: '12.8',
+        tsh: '2.4',
+        prg: '0.6',
+        rbs: '108',
+        follicle_l: '16',
+        follicle_r: '18',
+        weight_gain: true,
+        hair_growth: true,
+        skin_darkening: true,
+        fast_food: true
+      };
+    }
+
+    if (autoSubmit) {
+      this.onSubmit();
+    } else {
+      this.currentStep = 4;
+      this.cdr.detectChanges();
+    }
+  }
+
+  generateClinicalReport() {
+    if (!this.predictionResult) return;
+    this.isGeneratingLLM.set(true);
+
+    const payload = {
+      disease: this.selectedDisease || 'cancer',
+      patient_name: this.patientData.name || 'Paciente',
+      patient_age: parseInt(this.patientData.age) || null,
+      confidence_score: this.predictionResult.confidence || 0.85,
+      tabular_data: this.lastTabularPayload || {}
+    };
+
+    this.http.post<any>(`${environment.apiUrl}/api/v1/anamnesis/explain-diagnosis`, payload).subscribe({
+      next: (res) => {
+        if (res.success && res.clinical_report) {
+          this.clinicalReport.set(res.clinical_report);
+        }
+        this.isGeneratingLLM.set(false);
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Erro ao gerar laudo LLM:', err);
+        this.isGeneratingLLM.set(false);
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  getCircularDasharray(score: number | null | undefined): string {
+    if (score === null || score === undefined) return '0, 100';
+    const val = Math.round(Math.min(1.0, Math.max(0.0, score)) * 100);
+    return `${val}, 100`;
+  }
+
+  getScorePercentage(score: number | null | undefined): string {
+    if (score === null || score === undefined) return '-';
+    return `${Math.round(Math.min(1.0, Math.max(0.0, score)) * 100)}%`;
+  }
+
+  getScoreRiskText(score: number | null | undefined): string {
+    if (score === null || score === undefined) return 'Não Fornecido';
+    if (score > 0.7) return 'Alto';
+    if (score > 0.4) return 'Moderado';
+    return 'Baixo';
+  }
+
+  getScoreRiskClass(score: number | null | undefined): string {
+    if (score === null || score === undefined) return 'risk-neutral';
+    if (score > 0.7) return 'risk-high pulse-danger';
+    if (score > 0.4) return 'risk-moderate';
+    return 'risk-low';
   }
 }

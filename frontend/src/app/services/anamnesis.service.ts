@@ -8,6 +8,9 @@ export interface AnamnesisPredictionResult {
   confidence: number;
   description: string;
   model_used?: string;
+  tabular_score?: number | null;
+  text_score?: number | null;
+  vision_score?: number | null;
 }
 
 @Injectable({

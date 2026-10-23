@@ -1,37 +1,53 @@
 <div class="dashboard">
   <header class="dashboard__header">
-    <div class="dashboard__header-content">
-      <h1 class="dashboard__title">Painel de Modelos <span class="info-icon" (click)="openInfoModal()">i</span></h1>
-      <p class="dashboard__subtitle">Visualização e Comparativo de Métricas de Inteligência Artificial</p>
+    <div class="container dashboard__header-content">
+      <div>
+        <div class="page-kicker">Governança & Benchmarks Clínicos</div>
+        <h1 class="dashboard__title">
+          Painel de Modelos
+          <button type="button" class="info-btn" (click)="openInfoModal()" title="Sobre as Métricas">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <span>Métricas</span>
+          </button>
+        </h1>
+        <p class="dashboard__subtitle">Auditoria de Classificadores, Visão Computacional e Algoritmos Genéticos</p>
+      </div>
+      <button class="btn btn-secondary btn-compact" (click)="logout()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Sair do Painel</span>
+      </button>
     </div>
-    <button class="dashboard__logout" (click)="logout()">Sair do Painel</button>
   </header>
 
   <div class="dashboard__loading" *ngIf="isLoading">
-    <div class="spinner"></div>
-    <p>Carregando métricas e imagens...</p>
+    <div class="skeleton-box" style="width: 48px; height: 48px; margin-bottom: var(--space-sm);"></div>
+    <p>Carregando métricas, matrizes e experimentos...</p>
   </div>
 
-  <main class="dashboard__main" *ngIf="!isLoading">
+  <main class="container dashboard__main" *ngIf="!isLoading">
     
+    <!-- 1. Modelos PCOS -->
     <section class="dashboard__section">
-      <h2 class="dashboard__section-title">Modelos para PCOS (Síndrome do Ovário Policístico)</h2>
+      <div class="section-head">
+        <h2 class="section-title">Modelos para PCOS (Síndrome do Ovário Policístico)</h2>
+        <span class="section-desc">Classificadores tabulares para detecção hormonal e metabólica</span>
+      </div>
       
       <div class="model-grid">
         <div class="model-card" *ngFor="let model of pcosModels" (click)="openModelDetails(model)">
           <div class="model-card__header">
             <h3 class="model-card__name">{{ model.model_name | uppercase }}</h3>
-            <span class="badge badge--active" *ngIf="activeModels.pcos === model.model_name">Modelo Ativo</span>
+            <span class="badge badge-status-prod" *ngIf="activeModels.pcos === model.model_name">&#x25CF; Ativo</span>
           </div>
           
           <div class="model-card__metrics">
             <div class="metric">
               <span class="metric__label">Acurácia Global</span>
-              <span class="metric__value">{{ (model.metrics.accuracy_global * 100) | number:'1.2-2' }}%</span>
+              <span class="metric__value">{{ (model.metrics.accuracy_global * 100) | number:'1.2-2' }} %</span>
             </div>
             <div class="metric">
               <span class="metric__label">ROC-AUC</span>
-              <span class="metric__value">{{ model.metrics.roc_auc ? (model.metrics.roc_auc | number:'1.4-4') : 'N/A' }}</span>
+              <span class="metric__value">{{ model.metrics.roc_auc ? (model.metrics.roc_auc | number:'1.4-4') : 'N/D' }}</span>
             </div>
           </div>
 
@@ -39,29 +55,32 @@
             <img *ngIf="getMatrixSrc(model)" [src]="getMatrixSrc(model)" alt="Matriz de Confusão">
             <div *ngIf="!getMatrixSrc(model)" class="model-card__matrix-placeholder">Matriz não carregada</div>
           </div>
-
         </div>
       </div>
     </section>
 
+    <!-- 2. Modelos Câncer de Mama Tabulares -->
     <section class="dashboard__section">
-      <h2 class="dashboard__section-title">Modelos para Câncer de Mama</h2>
+      <div class="section-head">
+        <h2 class="section-title">Modelos para Câncer de Mama (Biomarcadores Tabulares)</h2>
+        <span class="section-desc">Avaliação de diâmetro, concavidade e textura celular</span>
+      </div>
       
       <div class="model-grid">
         <div class="model-card" *ngFor="let model of cancerModels" (click)="openModelDetails(model)">
           <div class="model-card__header">
             <h3 class="model-card__name">{{ model.model_name | uppercase }}</h3>
-            <span class="badge badge--active" *ngIf="activeModels.cancer === model.model_name">Modelo Ativo</span>
+            <span class="badge badge-status-prod" *ngIf="activeModels.cancer === model.model_name">&#x25CF; Ativo</span>
           </div>
           
           <div class="model-card__metrics">
             <div class="metric">
               <span class="metric__label">Acurácia Global</span>
-              <span class="metric__value">{{ (model.metrics.accuracy_global * 100) | number:'1.2-2' }}%</span>
+              <span class="metric__value">{{ (model.metrics.accuracy_global * 100) | number:'1.2-2' }} %</span>
             </div>
             <div class="metric">
               <span class="metric__label">ROC-AUC</span>
-              <span class="metric__value">{{ model.metrics.roc_auc ? (model.metrics.roc_auc | number:'1.4-4') : 'N/A' }}</span>
+              <span class="metric__value">{{ model.metrics.roc_auc ? (model.metrics.roc_auc | number:'1.4-4') : 'N/D' }}</span>
             </div>
           </div>
 
@@ -69,29 +88,32 @@
             <img *ngIf="getMatrixSrc(model)" [src]="getMatrixSrc(model)" alt="Matriz de Confusão">
             <div *ngIf="!getMatrixSrc(model)" class="model-card__matrix-placeholder">Matriz não carregada</div>
           </div>
-
         </div>
       </div>
     </section>
 
+    <!-- 3. Visão Computacional (Mamografia) -->
     <section class="dashboard__section">
-      <h2 class="dashboard__section-title">Modelos de Visão Computacional para Câncer de Mama</h2>
+      <div class="section-head">
+        <h2 class="section-title">Modelos de Visão Computacional (Mamografia CNN)</h2>
+        <span class="section-desc">Classificação radiológica com pré-processamento CLAHE</span>
+      </div>
       
       <div class="model-grid">
         <div class="model-card" *ngFor="let model of visionModels" (click)="openModelDetails(model)">
           <div class="model-card__header">
             <h3 class="model-card__name">{{ model.model_name | uppercase }}</h3>
-            <span class="badge badge--active" *ngIf="activeModels.vision_cancer === model.model_name">Modelo Ativo</span>
+            <span class="badge badge-status-prod" *ngIf="activeModels.vision_cancer === model.model_name">&#x25CF; Ativo</span>
           </div>
           
           <div class="model-card__metrics">
             <div class="metric">
               <span class="metric__label">Acurácia Global</span>
-              <span class="metric__value">{{ (model.metrics.accuracy_global * 100) | number:'1.2-2' }}%</span>
+              <span class="metric__value">{{ (model.metrics.accuracy_global * 100) | number:'1.2-2' }} %</span>
             </div>
             <div class="metric">
               <span class="metric__label">ROC-AUC</span>
-              <span class="metric__value">{{ model.metrics.roc_auc ? (model.metrics.roc_auc | number:'1.4-4') : 'N/A' }}</span>
+              <span class="metric__value">{{ model.metrics.roc_auc ? (model.metrics.roc_auc | number:'1.4-4') : 'N/D' }}</span>
             </div>
           </div>
 
@@ -99,24 +121,27 @@
             <img *ngIf="getMatrixSrc(model)" [src]="getMatrixSrc(model)" alt="Matriz de Confusão">
             <div *ngIf="!getMatrixSrc(model)" class="model-card__matrix-placeholder">Matriz não carregada</div>
           </div>
-
         </div>
       </div>
     </section>
 
+    <!-- 4. Modelos NLP (LLM) -->
     <section class="dashboard__section">
-      <h2 class="dashboard__section-title">Modelos de Processamento de Linguagem Natural (LLM)</h2>
+      <div class="section-head">
+        <h2 class="section-title">Modelos de Linguagem e Raciocínio Clínico (LLM)</h2>
+        <span class="section-desc">Geração estruturada de laudos e síntese multimodal com fallback</span>
+      </div>
       
       <div class="model-grid">
         <div class="model-card" (click)="openModelDetails({model_name: 'gemini', disease: 'llm', metrics: {accuracy_global: 1.0}})">
           <div class="model-card__header">
-            <h3 class="model-card__name">GEMINI (Google)</h3>
-            <span class="badge badge--active" *ngIf="activeModels.llm === 'gemini'">Modelo Ativo</span>
+            <h3 class="model-card__name">GEMINI (Google Cloud)</h3>
+            <span class="badge badge-status-prod" *ngIf="activeModels.llm === 'gemini'">&#x25CF; Ativo</span>
           </div>
           <div class="model-card__metrics">
             <div class="metric">
-              <span class="metric__label">Status</span>
-              <span class="metric__value">Disponível</span>
+              <span class="metric__label">Provedor Principal</span>
+              <span class="metric__value" style="font-size: var(--text-sm);">Ativo (Gemini 2.5 / Flash)</span>
             </div>
           </div>
         </div>
@@ -124,104 +149,379 @@
         <div class="model-card" (click)="openModelDetails({model_name: 'gpt', disease: 'llm', metrics: {accuracy_global: 1.0}})">
           <div class="model-card__header">
             <h3 class="model-card__name">GPT (OpenAI)</h3>
-            <span class="badge badge--active" *ngIf="activeModels.llm === 'gpt'">Modelo Ativo</span>
+            <span class="badge badge-status-prod" *ngIf="activeModels.llm === 'gpt'">&#x25CF; Ativo</span>
           </div>
           <div class="model-card__metrics">
             <div class="metric">
-              <span class="metric__label">Status</span>
-              <span class="metric__value">Disponível</span>
+              <span class="metric__label">Provedor de Fallback</span>
+              <span class="metric__value" style="font-size: var(--text-sm);">Standby (GPT-4o-mini)</span>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Seção Fase 2: Otimização por Algoritmos Genéticos -->
+    <!-- 5. Seção Fase 2: Otimização por Algoritmos Genéticos -->
     <section class="dashboard__section" *ngIf="geneticData">
-      <div class="section__header" style="border-left: 4px solid #7B61FF; padding-left: 0.75rem;">
-        <h2 class="section__title">🧬 Otimização por Algoritmos Genéticos (Fase 2 • Projeto 1)</h2>
-        <span class="section__count">3 Experimentos Clínicos • F2-Score & Recall</span>
+      <div class="section-head">
+        <h2 class="section-title">
+          Otimização por Algoritmos Genéticos (Fase 2 • Projeto 1)
+        </h2>
+        <span class="section-desc">Sintonia evolutiva de hiperparâmetros no Random Forest com foco em Sensibilidade Clínica (F2-Score)</span>
       </div>
 
-      <!-- Tabela Comparativa: Baseline Fase 1 vs Experimentos AG -->
-      <div class="model-card" style="margin-bottom: 1.5rem; overflow-x: auto;">
-        <h3 style="margin-bottom: 0.75rem; font-size: 1.1rem; color: #0f172a;">📊 Comparativo de Desempenho: Baseline (Fase 1) vs. Modelos Otimizados por AG (Fase 2)</h3>
-        <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem; text-align: left;">
-          <thead>
-            <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569;">
-              <th style="padding: 0.75rem 1rem;">Abordagem / Experimento</th>
-              <th style="padding: 0.75rem 1rem;">População / Gerações</th>
-              <th style="padding: 0.75rem 1rem;">Recall (Sensibilidade)</th>
-              <th style="padding: 0.75rem 1rem;">F2-Score (Clínico)</th>
-              <th style="padding: 0.75rem 1rem;">Acurácia Global</th>
-              <th style="padding: 0.75rem 1rem;">F1-Score</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr style="border-bottom: 1px solid #f1f5f9; background: #fff;">
-              <td style="padding: 0.75rem 1rem; font-weight: 600; color: #64748b;">
-                📌 Baseline Fase 1 (Random Forest / GridSearch)
-              </td>
-              <td style="padding: 0.75rem 1rem; color: #64748b;">Discreto Padrão</td>
-              <td style="padding: 0.75rem 1rem; font-weight: bold; color: #334155;">{{ (geneticData.baseline_fase1.metrics.recall * 100) | number:'1.2-2' }}%</td>
-              <td style="padding: 0.75rem 1rem; color: #334155;">{{ (geneticData.baseline_fase1.metrics.f2_score * 100) | number:'1.2-2' }}%</td>
-              <td style="padding: 0.75rem 1rem; color: #334155;">{{ (geneticData.baseline_fase1.metrics.accuracy * 100) | number:'1.2-2' }}%</td>
-              <td style="padding: 0.75rem 1rem; color: #334155;">{{ (geneticData.baseline_fase1.metrics.f1_score * 100) | number:'1.2-2' }}%</td>
-            </tr>
-            <tr *ngFor="let exp of geneticData.experiments" style="border-bottom: 1px solid #f1f5f9; background: rgba(123, 97, 255, 0.02);">
-              <td style="padding: 0.75rem 1rem; font-weight: 700; color: #7B61FF;">
-                ✨ {{ exp.name }}
-              </td>
-              <td style="padding: 0.75rem 1rem; color: #475569;">Pop: {{ exp.parameters.population_size }} | Gen: {{ exp.parameters.generations }}</td>
-              <td style="padding: 0.75rem 1rem; font-weight: 800; color: #059669;">{{ (exp.best_metrics.recall * 100) | number:'1.2-2' }}%</td>
-              <td style="padding: 0.75rem 1rem; font-weight: 800; color: #7B61FF;">{{ (exp.best_metrics.f2_score * 100) | number:'1.2-2' }}%</td>
-              <td style="padding: 0.75rem 1rem; color: #0f172a;">{{ (exp.best_metrics.accuracy * 100) | number:'1.2-2' }}%</td>
-              <td style="padding: 0.75rem 1rem; color: #0f172a;">{{ (exp.best_metrics.f1_score * 100) | number:'1.2-2' }}%</td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- TABELA 1: ANTES E DEPOIS -->
+      <div class="admin-table-card">
+        <div class="admin-table-card__header">
+          <div>
+            <h3 class="admin-table-card__title">
+              Tabela 1: Comparativo Antes e Depois — Baseline (Fase 1) vs. Algoritmo Genético (Fase 2)
+            </h3>
+            <p class="admin-table-card__subtitle">
+              Evolução metodológica e ganhos diagnósticos obtidos na transição do GridSearchCV padrão para a otimização evolutiva
+            </p>
+          </div>
+          <span class="badge badge-method-ag">Antes vs. Depois</span>
+        </div>
+
+        <div class="admin-table-card__scroll-wrapper">
+          <table class="data-table density-comfortable">
+            <thead>
+              <tr>
+                <th>Métrica / Parâmetro</th>
+                <th class="cell-center">Fase 1 (GridSearchCV)</th>
+                <th class="cell-center th--champion">Fase 2 (Algoritmo Genético)</th>
+                <th>Impacto Clínico</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="row-label">Métrica de Treinamento</td>
+                <td class="cell-center text-muted">Acurácia (accuracy)</td>
+                <td class="cell-center cell-champion">F2-Score com 5-Fold Stratified CV</td>
+                <td>Priorização máxima de Sensibilidade (&beta; = 2)</td>
+              </tr>
+              <tr>
+                <td class="row-label">Espaço de Hiperparâmetros</td>
+                <td class="cell-center text-muted">Grade fixa de 12 opções</td>
+                <td class="cell-center cell-champion">Espaço contínuo, híbrido e logarítmico</td>
+                <td>Exploração livre de combinações ótimas</td>
+              </tr>
+              <tr class="row-selected">
+                <td class="row-label"><strong>Recall / Sensibilidade</strong></td>
+                <td class="cell-center cell-numeric text-muted">90,48 %</td>
+                <td class="cell-center cell-numeric cell-champion">
+                  95,76 % <span class="gain-pill">+5,28 p.p.</span>
+                </td>
+                <td><strong style="color: var(--color-risk-low);">Redução de mais de 55% nos falsos negativos</strong></td>
+              </tr>
+              <tr class="row-selected">
+                <td class="row-label"><strong>F2-Score Clínico</strong></td>
+                <td class="cell-center cell-numeric text-muted">91,35 %</td>
+                <td class="cell-center cell-numeric cell-champion">
+                  95,66 % <span class="gain-pill">+4,31 p.p.</span>
+                </td>
+                <td><strong style="color: var(--color-risk-low);">Maior assertividade em casos patológicos</strong></td>
+              </tr>
+              <tr>
+                <td class="row-label">Acurácia Global</td>
+                <td class="cell-center cell-numeric text-muted">94,74 %</td>
+                <td class="cell-center cell-numeric cell-champion">
+                  96,66 % <span class="gain-pill">+1,92 p.p.</span>
+                </td>
+                <td>Ganho simultâneo de acurácia geral</td>
+              </tr>
+              <tr>
+                <td class="row-label">ROC-AUC</td>
+                <td class="cell-center cell-numeric text-muted">0,9780</td>
+                <td class="cell-center cell-numeric cell-champion">
+                  0,9908 <span class="gain-pill">+0,0128</span>
+                </td>
+                <td>Excelente calibração e discriminação de classes</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <!-- Grid com os Cards dos 3 Experimentos -->
-      <div class="models-grid">
-        <div class="model-card" *ngFor="let exp of geneticData.experiments">
-          <div class="model-card__header">
-            <h3 class="model-card__name" style="color: #7B61FF;">{{ exp.name }}</h3>
-            <span class="badge" style="background: #ede9fe; color: #7c3aed; font-weight: 700; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem;">AG Sintonizado</span>
+      <!-- TABELA 2: BENCHMARK EXP 1 vs EXP 2 vs EXP 3 -->
+      <div class="admin-table-card">
+        <div class="admin-table-card__header">
+          <div>
+            <h3 class="admin-table-card__title">
+              Tabela 2: Benchmark Comparativo entre Experimentos de Algoritmo Genético
+            </h3>
+            <p class="admin-table-card__subtitle">
+              Trade-off entre tamanho populacional, taxas genéticas, tempo de convergência e métricas diagnósticas
+            </p>
+          </div>
+          <span class="badge badge-method-ag">Exp 1 vs. Exp 2 vs. Exp 3</span>
+        </div>
+
+        <div class="admin-table-card__scroll-wrapper">
+          <table class="data-table density-comfortable">
+            <thead>
+              <tr>
+                <th>Configuração / Métrica</th>
+                <th class="cell-center">Exp. 1 (Convergência Rápida)</th>
+                <th class="cell-center th--champion">Exp. 2 (Balanceado - Campeão)</th>
+                <th class="cell-center">Exp. 3 (Robusto)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="row-label">População (N)</td>
+                <td class="cell-center cell-numeric">20 cromossomos</td>
+                <td class="cell-center cell-numeric cell-champion">40 cromossomos</td>
+                <td class="cell-center cell-numeric">80 cromossomos</td>
+              </tr>
+              <tr>
+                <td class="row-label">Gerações (G)</td>
+                <td class="cell-center cell-numeric">10 gerações</td>
+                <td class="cell-center cell-numeric cell-champion">20 gerações</td>
+                <td class="cell-center cell-numeric">30 gerações</td>
+              </tr>
+              <tr>
+                <td class="row-label">Taxa de Mutação (p_m)</td>
+                <td class="cell-center cell-numeric">0,05 (5%)</td>
+                <td class="cell-center cell-numeric cell-champion">0,15 (15%)</td>
+                <td class="cell-center cell-numeric">0,25 (25%)</td>
+              </tr>
+              <tr>
+                <td class="row-label">Taxa de Crossover (p_c)</td>
+                <td class="cell-center cell-numeric">0,70 (70%)</td>
+                <td class="cell-center cell-numeric cell-champion">0,85 (85%)</td>
+                <td class="cell-center cell-numeric">0,90 (90%)</td>
+              </tr>
+              <tr>
+                <td class="row-label">Elitismo (E)</td>
+                <td class="cell-center cell-numeric">1 melhor</td>
+                <td class="cell-center cell-numeric cell-champion">2 melhores</td>
+                <td class="cell-center cell-numeric">2 melhores</td>
+              </tr>
+              <tr>
+                <td class="row-label">Tempo de Execução</td>
+                <td class="cell-center cell-numeric text-muted">188,54 s (~3,1 min)</td>
+                <td class="cell-center cell-numeric cell-champion">669,67 s (~11,1 min)</td>
+                <td class="cell-center cell-numeric text-muted">1596,03 s (~26,6 min)</td>
+              </tr>
+              <tr class="row-selected">
+                <td class="row-label"><strong>Recall Obtido</strong></td>
+                <td class="cell-center cell-numeric">95,28 %</td>
+                <td class="cell-center cell-numeric cell-champion">95,76 %</td>
+                <td class="cell-center cell-numeric">95,76 %</td>
+              </tr>
+              <tr class="row-selected">
+                <td class="row-label"><strong>F2-Score Obtido</strong></td>
+                <td class="cell-center cell-numeric">95,27 %</td>
+                <td class="cell-center cell-numeric cell-champion">95,66 %</td>
+                <td class="cell-center cell-numeric">95,66 %</td>
+              </tr>
+              <tr>
+                <td class="row-label">Acurácia Global</td>
+                <td class="cell-center cell-numeric">96,49 %</td>
+                <td class="cell-center cell-numeric cell-champion">96,66 %</td>
+                <td class="cell-center cell-numeric">96,84 %</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Configurações Globais VRP / Frota -->
+      <div class="admin-table-card admin-config-card">
+        <div class="admin-table-card__header">
+          <div>
+            <h3 class="admin-table-card__title">
+              Configurações Globais de Roteamento & Frota (VRP / AG)
+            </h3>
+            <p class="admin-table-card__subtitle">
+              Parâmetros padrão que governam a geração de rotas hospitalares, frota de veículos e o motor evolutivo
+            </p>
+          </div>
+          <span class="badge badge-status-prod">Controle Central</span>
+        </div>
+
+        <div *ngIf="routeConfigSuccessMessage" class="admin-config-alert">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>{{ routeConfigSuccessMessage }}</span>
+        </div>
+
+        <div class="admin-config-body">
+          <div class="admin-config-grid">
+            <div class="admin-field-card">
+              <div class="admin-field-card__header">
+                <label>Número de Vans / Motoristas:</label>
+                <strong class="admin-field-card__badge-val">{{ routeConfig.numVehicles }} vans</strong>
+              </div>
+              <input type="range" [(ngModel)]="routeConfig.numVehicles" min="1" max="6" step="1" class="admin-range-input" />
+              <span class="admin-field-caption">Veículos que atenderão a demanda com divisão balanceada.</span>
+            </div>
+
+            <div class="admin-field-card">
+              <div class="admin-field-card__header">
+                <label>Horário de Saída da Base:</label>
+                <strong class="admin-field-card__badge-val">{{ routeConfig.departureTime }}</strong>
+              </div>
+              <input type="time" [(ngModel)]="routeConfig.departureTime" class="admin-time-input" />
+              <span class="admin-field-caption">Define a calibração de tráfego nos corredores viários.</span>
+            </div>
+
+            <div class="admin-field-card">
+              <div class="admin-field-card__header">
+                <label>Cidade & Malha Viária:</label>
+                <strong class="admin-field-card__badge-val">{{ routeConfig.baseCity }}</strong>
+              </div>
+              <select [(ngModel)]="routeConfig.baseCity" class="admin-select-input">
+                <option value="Salvador">Salvador (Metrópole: pico até 1.45x)</option>
+                <option value="Feira de Santana">Feira de Santana (Polo: pico até 1.30x)</option>
+                <option value="Ilhéus">Ilhéus (Média: pico até 1.20x)</option>
+                <option value="Itaparica">Itaparica (Pequena: pico até 1.10x)</option>
+              </select>
+              <span class="admin-field-caption">Calibração demográfica e de densidade urbana.</span>
+            </div>
+
+            <div class="admin-field-card">
+              <div class="admin-field-card__header">
+                <label>Tempo Padrão por Parada:</label>
+                <strong class="admin-field-card__badge-val">{{ routeConfig.defaultServiceMinutes }} min</strong>
+              </div>
+              <input type="range" [(ngModel)]="routeConfig.defaultServiceMinutes" min="5" max="60" step="5" class="admin-range-input" />
+              <span class="admin-field-caption">Duração média de descarrego térmico em cada hospital.</span>
+            </div>
+
+            <div class="admin-field-card">
+              <div class="admin-field-card__header">
+                <label>População do Algoritmo Genético:</label>
+                <strong class="admin-field-card__badge-val">{{ routeConfig.populationSize }} cromossomos</strong>
+              </div>
+              <input type="range" [(ngModel)]="routeConfig.populationSize" min="10" max="100" step="10" class="admin-range-input" />
+              <span class="admin-field-caption">Pool de soluções avaliadas a cada geração.</span>
+            </div>
+
+            <div class="admin-field-card">
+              <div class="admin-field-card__header">
+                <label>Gerações / Épocas:</label>
+                <strong class="admin-field-card__badge-val">{{ routeConfig.generations }} épocas</strong>
+              </div>
+              <input type="range" [(ngModel)]="routeConfig.generations" min="10" max="60" step="5" class="admin-range-input" />
+              <span class="admin-field-caption">Ciclos de crossover e mutação para convergência viária.</span>
+            </div>
+
+            <div class="admin-field-card">
+              <div class="admin-field-card__header">
+                <label>Taxa de Mutação Genética:</label>
+                <strong class="admin-field-card__badge-val">{{ (routeConfig.mutationRate * 100).toFixed(0) }}%</strong>
+              </div>
+              <input type="range" [(ngModel)]="routeConfig.mutationRate" min="0.05" max="0.40" step="0.05" class="admin-range-input" />
+              <span class="admin-field-caption">Probabilidade de mutação (2-opt e swap) contra mínimos locais.</span>
+            </div>
+
+            <div class="admin-field-card">
+              <div class="admin-field-card__header">
+                <label>Capacidade por Veículo:</label>
+                <strong class="admin-field-card__badge-val">{{ routeConfig.capacityPerVehicle }} kg</strong>
+              </div>
+              <input type="range" [(ngModel)]="routeConfig.capacityPerVehicle" min="50" max="250" step="10" class="admin-range-input" />
+              <span class="admin-field-caption">Limite de carga útil ou caixas térmicas transportáveis por van.</span>
+            </div>
           </div>
 
-          <div class="model-card__metrics">
-            <div class="metric">
-              <span class="metric__label">F2-Score (Fitness)</span>
-              <span class="metric__value" style="color: #7B61FF; font-weight: 800;">{{ (exp.best_metrics.f2_score * 100) | number:'1.2-2' }}%</span>
-            </div>
-            <div class="metric">
-              <span class="metric__label">Recall (Sensibilidade)</span>
-              <span class="metric__value" style="color: #059669; font-weight: 800;">{{ (exp.best_metrics.recall * 100) | number:'1.2-2' }}%</span>
-            </div>
-          </div>
-
-          <div style="background: #f8fafc; border-radius: 0.5rem; padding: 0.75rem; margin-top: 0.75rem; font-size: 0.78rem; color: #334155;">
-            <strong>Hiperparâmetros Ótimos:</strong><br>
-            • Estimators: {{ exp.best_hyperparameters.n_estimators }} | Depth: {{ exp.best_hyperparameters.max_depth || 'None' }}<br>
-            • Min Samples Split: {{ exp.best_hyperparameters.min_samples_split }} | Leaf: {{ exp.best_hyperparameters.min_samples_leaf }}<br>
-            • Critério: {{ exp.best_hyperparameters.criterion }}
+          <div class="admin-config-actions">
+            <button type="button" class="btn btn-secondary" (click)="resetRouteConfigDefaults()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+              <span>Restaurar Padrões</span>
+            </button>
+            <button type="button" class="btn btn-primary" (click)="saveRouteConfig()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              <span>Salvar Parâmetros Globais</span>
+            </button>
           </div>
         </div>
       </div>
     </section>
+
+    <!-- 6. Seção Fase 2: Projeto 2 - Rotas Médicas (VRP) -->
+    <section class="dashboard__section">
+      <div class="section-head">
+        <h2 class="section-title">
+          Otimização de Rotas Médicas e Logística Hospitalar (Fase 2 • Projeto 2)
+        </h2>
+        <span class="section-desc">Comparativo de desempenho entre roteamento sequencial (FIFO), heurística gulosa (Nearest Neighbor) e o Algoritmo Genético VRP sobre malha rodoviária real</span>
+      </div>
+
+      <div class="admin-table-card">
+        <div class="admin-table-card__header">
+          <div>
+            <h3 class="admin-table-card__title">
+              Tabela 3: Comparativo de Desempenho com Outras Abordagens de Roteamento
+            </h3>
+            <p class="admin-table-card__subtitle">
+              Simulação controlada com 10 unidades de saúde e 2 veículos da frota em malha viária real
+            </p>
+          </div>
+          <span class="badge badge-cold">Benchmark VRP</span>
+        </div>
+
+        <div class="admin-table-card__scroll-wrapper">
+          <table class="data-table density-comfortable">
+            <thead>
+              <tr>
+                <th>Métrica Avaliada</th>
+                <th class="cell-center">Roteamento Sequencial / Manual</th>
+                <th class="cell-center">Heurística Gulosa (Nearest Neighbor)</th>
+                <th class="cell-center th--champion">Algoritmo Genético VRP</th>
+                <th>Ganho Obtido</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="row-selected">
+                <td class="row-label">Distância Total Percorrida</td>
+                <td class="cell-center cell-numeric text-muted">~58,4 km</td>
+                <td class="cell-center cell-numeric">~44,8 km</td>
+                <td class="cell-center cell-numeric cell-champion">39,7 km</td>
+                <td><strong style="color: var(--color-risk-low);">-32% de redução viária</strong></td>
+              </tr>
+              <tr class="row-selected">
+                <td class="row-label">Tempo Total em Trânsito</td>
+                <td class="cell-center cell-numeric text-muted">~108 min</td>
+                <td class="cell-center cell-numeric">~84,5 min</td>
+                <td class="cell-center cell-numeric cell-champion">77,8 min</td>
+                <td><strong style="color: var(--color-risk-low);">-28% de economia de tempo</strong></td>
+              </tr>
+              <tr class="row-selected">
+                <td class="row-label">Entregas Críticas (2°C a 8°C)</td>
+                <td class="cell-center text-muted">Ordem aleatória</td>
+                <td class="cell-center">Podem atrasar</td>
+                <td class="cell-center cell-champion">100% no 1º trecho de saída</td>
+                <td><strong style="color: var(--color-cold);">Risco zero de perda térmica</strong></td>
+              </tr>
+              <tr class="row-selected">
+                <td class="row-label">Tempo de Execução do Algoritmo</td>
+                <td class="cell-center cell-numeric text-muted">Manual (15 a 30 min)</td>
+                <td class="cell-center cell-numeric">&lt; 0,05 s</td>
+                <td class="cell-center cell-numeric cell-champion">0,12 s a 0,35 s (em RAM)</td>
+                <td><strong style="color: var(--color-risk-low);">Instantâneo e escalável</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- Modal Info -->
   <div class="modal__backdrop" *ngIf="showInfoModal" (click)="closeInfoModal()">
     <div class="modal__content modal__content--small" (click)="$event.stopPropagation()">
       <div class="modal__header">
-        <h2 class="modal__title">Sobre as Métricas</h2>
+        <h2 class="modal__title">Sobre as Métricas Diagnósticas</h2>
         <button class="modal__close" (click)="closeInfoModal()">&times;</button>
       </div>
       <div class="modal__body">
-        <p><strong>Acurácia Global:</strong> Mede o percentual de acertos gerais do modelo (verdadeiros positivos e verdadeiros negativos) em relação ao total de casos avaliados. Uma acurácia alta indica um bom desempenho geral.</p>
-        <p><strong>ROC-AUC:</strong> A Área Sob a Curva ROC (Receiver Operating Characteristic) mede a capacidade do modelo de distinguir entre as classes (ex: Saudável vs. Doente). Valores mais próximos de 1.0 indicam um excelente poder de discriminação, enquanto 0.5 indica uma chance aleatória.</p>
+        <p><strong>Acurácia Global:</strong> Mede o percentual de acertos gerais do modelo (verdadeiros positivos e verdadeiros negativos) em relação ao total de casos avaliados.</p>
+        <p><strong>ROC-AUC:</strong> A Área Sob a Curva ROC (Receiver Operating Characteristic) mede a capacidade do modelo de distinguir entre as classes (ex: Saudável vs. Suspeito de Patologia). Valores mais próximos de 1.0 indicam excelente poder de discriminação clínica.</p>
+        <p><strong>F2-Score (&beta; = 2):</strong> Pesa o Recall duas vezes mais que a Precisão. Em oncologia e patologias graves, minimizar os Falsos Negativos é mandatório para não atrasar o tratamento da paciente.</p>
       </div>
     </div>
   </div>
@@ -237,23 +537,23 @@
         <div class="modal__metrics" *ngIf="selectedModel.disease !== 'llm'">
           <div class="metric">
             <span class="metric__label">Acurácia Global</span>
-            <span class="metric__value">{{ (selectedModel.metrics.accuracy_global * 100) | number:'1.2-2' }}%</span>
+            <span class="metric__value">{{ (selectedModel.metrics.accuracy_global * 100) | number:'1.2-2' }} %</span>
           </div>
           <div class="metric">
             <span class="metric__label">ROC-AUC</span>
-            <span class="metric__value">{{ selectedModel.metrics.roc_auc ? (selectedModel.metrics.roc_auc | number:'1.4-4') : 'N/A' }}</span>
+            <span class="metric__value">{{ selectedModel.metrics.roc_auc ? (selectedModel.metrics.roc_auc | number:'1.4-4') : 'N/D' }}</span>
           </div>
         </div>
         <p class="modal__summary">{{ getModelSummary(selectedModel) }}</p>
         <div class="modal__actions" *ngIf="selectedModel">
-          <button class="btn-activate btn-activate--modal" 
+          <button class="btn btn-primary btn-compact" 
                   *ngIf="(selectedModel.disease === 'pcos' && activeModels.pcos !== selectedModel.model_name) || (selectedModel.disease === 'cancer' && activeModels.cancer !== selectedModel.model_name) || (selectedModel.disease === 'vision_cancer' && activeModels.vision_cancer !== selectedModel.model_name) || (selectedModel.disease === 'llm' && activeModels.llm !== selectedModel.model_name)" 
                   (click)="setAsActive(selectedModel.disease, selectedModel.model_name)">
-            Tornar Ativo
+            Colocar em Produção
           </button>
-          <span class="badge badge--active badge--modal" 
+          <span class="badge badge-status-prod" 
                 *ngIf="(selectedModel.disease === 'pcos' && activeModels.pcos === selectedModel.model_name) || (selectedModel.disease === 'cancer' && activeModels.cancer === selectedModel.model_name) || (selectedModel.disease === 'vision_cancer' && activeModels.vision_cancer === selectedModel.model_name) || (selectedModel.disease === 'llm' && activeModels.llm === selectedModel.model_name)">
-            Modelo Ativo
+            &#x25CF; Modelo em Produção
           </span>
         </div>
         <div class="modal__image">

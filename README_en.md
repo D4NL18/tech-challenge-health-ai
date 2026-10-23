@@ -24,7 +24,7 @@ Since this repository is my study guide and Tech Challenge delivery, the documen
 - **Phase 2 (Genetic Algorithms & Medical Routing):**
   - [Official Phase 2 Technical Report (Portuguese)](docs/fase2/relatorio-tecnico-fase2.md)
   - [Video Presentation & Demo Script](docs/fase2/roteiro-video-apresentacao.md)
-  - [Genetic Algorithm Benchmarks & 3 Systematic Experiments](docs/fase2/benchmarks-experimentos-ag.md)
+  - [Genetic Algorithm Benchmarks & 3 Systematic Experiments](docs_en/5-mlops-training.md#56-results-of-the-3-systematic-experiments)
 
 ---
 
@@ -72,8 +72,8 @@ pip install -r requirements.txt
 # 5. (Optional) Run the 3 Genetic Algorithm hyperparameter experiments
 python training_scripts/train_genetic_hyperopt.py
 
-# 6. Run automated test suite for Phase 1 & Phase 2 (11 tests)
-pytest tests/ -v
+# 6. Run automated test suite for Phase 1 & Phase 2 (27 tests)
+python -m pytest tests/ -v
 
 # 7. Start the FastAPI server on port 8000
 python -m uvicorn app.main:app --reload
@@ -94,9 +94,9 @@ npm install
 npm start
 ```
 The interface opens at `http://localhost:4200`:
-- **Multimodal Diagnostic Dashboard:** `http://localhost:4200/dashboard`
+- **Multimodal Diagnostic Triage:** `http://localhost:4200/` or `http://localhost:4200/dashboard`
 - **Medical Routing Module (Phase 2):** `http://localhost:4200/routes`
-- **Admin Dashboard & GA Audit:** `http://localhost:4200/admin`
+- **Admin Dashboard & GA Audit:** `http://localhost:4200/admin` (or `http://localhost:4200/admin/dashboard`)
 
 ---
 

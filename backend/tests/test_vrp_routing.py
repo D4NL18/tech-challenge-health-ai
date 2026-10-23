@@ -250,6 +250,50 @@ def test_vrp_three_tier_priorities_and_sectorization():
 
     # Prioridade 2: No setor Norte, como o Regular 2 está exatamente no caminho entre 1 e 3
     # (1 -> 2 -> 3 custa 200 + 500 = 700s; direto 1 -> 3 custa 700s, logo desvio é zero!)
-    # O nó regular 2 é atendido antes de 3!
     assert van_with_norte.index(2) < van_with_norte.index(3), "Regular no caminho deve ser atendido antes da Alta sem desvio excessivo"
+
+def test_vrp_traffic_and_dwell_times():
+    # Testa VRP com horário de saída às 08:00 (Pico da manhã em Salvador) vs Madrugada às 03:00 (Livre)
+    durations = [
+        [0, 600, 900],
+        [600, 0, 700],
+        [900, 700, 0]
+    ]
+    distances = [[d * 12 for d in row] for row in durations]
+    deliveries = [
+        {"id": "d1", "name": "Hospital A", "demand": 10, "priority": "CRITICAL", "service_duration_minutes": 20, "city": "Salvador"},
+        {"id": "d2", "name": "Hospital B", "demand": 10, "priority": "REGULAR", "service_duration_minutes": 15, "city": "Salvador"}
+    ]
+
+    # Solver 1: Saída no Pico da Manhã (08:00 / 480 min) com 15 min de serviço padrão
+    solver_peak = VRPSolver(
+        durations_matrix_sec=durations,
+        distances_matrix_m=distances,
+        deliveries_data=deliveries,
+        num_vehicles=1,
+        departure_time_minutes=480.0,
+        default_service_minutes=15,
+        base_city="Salvador",
+        points_cities=["Salvador", "Salvador", "Salvador"]
+    )
+    res_peak = solver_peak.solve()
+
+    # Solver 2: Saída na Madrugada (03:00 / 180 min - Trânsito 1.0)
+    solver_offpeak = VRPSolver(
+        durations_matrix_sec=durations,
+        distances_matrix_m=distances,
+        deliveries_data=deliveries,
+        num_vehicles=1,
+        departure_time_minutes=180.0,
+        default_service_minutes=15,
+        base_city="Salvador",
+        points_cities=["Salvador", "Salvador", "Salvador"]
+    )
+    res_offpeak = solver_offpeak.solve()
+
+    # O tempo total no pico da manhã deve ser estritamente maior que na madrugada devido ao multiplicador de trânsito
+    assert res_peak["total_time_minutes"] > res_offpeak["total_time_minutes"]
+    # E o tempo total deve incluir os tempos de serviço (20 + 15 = 35 min)
+    assert res_peak["total_time_minutes"] >= 35.0
+
 

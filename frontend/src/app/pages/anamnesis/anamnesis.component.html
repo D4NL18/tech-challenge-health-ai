@@ -1,246 +1,434 @@
-<div class="container animate-slide-up stagger-1">
-  <div class="page-header text-center">
-    <div class="icon-wrap">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="url(#gradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <defs>
-          <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#FF4B72" />
-            <stop offset="100%" stop-color="#7B61FF" />
-          </linearGradient>
-        </defs>
-        <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
-      </svg>
-    </div>
-    <h1>Triagem Inteligente</h1>
-    <p>Nossa IA analisa instantaneamente relatos e exames para auxiliar o diagnóstico.</p>
-  </div>
+<div class="anamnesis-page">
+  <div class="container">
+    
+    <!-- Header Institucional Documental -->
+    <header class="page-doc-header">
+      <div class="page-kicker">Triagem Clínica & Avaliação Multimodal</div>
+      <h1 class="page-doc-title">Protocolo de Triagem Preditiva</h1>
+      <p class="page-doc-lede">
+        Análise algorítmica integrada de biomarcadores laboratoriais, processamento radiológico e histórico clínico com governança ética.
+      </p>
 
-  <div class="dust-container">
+      <!-- Stepper Documental da Folha de Triagem -->
+      <nav class="doc-stepper" aria-label="Progresso da Triagem">
+        <div class="doc-step-item" [class.active]="currentStep === 1" [class.completed]="currentStep > 1">
+          <span class="step-num">01</span>
+          <span class="step-name">Identificação</span>
+        </div>
+        <span class="step-divider">/</span>
+        <div class="doc-step-item" [class.active]="currentStep === 2" [class.completed]="currentStep > 2">
+          <span class="step-num">02</span>
+          <span class="step-name">Foco Clínico</span>
+        </div>
+        <span class="step-divider">/</span>
+        <div class="doc-step-item" [class.active]="currentStep === 3" [class.completed]="currentStep > 3">
+          <span class="step-num">03</span>
+          <span class="step-name">Sintomas & Vitals</span>
+        </div>
+        <span class="step-divider">/</span>
+        <div class="doc-step-item" [class.active]="currentStep === 4" [class.completed]="currentStep > 4">
+          <span class="step-num">04</span>
+          <span class="step-name">Biomarcadores</span>
+        </div>
+        <span class="step-divider">/</span>
+        <div class="doc-step-item" [class.active]="currentStep >= 5">
+          <span class="step-num">05</span>
+          <span class="step-name">Resultado</span>
+        </div>
+      </nav>
+    </header>
+
+    <!-- Barra de Ações Rápidas (Modo de Testes) -->
+    <div *ngIf="currentStep < 5" class="quick-test-bar">
+      <div class="test-label">
+        <span class="badge badge-method-ag">Amostras de Teste Rápido</span>
+        <span class="test-caption">Preencha os biomarcadores citopatológicos ou hormonais em 1 clique:</span>
+      </div>
+      <div class="test-buttons">
+        <button type="button" class="btn btn-secondary btn-compact" (click)="fillTestData('cancer', false)" title="Carrega dados de biópsia mamária (PAAF) para revisão no passo 4">
+          Carregar: Câncer de Mama
+        </button>
+        <button type="button" class="btn btn-secondary btn-compact" (click)="fillTestData('pcos', false)" title="Carrega dados hormonais de SOP para revisão no passo 4">
+          Carregar: SOP
+        </button>
+      </div>
+    </div>
+
+    <!-- Conteúdo dos Passos -->
+    <div class="doc-form-wrapper">
       
-      <!-- STEP 1 -->
-      <div *ngIf="currentStep === 1" class="form-step step-container full-width" [ngClass]="animationClass">
-        <h2 class="step-title">Passo 1: Identificação</h2>
-        <p class="step-desc">Por favor, insira os dados básicos da paciente.</p>
+      <!-- PASSO 1: IDENTIFICAÇÃO -->
+      <section *ngIf="currentStep === 1" class="form-step-section">
+        <div class="section-head">
+          <h2 class="section-title">01. Identificação da Paciente</h2>
+          <span class="section-desc">Dados cadastrais básicos para controle de sessão clínica</span>
+        </div>
+        
         <div class="form-grid">
           <app-input label="Nome Completo" placeholder="Ex: Maria da Silva" [(ngModel)]="patientData.name" name="name"></app-input>
-          <app-input label="Idade" type="number" placeholder="Ex: 45" [(ngModel)]="patientData.age" name="age"></app-input>
-          
-          <div class="form-actions form-actions--right full-width">
-            <app-button label="Próximo Passo" variant="primary" (click)="nextStep()" [disabled]="!patientData.name || !patientData.age"></app-button>
-          </div>
+          <app-input label="Idade (anos)" type="number" placeholder="Ex: 45" [(ngModel)]="patientData.age" name="age"></app-input>
         </div>
-      </div>
 
-      <!-- STEP 2 -->
-      <div *ngIf="currentStep === 2" class="form-step step-container full-width" [ngClass]="animationClass">
-        <h2 class="step-title">Passo 2: Foco da Triagem</h2>
-        <p class="step-desc">Selecione qual caminho de triagem deseja seguir para esta paciente.</p>
+        <div class="form-actions form-actions--right">
+          <app-button label="Prosseguir para Foco Clínico" variant="primary" (click)="nextStep()" [disabled]="!patientData.name || !patientData.age"></app-button>
+        </div>
+      </section>
+
+      <!-- PASSO 2: FOCO DA TRIAGEM -->
+      <section *ngIf="currentStep === 2" class="form-step-section">
+        <div class="section-head">
+          <h2 class="section-title">02. Foco da Investigação Diagnóstica</h2>
+          <span class="section-desc">Selecione o protocolo clínico a ser avaliado</span>
+        </div>
         
-        <div class="disease-selection">
-          <div class="disease-wrapper">
-            <div class="disease-card" (click)="selectDisease('cancer')">
-              <div class="disease-icon">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <circle cx="12" cy="12" r="6"></circle>
-                  <circle cx="12" cy="12" r="2"></circle>
-                </svg>
-              </div>
-              <h3>Câncer de Mama</h3>
-              <p>Avaliação de nódulos, PAAF e histórico mamário.</p>
+        <div class="disease-selection-grid">
+          <div class="disease-doc-card" (click)="selectDisease('cancer')">
+            <div class="disease-badge-slot">
+              <span class="badge" style="background-color: var(--color-paper-3); color: var(--color-ink);">Protocolo Oncopediátrico / Adulto</span>
+            </div>
+            <h3 class="disease-doc-title">Câncer de Mama</h3>
+            <p class="disease-doc-desc">
+              Avaliação morfométrica de nódulos citopatológicos (PAAF), microcalcificações e análise opcional de mamografia por visão computacional.
+            </p>
+            <div class="disease-doc-footer">
+              <span class="btn btn-secondary btn-compact">Selecionar Protocolo &rarr;</span>
             </div>
           </div>
           
-          <div class="disease-wrapper">
-            <div class="disease-card" (click)="selectDisease('pcos')">
-              <div class="disease-icon">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M9 2v6l-5 10c-.5 1-0.1 2.5 1 3h14c1.1-.5 1.5-2 1-3l-5-10V2"></path>
-                  <path d="M6 14h12"></path>
-                  <path d="M9 2h6"></path>
-                </svg>
-              </div>
-              <h3>Síndrome do Ovário Policístico</h3>
-              <p>Avaliação hormonal, ciclo menstrual e sintomas.</p>
+          <div class="disease-doc-card" (click)="selectDisease('pcos')">
+            <div class="disease-badge-slot">
+              <span class="badge" style="background-color: var(--color-paper-3); color: var(--color-ink);">Protocolo Endocrinológico</span>
+            </div>
+            <h3 class="disease-doc-title">Síndrome do Ovário Policístico</h3>
+            <p class="disease-doc-desc">
+              Triagem hormonal, contagem folicular ovariana, regularidade do ciclo menstrual e biomarcadores metabólicos.
+            </p>
+            <div class="disease-doc-footer">
+              <span class="btn btn-secondary btn-compact">Selecionar Protocolo &rarr;</span>
             </div>
           </div>
         </div>
 
-        <div class="form-actions form-actions--left full-width" style="margin-top: 2rem;">
+        <div class="form-actions form-actions--left">
           <app-button type="button" label="Voltar" variant="secondary" (click)="prevStep()"></app-button>
         </div>
-      </div>
+      </section>
 
-      <!-- Step 3: Vitals & Visible Symptoms -->
-      <div *ngIf="currentStep === 3" class="step-container full-width" [ngClass]="animationClass">
-        <div class="step-content">
-          <div class="form-grid" *ngIf="selectedDisease === 'cancer'">
-            <!-- Sem campos abertos, vamos direto aos dados numéricos que temos do dataset, ou uma instrução -->
-            <div class="full-width">
-              <h3 style="color: var(--text-main); margin-bottom: 1rem;">Prosseguir para Dados Analíticos</h3>
-              <p style="color: var(--text-muted); margin-bottom: 2rem;">A triagem de câncer de mama é focada nos dados numéricos extraídos da biópsia (PAAF) para maior precisão.</p>
-            </div>
-          </div>
-          <div class="form-grid" *ngIf="selectedDisease === 'pcos'">
-            <app-input label="Peso (Kg)" type="text" placeholder="Ex: 65.5" [(ngModel)]="patientData.pcos.weight" name="weight"></app-input>
-            <app-input label="Altura (cm)" type="text" placeholder="Ex: 160" [(ngModel)]="patientData.pcos.height" name="height"></app-input>
-            
-            <div class="input-group" style="display: flex; flex-direction: column; margin-bottom: 1.5rem;">
-              <label class="input-group__label">Ganho de Peso Recente?</label>
-              <select [(ngModel)]="patientData.pcos.weight_gain" name="weight_gain" style="padding: 1rem; border: 2px solid var(--border); border-radius: var(--radius-sm); font-size: 1rem; background: rgba(255, 255, 255, 0.6); color: var(--text-main);">
-                <option [ngValue]="false">Não</option>
-                <option [ngValue]="true">Sim</option>
-              </select>
-            </div>
+      <!-- PASSO 3: SINTOMAS & VITALS -->
+      <section *ngIf="currentStep === 3" class="form-step-section">
+        <div class="section-head">
+          <h2 class="section-title">03. Sintomas e Dados Físicos</h2>
+          <span class="section-desc">{{ selectedDisease === 'cancer' ? 'Triagem de Câncer de Mama' : 'Triagem de SOP' }}</span>
+        </div>
 
-            <div class="input-group" style="display: flex; flex-direction: column; margin-bottom: 1.5rem;">
-              <label class="input-group__label">Crescimento de Pelos Incomum?</label>
-              <select [(ngModel)]="patientData.pcos.hair_growth" name="hair_growth" style="padding: 1rem; border: 2px solid var(--border); border-radius: var(--radius-sm); font-size: 1rem; background: rgba(255, 255, 255, 0.6); color: var(--text-main);">
-                <option [ngValue]="false">Não</option>
-                <option [ngValue]="true">Sim</option>
-              </select>
-            </div>
+        <div *ngIf="selectedDisease === 'cancer'" class="clinical-callout">
+          <h3 class="callout-title">Protocolo Focado em Análise Morfométrica</h3>
+          <p class="callout-text">
+            A triagem de neoplasia mamária prioriza os dados numéricos extraídos diretamente da biópsia por agulha fina (PAAF). Clique em avançar para preencher os biomarcadores nodulares.
+          </p>
+        </div>
 
-            <div class="input-group" style="display: flex; flex-direction: column; margin-bottom: 1.5rem;">
-              <label class="input-group__label">Escurecimento da Pele?</label>
-              <select [(ngModel)]="patientData.pcos.skin_darkening" name="skin_darkening" style="padding: 1rem; border: 2px solid var(--border); border-radius: var(--radius-sm); font-size: 1rem; background: rgba(255, 255, 255, 0.6); color: var(--text-main);">
-                <option [ngValue]="false">Não</option>
-                <option [ngValue]="true">Sim</option>
-              </select>
-            </div>
-
-            <div class="input-group" style="display: flex; flex-direction: column; margin-bottom: 1.5rem;">
-              <label class="input-group__label">Consumo Frequente de Fast Food?</label>
-              <select [(ngModel)]="patientData.pcos.fast_food" name="fast_food" style="padding: 1rem; border: 2px solid var(--border); border-radius: var(--radius-sm); font-size: 1rem; background: rgba(255, 255, 255, 0.6); color: var(--text-main);">
-                <option [ngValue]="false">Não</option>
-                <option [ngValue]="true">Sim</option>
-              </select>
-            </div>
-          </div>
+        <div *ngIf="selectedDisease === 'pcos'" class="form-grid">
+          <app-input label="Peso Corporal (Kg)" type="text" placeholder="Ex: 65.5" [(ngModel)]="patientData.pcos.weight" name="weight"></app-input>
+          <app-input label="Estatura (cm)" type="text" placeholder="Ex: 160" [(ngModel)]="patientData.pcos.height" name="height"></app-input>
           
-          <div class="form-actions">
-            <app-button type="button" label="Voltar" variant="secondary" (click)="prevStep()"></app-button>
-            <app-button type="button" label="Avançar" variant="primary" (click)="nextStep()"></app-button>
+          <div class="form-field">
+            <label class="field-label">Ganho de Peso Recente?</label>
+            <select [(ngModel)]="patientData.pcos.weight_gain" name="weight_gain" class="input-control">
+              <option [ngValue]="false">Não</option>
+              <option [ngValue]="true">Sim</option>
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">Crescimento de Pelos Incomum?</label>
+            <select [(ngModel)]="patientData.pcos.hair_growth" name="hair_growth" class="input-control">
+              <option [ngValue]="false">Não</option>
+              <option [ngValue]="true">Sim</option>
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">Escurecimento da Pele (Acantose)?</label>
+            <select [(ngModel)]="patientData.pcos.skin_darkening" name="skin_darkening" class="input-control">
+              <option [ngValue]="false">Não</option>
+              <option [ngValue]="true">Sim</option>
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">Consumo Frequente de Fast Food?</label>
+            <select [(ngModel)]="patientData.pcos.fast_food" name="fast_food" class="input-control">
+              <option [ngValue]="false">Não</option>
+              <option [ngValue]="true">Sim</option>
+            </select>
           </div>
         </div>
-      </div>
 
-      <!-- Step 4: Labs & Medical History -->
-      <div *ngIf="currentStep === 4" class="step-container full-width" [ngClass]="animationClass">
-        <div class="step-content">
-          <ng-container *ngIf="selectedDisease === 'cancer'">
+        <div class="form-actions">
+          <app-button type="button" label="Voltar" variant="secondary" (click)="prevStep()"></app-button>
+          <app-button type="button" label="Avançar para Biomarcadores" variant="primary" (click)="nextStep()"></app-button>
+        </div>
+      </section>
+
+      <!-- PASSO 4: BIOMARCADORES E LAUDO PAAF / SOP -->
+      <section *ngIf="currentStep === 4" class="form-step-section">
+        
+        <!-- BIOMARCADORES CÂNCER -->
+        <ng-container *ngIf="selectedDisease === 'cancer'">
+          <div class="section-head">
+            <h2 class="section-title">04. Biomarcadores Citopatológicos (PAAF)</h2>
+            <span class="section-desc">Métricas celulares extraídas digitalmente</span>
+          </div>
+
+          <div class="form-grid">
+            <app-input label="Raio Médio (mm)" type="text" placeholder="Ex: 14.12" [(ngModel)]="patientData.cancer.radius_mean" name="radius_mean"></app-input>
+            <app-input label="Textura Média" type="text" placeholder="Ex: 19.28" [(ngModel)]="patientData.cancer.texture_mean" name="texture_mean"></app-input>
+            <app-input label="Compacidade Média" type="text" placeholder="Ex: 0.11" [(ngModel)]="patientData.cancer.compactness_mean" name="compactness_mean"></app-input>
+            <app-input label="Concavidade Média" type="text" placeholder="Ex: 0.08" [(ngModel)]="patientData.cancer.concavity_mean" name="concavity_mean"></app-input>
+            <app-input label="Pontos Côncavos Médios" type="text" placeholder="Ex: 0.05" [(ngModel)]="patientData.cancer.concave_points_mean" name="concave_points_mean"></app-input>
             
-            <div class="full-width"><h3 style="margin: 1.5rem 0 1rem; color: var(--text-main);">Dados do Laudo Citopatológico (PAAF)</h3></div>
-            <div class="form-grid">
-              <app-input label="Raio Médio" type="text" placeholder="Ex: 14.12" [(ngModel)]="patientData.cancer.radius_mean" name="radius_mean"></app-input>
-              <app-input label="Textura Média" type="text" placeholder="Ex: 19.28" [(ngModel)]="patientData.cancer.texture_mean" name="texture_mean"></app-input>
-              <app-input label="Compacidade Média" type="text" placeholder="Ex: 0.11" [(ngModel)]="patientData.cancer.compactness_mean" name="compactness_mean"></app-input>
-              <app-input label="Concavidade Média" type="text" placeholder="Ex: 0.08" [(ngModel)]="patientData.cancer.concavity_mean" name="concavity_mean"></app-input>
-              <app-input label="Pontos Côncavos Médios" type="text" placeholder="Ex: 0.05" [(ngModel)]="patientData.cancer.concave_points_mean" name="concave_points_mean"></app-input>
-              
-              <app-input label="Raio SE" type="text" placeholder="Ex: 0.3" [(ngModel)]="patientData.cancer.radius_se" name="radius_se"></app-input>
-              <app-input label="Perímetro SE" type="text" placeholder="Ex: 2.0" [(ngModel)]="patientData.cancer.perimeter_se" name="perimeter_se"></app-input>
-              <app-input label="Área SE" type="text" placeholder="Ex: 23.5" [(ngModel)]="patientData.cancer.area_se" name="area_se"></app-input>
-              <app-input label="Concavidade SE" type="text" placeholder="Ex: 0.02" [(ngModel)]="patientData.cancer.concavity_se" name="concavity_se"></app-input>
-              
-              <app-input label="Raio Pior" type="text" placeholder="Ex: 16.2" [(ngModel)]="patientData.cancer.radius_worst" name="radius_worst"></app-input>
-              <app-input label="Textura Pior" type="text" placeholder="Ex: 25.4" [(ngModel)]="patientData.cancer.texture_worst" name="texture_worst"></app-input>
-              <app-input label="Suavidade Pior" type="text" placeholder="Ex: 0.13" [(ngModel)]="patientData.cancer.smoothness_worst" name="smoothness_worst"></app-input>
-              <app-input label="Compacidade Pior" type="text" placeholder="Ex: 0.25" [(ngModel)]="patientData.cancer.compactness_worst" name="compactness_worst"></app-input>
-              <app-input label="Concavidade Pior" type="text" placeholder="Ex: 0.3" [(ngModel)]="patientData.cancer.concavity_worst" name="concavity_worst"></app-input>
-              <app-input label="Pontos Côncavos Pior" type="text" placeholder="Ex: 0.1" [(ngModel)]="patientData.cancer.concave_points_worst" name="concave_points_worst"></app-input>
-              <app-input label="Simetria Pior" type="text" placeholder="Ex: 0.29" [(ngModel)]="patientData.cancer.symmetry_worst" name="symmetry_worst"></app-input>
-            </div>
+            <app-input label="Raio SE" type="text" placeholder="Ex: 0.30" [(ngModel)]="patientData.cancer.radius_se" name="radius_se"></app-input>
+            <app-input label="Perímetro SE" type="text" placeholder="Ex: 2.00" [(ngModel)]="patientData.cancer.perimeter_se" name="perimeter_se"></app-input>
+            <app-input label="Área SE" type="text" placeholder="Ex: 23.50" [(ngModel)]="patientData.cancer.area_se" name="area_se"></app-input>
+            <app-input label="Concavidade SE" type="text" placeholder="Ex: 0.02" [(ngModel)]="patientData.cancer.concavity_se" name="concavity_se"></app-input>
+            
+            <app-input label="Raio Pior (mm)" type="text" placeholder="Ex: 16.20" [(ngModel)]="patientData.cancer.radius_worst" name="radius_worst"></app-input>
+            <app-input label="Textura Pior" type="text" placeholder="Ex: 25.40" [(ngModel)]="patientData.cancer.texture_worst" name="texture_worst"></app-input>
+            <app-input label="Suavidade Pior" type="text" placeholder="Ex: 0.13" [(ngModel)]="patientData.cancer.smoothness_worst" name="smoothness_worst"></app-input>
+            <app-input label="Compacidade Pior" type="text" placeholder="Ex: 0.25" [(ngModel)]="patientData.cancer.compactness_worst" name="compactness_worst"></app-input>
+            <app-input label="Concavidade Pior" type="text" placeholder="Ex: 0.30" [(ngModel)]="patientData.cancer.concavity_worst" name="concavity_worst"></app-input>
+            <app-input label="Pontos Côncavos Pior" type="text" placeholder="Ex: 0.10" [(ngModel)]="patientData.cancer.concave_points_worst" name="concave_points_worst"></app-input>
+            <app-input label="Simetria Pior" type="text" placeholder="Ex: 0.29" [(ngModel)]="patientData.cancer.symmetry_worst" name="symmetry_worst"></app-input>
+          </div>
 
-            <div class="full-width upload-section">
-              <label class="upload-label">Anexo de Exames (Opcional)</label>
-              <div class="upload-area">
-                <div class="upload-icon">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9BA3BB" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-                </div>
-                <p *ngIf="!selectedFile">Arraste os arquivos aqui ou <span>clique para buscar</span></p>
-                <p *ngIf="selectedFile">Arquivo selecionado: <span style="color:var(--primary)">{{ selectedFile.name }}</span></p>
-                <input type="file" accept="image/*" class="file-input" (change)="onFileSelected($event)" />
+          <!-- Upload de Imagem Radiológica -->
+          <div class="upload-doc-section">
+            <div class="field-label" style="margin-bottom: var(--space-xs);">Anexo de Mamografia Radiológica (Opcional)</div>
+            <div class="upload-dropzone">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m3 9 9 9"/><path d="m15 3 6 6"/></svg>
+              <div *ngIf="!selectedFile" class="dropzone-text">
+                Arraste a mamografia (DICOM/JPEG/PNG) ou <span class="dropzone-action">clique para selecionar</span>
+              </div>
+              <div *ngIf="selectedFile" class="dropzone-file-selected">
+                <span>Arquivo anexado: <strong>{{ selectedFile.name }}</strong></span>
+              </div>
+              <input type="file" accept="image/*" class="file-input-hidden" (change)="onFileSelected($event)" />
+            </div>
+          </div>
+        </ng-container>
+
+        <!-- BIOMARCADORES SOP -->
+        <ng-container *ngIf="selectedDisease === 'pcos'">
+          <div class="section-head">
+            <h2 class="section-title">04. Exames Laboratoriais e Ciclo Ovariano</h2>
+            <span class="section-desc">Dosagens hormonais e contagem de folículos</span>
+          </div>
+
+          <div class="form-grid">
+            <app-input label="Duração do Ciclo (Dias)" type="text" placeholder="Ex: 28" [(ngModel)]="patientData.pcos.cycle_length" name="cycle_length"></app-input>
+            <app-input label="RBS (Glicemia de Jejum - mg/dL)" type="text" placeholder="Ex: 92" [(ngModel)]="patientData.pcos.rbs" name="rbs"></app-input>
+            <app-input label="FSH (mIU/mL)" type="text" placeholder="Ex: 5.5" [(ngModel)]="patientData.pcos.fsh" name="fsh"></app-input>
+            <app-input label="LH (mIU/mL)" type="text" placeholder="Ex: 4.2" [(ngModel)]="patientData.pcos.lh" name="lh"></app-input>
+            <app-input label="TSH (mIU/L)" type="text" placeholder="Ex: 2.1" [(ngModel)]="patientData.pcos.tsh" name="tsh"></app-input>
+            <app-input label="Progesterona (PRG - ng/mL)" type="text" placeholder="Ex: 0.8" [(ngModel)]="patientData.pcos.prg" name="prg"></app-input>
+            <app-input label="Folículos (Ovário Esquerdo)" type="text" placeholder="Ex: 15" [(ngModel)]="patientData.pcos.follicle_l" name="follicle_l"></app-input>
+            <app-input label="Folículos (Ovário Direito)" type="text" placeholder="Ex: 15" [(ngModel)]="patientData.pcos.follicle_r" name="follicle_r"></app-input>
+          </div>
+        </ng-container>
+
+        <!-- Relato Livre / Queixas Clínicas para LLM & RAG -->
+        <div class="form-field" style="margin-top: var(--space-xl);">
+          <label class="field-label">
+            Relato Clínico Adicional e Queixas Subjetivas (Opcional)
+            <span class="field-unit">analisado via RAG & LLM</span>
+          </label>
+          <textarea 
+            class="input-control" 
+            style="min-height: 110px;"
+            placeholder="Descreva sintomas adicionais com suas palavras, histórico familiar ou evolução clínica. O texto é analisado como dado para RAG na literatura médica."
+            [(ngModel)]="patientData.openTextSymptoms"
+            name="openTextSymptoms"
+          ></textarea>
+          <div class="field-helper">O modelo de linguagem sintetizará as queixas contra as diretrizes clínicas estabelecidas.</div>
+        </div>
+
+        <div class="form-actions">
+          <app-button type="button" label="Voltar" variant="secondary" (click)="prevStep()"></app-button>
+          <app-button type="button" label="Submeter Análise Diagnóstica" variant="primary" (click)="onSubmit()" [loading]="isLoading" loadingText="Processando Diagnóstico..."></app-button>
+        </div>
+      </section>
+
+      <!-- PASSO 5: PROCESSANDO / LOADING -->
+      <section *ngIf="currentStep === 5" class="loading-doc-section">
+        <div class="skeleton-box" style="height: 18px; width: 40%; margin: 0 auto var(--space-md);"></div>
+        <div class="skeleton-box" style="height: 12px; width: 65%; margin: 0 auto var(--space-lg);"></div>
+        <h2 class="section-title">Processando Diagnóstico Multimodal...</h2>
+        <p class="section-desc">
+          Executando ensemble com ponderação de biomarcadores via Algoritmo Genético e consultando base de conhecimento.
+        </p>
+      </section>
+
+      <!-- PASSO 6: RESULTADO CONSOLIDADO & LAUDO CLÍNICO -->
+      <section *ngIf="currentStep === 6 && predictionResult" class="result-doc-section">
+        
+        <!-- Header de Identificação da Paciente -->
+        <div class="patient-result-banner">
+          <div>
+            <div class="page-kicker">Laudo de Triagem Emitido</div>
+            <h2 class="section-title" style="margin: 0;">
+              Paciente: {{ patientData.name || 'Paciente Não Identificada' }}
+            </h2>
+            <div class="patient-meta-row">
+              <span>Idade: <strong>{{ patientData.age }} anos</strong></span>
+              <span>·</span>
+              <span>Protocolo: <strong>{{ selectedDisease === 'cancer' ? 'Câncer de Mama (PAAF / Citopatologia)' : 'Síndrome do Ovário Policístico' }}</strong></span>
+              <span>·</span>
+              <span>Classificador: <strong>{{ predictionResult.model_used || 'Random Forest' }} (AG F2-Score)</strong></span>
+            </div>
+          </div>
+          <div>
+            <span class="badge" [ngClass]="{
+              'badge-risk-high': predictionResult.risk_level.toLowerCase() === 'high',
+              'badge-risk-mid': predictionResult.risk_level.toLowerCase() === 'moderate' || predictionResult.risk_level.toLowerCase() === 'medium',
+              'badge-risk-low': predictionResult.risk_level.toLowerCase() === 'low'
+            }">
+              Classificação: {{ predictionResult.risk_level.toLowerCase() === 'high' ? 'Alto Risco' : (predictionResult.risk_level.toLowerCase() === 'low' ? 'Baixo Risco' : 'Risco Moderado') }}
+            </span>
+          </div>
+        </div>
+
+        <!-- RÉGUA DE RISCO DO DESIGN SYSTEM "PRONTUÁRIO" -->
+        <div class="clinical-card">
+          <div class="section-head" style="margin-bottom: var(--space-xs);">
+            <span class="brand-subtitle">Escala Contínua de Risco Clínico</span>
+            <span style="font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-muted);">Calibração F2 (&beta;=2)</span>
+          </div>
+
+          <div class="meter-container">
+            <div class="meter-track">
+              <div class="meter-segment-low" title="Zona de Risco Baixo (0-39)"></div>
+              <div class="meter-segment-mid" title="Zona de Risco Moderado (40-69)"></div>
+              <div class="meter-segment-high" title="Zona de Risco Alto (70-100)"></div>
+            </div>
+            
+            <div class="meter-pointer-bar">
+              <div class="meter-marker" [style.left.%]="(predictionResult.confidence * 100)">
+                <div class="meter-pin"></div>
               </div>
             </div>
+
+            <div class="meter-rule-ticks">
+              <span>0</span>
+              <span>25</span>
+              <span>50</span>
+              <span>75</span>
+              <span>100</span>
+            </div>
+          </div>
+
+          <div class="meter-legend-row">
+            <div class="score-headline">
+              <span class="score-value">{{ (predictionResult.confidence * 100) | number:'1.1-1' }} %</span>
+              <span style="font-size: var(--text-sm); color: var(--color-muted);">Índice Numérico de Risco Clínico</span>
+            </div>
+            <div style="font-size: var(--text-xs); color: var(--color-muted); max-width: 44ch; text-align: right;">
+              Sensibilidade e F2-Score otimizados por Algoritmo Genético com penalização severa sobre falsos negativos.
+            </div>
+          </div>
+
+          <!-- FAIXA DE COMPOSIÇÃO MULTIMODAL COM HACHURAS MONOCROMÁTICAS -->
+          <div style="margin-top: var(--space-xl); padding-top: var(--space-md); border-top: var(--border-hairline);">
+            <div class="section-head" style="margin-bottom: 4px;">
+              <span class="brand-subtitle">Composição de Fontes do Ensemble Multimodal</span>
+              <span style="font-family: var(--font-mono); font-size: 11px; color: var(--color-muted);">Pesos Efetivos</span>
+            </div>
+
+            <div class="composition-strip">
+              <div class="comp-tabular" [style.flex]="selectedFile && patientData.openTextSymptoms ? 50 : (selectedFile || patientData.openTextSymptoms ? 75 : 100)" title="Dados Tabulares PAAF"></div>
+              <div *ngIf="patientData.openTextSymptoms" class="comp-text" [style.flex]="selectedFile ? 25 : 25" title="Relato Textual / Literatura Médica"></div>
+              <div *ngIf="selectedFile" class="comp-vision" [style.flex]="patientData.openTextSymptoms ? 25 : 25" title="Mamografia Radiológica"></div>
+            </div>
+
+            <div class="comp-legend">
+              <div class="comp-legend-item">
+                <div class="comp-sample-box comp-tabular"></div>
+                <span>Tabular ({{ selectedFile && patientData.openTextSymptoms ? '50%' : (selectedFile || patientData.openTextSymptoms ? '75%' : '100%') }}): <strong>{{ getScorePercentage(predictionResult.tabular_score ?? predictionResult.confidence) }}</strong></span>
+              </div>
+              <div class="comp-legend-item" [style.opacity]="patientData.openTextSymptoms ? '1' : '0.4'">
+                <div class="comp-sample-box comp-text"></div>
+                <span>Relato Textual / RAG ({{ patientData.openTextSymptoms ? '25%' : 'ausente' }}): <strong>{{ patientData.openTextSymptoms ? getScorePercentage(predictionResult.text_score) : 'não informado' }}</strong></span>
+              </div>
+              <div class="comp-legend-item" [style.opacity]="selectedFile ? '1' : '0.4'">
+                <div class="comp-sample-box comp-vision"></div>
+                <span>Mamografia CNN ({{ selectedFile ? '25%' : 'ausente' }}): <strong>{{ selectedFile ? getScorePercentage(predictionResult.vision_score) : 'não anexada' }}</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DIAGNÓSTICO CONSOLIDADO E LAUDO CLÍNICO ESTRUTURADO -->
+        <div class="report-sheet">
+          <div class="report-meta">
+            <span>DOCUMENTO: LAUDO-AI-2026-X8</span>
+            <span>MODELO: GEMINI FLASH (COM FALLBACK MULTI-PROVIDER)</span>
+          </div>
+
+          <div class="report-section-title">1. Síntese do Diagnóstico Consolidado</div>
+          <p class="report-body-text">
+            {{ predictionResult.description }}
+          </p>
+          <p *ngIf="clinicalReport() && clinicalReport().summary" class="report-body-text" style="margin-top: var(--space-xs);">
+            {{ clinicalReport().summary }}
+          </p>
+
+          <!-- Skeleton do Laudo enquanto a LLM gera -->
+          <div *ngIf="isGeneratingLLM()" style="margin: var(--space-md) 0; display: flex; flex-direction: column; gap: var(--space-xs);">
+            <div class="skeleton-box" style="height: 14px; width: 90%;"></div>
+            <div class="skeleton-box" style="height: 14px; width: 95%;"></div>
+            <div class="skeleton-box" style="height: 14px; width: 60%;"></div>
+            <span style="font-size: var(--text-xs); color: var(--color-muted);">Sintetizando laudo explicativo com inteligência artificial...</span>
+          </div>
+
+          <!-- Conteúdo Gerado pela LLM -->
+          <ng-container *ngIf="clinicalReport()">
+            <div class="report-section-title">2. Principais Fatores Determinantes</div>
+            <ul class="report-biomarker-list">
+              <li class="report-biomarker-item" *ngFor="let factor of clinicalReport().key_risk_factors">
+                <span>{{ factor }}</span>
+              </li>
+            </ul>
+
+            <div class="report-section-title">3. Justificativa e Raciocínio Clínico</div>
+            <p class="report-body-text" style="font-size: var(--text-md);">
+              {{ clinicalReport().explanation }}
+            </p>
+
+            <div class="report-section-title">4. Recomendações e Condutas Sugeridas</div>
+            <ul class="report-biomarker-list">
+              <li class="report-biomarker-item" *ngFor="let rec of clinicalReport().recommendations">
+                <span>{{ rec }}</span>
+              </li>
+            </ul>
+
+            <div class="report-disclaimer">
+              {{ clinicalReport().ethical_disclaimer || 'AVISO REGULATÓRIO: Este laudo foi sintetizado por inteligência artificial sob as diretrizes de governança clínica do HealthAI. Trata-se de ferramenta de apoio à decisão diagnóstica, sendo mandatório o parecer de médico especialista antes de qualquer conduta terapêutica.' }}
+            </div>
           </ng-container>
 
-          <ng-container *ngIf="selectedDisease === 'pcos'">
-            <div class="full-width"><h3 style="margin: 0 0 1.5rem; color: var(--text-main);">Exames Laboratoriais e Ciclo</h3></div>
-            <div class="form-grid">
-              <app-input label="Duração do Ciclo (Dias)" type="text" placeholder="Ex: 28" [(ngModel)]="patientData.pcos.cycle_length" name="cycle_length"></app-input>
-            </div>
-            
-            <div class="full-width"><h3 style="margin: 1.5rem 0 1rem; color: var(--text-main);">Exames Laboratoriais e Imagem</h3></div>
-            <div class="form-grid">
-              <app-input label="RBS (Glicemia)" type="text" placeholder="Ex: 92" [(ngModel)]="patientData.pcos.rbs" name="rbs"></app-input>
-              <app-input label="FSH (mIU/mL)" type="text" placeholder="Ex: 5.5" [(ngModel)]="patientData.pcos.fsh" name="fsh"></app-input>
-              <app-input label="LH (mIU/mL)" type="text" placeholder="Ex: 4.2" [(ngModel)]="patientData.pcos.lh" name="lh"></app-input>
-              <app-input label="TSH (mIU/L)" type="text" placeholder="Ex: 2.1" [(ngModel)]="patientData.pcos.tsh" name="tsh"></app-input>
-              <app-input label="Progesterona (PRG)" type="text" placeholder="Ex: 0.8" [(ngModel)]="patientData.pcos.prg" name="prg"></app-input>
-              <app-input label="Folículos (Ovário Esq.)" type="text" placeholder="Ex: 15" [(ngModel)]="patientData.pcos.follicle_l" name="follicle_l"></app-input>
-              <app-input label="Folículos (Ovário Dir.)" type="text" placeholder="Ex: 15" [(ngModel)]="patientData.pcos.follicle_r" name="follicle_r"></app-input>
-            </div>
-          </ng-container>
-          
-          <!-- Open Text Box for IA LLM -->
-          <div class="full-width"><h3 style="margin: 1.5rem 0 1rem; color: var(--text-main);">Observações Clínicas (Opcional)</h3></div>
-          <div class="full-width" style="margin-bottom: 2rem;">
-            <textarea 
-              class="input-field" 
-              style="width: 100%; min-height: 120px; padding: 1rem; border: 2px solid var(--border); border-radius: var(--radius-sm); font-size: 1rem; background: rgba(255, 255, 255, 0.6); color: var(--text-main); font-family: inherit; resize: vertical;"
-              placeholder="Descreva sintomas adicionais, histórico familiar ou queixas que serão interpretadas pela nossa Inteligência Artificial (Gemini/GPT)..."
-              [(ngModel)]="patientData.openTextSymptoms"
-              name="openTextSymptoms"
-            ></textarea>
-          </div>
-          
-          <div class="form-actions">
-            <app-button type="button" label="Voltar" variant="secondary" (click)="prevStep()"></app-button>
-            <app-button type="button" label="Receber Previsão da IA" variant="primary" (click)="onSubmit()"></app-button>
+          <div *ngIf="!clinicalReport() && !isGeneratingLLM()" class="report-disclaimer">
+            AVISO REGULATÓRIO: Este laudo foi sintetizado por inteligência artificial sob as diretrizes de governança clínica do HealthAI. Trata-se de ferramenta de apoio à decisão diagnóstica, sendo mandatório o parecer de médico especialista antes de qualquer conduta terapêutica.
           </div>
         </div>
-      </div>
 
-      <!-- STEP 5: LOADING -->
-      <div *ngIf="currentStep === 5" class="form-step loading-step step-container full-width" [ngClass]="animationClass">
-        <div class="step-content text-center">
-          <div class="spinner"></div>
-          <h2 class="step-title">Processando...</h2>
-          <p class="step-desc">Nossa Inteligência Artificial está analisando os dados e exames.</p>
+        <!-- Ação Final: Reiniciar Triagem -->
+        <div class="form-actions form-actions--center" style="margin-top: var(--space-xl);">
+          <app-button label="Iniciar Nova Triagem Clínica" variant="primary" (click)="restart()"></app-button>
         </div>
-      </div>
 
-      <!-- STEP 6: RESULT -->
-      <div *ngIf="currentStep === 6 && predictionResult" class="form-step result-step step-container full-width" [ngClass]="animationClass">
-        <div class="step-content">
-          <div class="result-card">
-            <div class="result-header" [ngClass]="predictionResult.risk_level.toLowerCase()">
-              <h2 class="step-title">Risco Estimado: 
-                <span *ngIf="predictionResult.risk_level.toLowerCase() === 'low'">Baixo</span>
-                <span *ngIf="predictionResult.risk_level.toLowerCase() === 'moderate' || predictionResult.risk_level.toLowerCase() === 'medium'">Moderado</span>
-                <span *ngIf="predictionResult.risk_level.toLowerCase() === 'high'">Alto</span>
-              </h2>
-              <p class="confidence">Confiança da IA: <strong>{{ (predictionResult.confidence * 100) | number:'1.1-1' }}%</strong></p>
-            </div>
-            
-            <div class="result-body">
-              <p class="description" style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 2rem; text-align: center;">
-                {{ predictionResult.description }}
-              </p>
-            </div>
+      </section>
 
-            <div class="disclaimer">
-              <strong>Aviso Importante:</strong>
-              <p>Este sistema é uma ferramenta de triagem baseada em IA e <strong>não substitui um diagnóstico médico profissional</strong>. Recomenda-se que o paciente consulte um médico especialista para avaliação detalhada e próximos passos.</p>
-            </div>
-
-            <div class="form-actions form-actions--center full-width mt-4">
-              <app-button label="Nova Triagem" variant="primary" (click)="restart()"></app-button>
-            </div>
-          </div>
-        </div>
-      </div>
+    </div>
 
   </div>
 </div>

@@ -79,9 +79,12 @@ Assim, numa única requisição de rede, eu envio tanto os dados tabulares quant
 **Arquivo de Referência:** `backend/app/api/routers/routes_router.py`
 
 Na Fase 2, adicionamos uma esteira completa de otimização logística médica através de endpoints assíncronos:
-1. `POST /api/v1/routes/optimize`: Recebe lista de pontos de atendimento (depósito/posto de saúde e pacientes com prioridade clínica e janelas de atendimento), executa o algoritmo genético VRP sobre matriz OSRM real e devolve trajeto ótimo sequenciado com telemetria detalhada (distância em km, tempo em min, polyline codificada e waypoints ordenados).
-2. `POST /api/v1/routes/assistant-chat`: Chat assistente especializado em logística de saúde para orientar a equipe médica em campo.
-3. `POST /api/v1/routes/generate-report`: Gera relatório executivo para o comitê hospitalar com análise de custos, mitigação de riscos e impacto em vidas.
+1. `GET /api/v1/routes/demo-scenario`: Retorna o cenário padrão demonstrativo de postos e entregas em Salvador / São Paulo para testes imediatos.
+2. `GET /api/v1/routes/geocode`: Geocodificação reversa/direta com persistência em cache local.
+3. `POST /api/v1/routes/optimize`: Recebe lista de pontos de atendimento (depósito/posto de saúde e pacientes com prioridade clínica e janelas de atendimento), frota e hiperparâmetros de AG, executa o algoritmo genético VRP sobre matriz OSRM real e devolve trajeto ótimo sequenciado com telemetria detalhada (distância em km, tempo em min, polyline codificada e waypoints ordenados).
+4. `POST /api/v1/routes/instructions`: Gera instruções passo a passo para o motorista/equipe de campo com telemetria e alertas de cadeia de frio.
+5. `POST /api/v1/routes/report`: Gera relatório executivo para o comitê hospitalar com análise de custos, mitigação de riscos, tempos e impacto em vidas.
+6. `POST /api/v1/routes/chat`: Chat operacional com assistente de logística hospitalar para motoristas e despachantes em rota.
 
 Adicionalmente, expandimos `anamnesis.py` com:
 - `POST /api/v1/anamnesis/explain-diagnosis`: Geração de laudo médico explicativo detalhado via LLM (Gemini / OpenAI com fallback heurístico robusto).

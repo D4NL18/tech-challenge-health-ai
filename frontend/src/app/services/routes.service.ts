@@ -8,6 +8,7 @@ export interface LocationPoint {
   name: string;
   lat: floatNumber;
   lon: floatNumber;
+  city?: string;
 }
 
 export type floatNumber = number;
@@ -17,6 +18,7 @@ export interface DeliveryPoint extends LocationPoint {
   priority: string;
   critical_medication: boolean;
   assigned_vehicle?: number | null;
+  service_duration_minutes?: number;
 }
 
 export interface FleetConfig {
@@ -36,6 +38,9 @@ export interface OptimizeRoutesPayload {
   deliveries: DeliveryPoint[];
   fleet: FleetConfig;
   ga_params: GAParameters;
+  departure_time?: string;
+  default_service_minutes?: number;
+  base_city?: string;
 }
 
 export interface StopInfo {
@@ -49,12 +54,19 @@ export interface StopInfo {
   demand: number;
   assigned_vehicle?: number | null;
   arrival_time_minutes?: number;
+  estimated_arrival_clock?: string;
+  estimated_departure_clock?: string;
+  service_duration_minutes?: number;
+  traffic_factor?: number;
+  traffic_condition?: string;
 }
 
 export interface VehicleRouteResponse {
   vehicle_id: number;
   stops: StopInfo[];
   route_time_minutes: number;
+  route_transit_minutes?: number;
+  route_service_minutes?: number;
   route_distance_km: number;
   geojson_geometry: any;
 }
@@ -69,6 +81,11 @@ export interface OptimizeRoutesResponse {
     vehicles_used: number;
     total_deliveries: number;
     urgency_makespan_minutes?: number;
+    departure_clock?: string;
+    estimated_finish_clock?: string;
+    total_transit_minutes?: number;
+    total_service_minutes?: number;
+    peak_hours_encountered?: number;
     elapsed_seconds: number;
   };
   routes: VehicleRouteResponse[];

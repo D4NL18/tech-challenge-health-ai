@@ -23,9 +23,8 @@ Como este repositório é o meu guia de estudos e entrega dos Tech Challenges, a
   - [Relatório Técnico Oficial da Fase 1](docs/fase1/relatorio-tecnico-fase1.md)
 - **Fase 2 (Algoritmos Genéticos e Roteamento Médico):**
   - [Relatório Técnico Oficial da Fase 2](docs/fase2/relatorio-tecnico-fase2.md)
-  - [Comparativo Antes e Depois: GridSearch (Fase 1) vs. Algoritmos Genéticos (Fase 2)](docs/fase2/comparativo-antes-depois-fase1-fase2.md)
   - [Roteiro de Gravação do Vídeo de Demonstração (YouTube/Vídeo)](docs/fase2/roteiro-video-apresentacao.md)
-  - [Benchmarks e Comparativo dos 3 Experimentos de AG](docs/fase2/benchmarks-experimentos-ag.md)
+  - [Benchmarks e Comparativo dos 3 Experimentos de AG](docs/5-mlops-treinamento.md#56-resultados-dos-3-experimentos-sistemáticos)
 
 ---
 
@@ -73,8 +72,8 @@ pip install -r requirements.txt
 # 5. (Opcional) Executar os 3 experimentos do Algoritmo Genético
 python training_scripts/train_genetic_hyperopt.py
 
-# 6. Rodar os testes automatizados da Fase 1 e Fase 2 (11 testes)
-pytest tests/ -v
+# 6. Rodar os testes automatizados da Fase 1 e Fase 2 (27 testes)
+python -m pytest tests/ -v
 
 # 7. Inicie o servidor FastAPI na porta 8000
 python -m uvicorn app.main:app --reload
@@ -95,9 +94,9 @@ npm install
 npm start
 ```
 A interface gráfica abrirá automaticamente no seu navegador em `http://localhost:4200`:
-- **Dashboard de Diagnóstico Multimodal:** `http://localhost:4200/dashboard`
+- **Triagem e Diagnóstico Multimodal:** `http://localhost:4200/` ou `http://localhost:4200/dashboard`
 - **Módulo de Roteamento Médico (Fase 2):** `http://localhost:4200/routes`
-- **Painel Administrativo e Auditoria de AG:** `http://localhost:4200/admin`
+- **Painel Administrativo e Auditoria de AG:** `http://localhost:4200/admin` (ou `http://localhost:4200/admin/dashboard`)
 
 ---
 

@@ -1,6 +1,7 @@
 import { Component, OnInit, AfterViewInit, OnDestroy, signal, NgZone, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { 
   RoutesService, 
   OptimizeRoutesPayload, 
@@ -31,6 +32,9 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
   // Estado reativo da interface
   isLoading = signal<boolean>(false);
   isGeneratingLLM = signal<boolean>(false);
+  isGeneratingInstructions = signal<boolean>(false);
+  isGeneratingReport = signal<boolean>(false);
+  isChatLoading = signal<boolean>(false);
   errorMessage = signal<string | null>(null);
   toastMessage = signal<string | null>(null);
 
@@ -63,9 +67,11 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
   generations: number = 25;
   mutationRate: number = 0.20;
 
-  // MODAL DE CONFIGURAÇÃO DE PARÂMETROS DO AG & FROTA
-  showConfigModal = signal<boolean>(false);
-  private isConfigBackdropMouseDown = false;
+  // Parâmetros de Trânsito Dinâmico e Janela Temporal
+  departureTime: string = '08:00';
+  defaultServiceMinutes: number = 15;
+  baseCity: string = 'Salvador';
+
 
   // MODAL AO CLICAR NO MAPA (Nome, Urgência Clínica e Base)
   showPointModal = signal<boolean>(false);
@@ -76,6 +82,7 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
   modalPointPriority: 'CRITICAL' | 'HIGH' | 'REGULAR' = 'REGULAR';
   modalPointCritical: boolean = false;
   modalPointAssignedVehicle: number | null = null;
+  modalPointServiceDuration: number = 15;
   modalPointSaveFavorite: boolean = false;
   editingPointIndex: number | null = null; // null = novo ponto, número = edição de ponto existente
 
@@ -84,6 +91,7 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
   selectedVehicleId: number = 1;
   filteredVehicleId = signal<number>(0); // 0 = Todas as Vans, 1 = Van 1, etc.
   driverInstructionsText = signal<string>('');
+  driverInstructionsByVehicle = signal<Record<number, string>>({});
   efficiencyReportText = signal<string>('');
 
   getVehicleColor(vehicleId: number): string {
@@ -169,12 +177,34 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
   constructor(
     private routesService: RoutesService,
     private ngZone: NgZone,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private sanitizer: DomSanitizer
   ) {}
 
   ngOnInit(): void {
+    this.loadGlobalRouteConfig();
     this.loadSavedDepot();
     this.loadSavedFavorites();
+  }
+
+  loadGlobalRouteConfig(): void {
+    try {
+      const saved = localStorage.getItem('healthai_route_config');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.numVehicles) this.numVehicles = Number(parsed.numVehicles);
+        if (parsed.populationSize) this.populationSize = Number(parsed.populationSize);
+        if (parsed.generations) this.generations = Number(parsed.generations);
+        if (parsed.mutationRate !== undefined) this.mutationRate = Number(parsed.mutationRate);
+        if (parsed.departureTime) this.departureTime = parsed.departureTime;
+        if (parsed.baseCity) this.baseCity = parsed.baseCity;
+        if (parsed.defaultServiceMinutes) this.defaultServiceMinutes = Number(parsed.defaultServiceMinutes);
+        if (parsed.capacityPerVehicle) this.capacityPerVehicle = Number(parsed.capacityPerVehicle);
+        if (parsed.maxDistanceKm) this.maxDistanceKm = Number(parsed.maxDistanceKm);
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar configurações globais de rota:', e);
+    }
   }
 
   ngAfterViewInit(): void {
@@ -278,7 +308,7 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
 
     this.searchDebounceTimer = setTimeout(() => {
       this.executeAddressSearch(query);
-    }, 350);
+    }, 150);
   }
 
   executeAddressSearch(query?: string): void {
@@ -320,7 +350,7 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
 
     const previewIcon = L.divIcon({
       className: 'preview-search-marker',
-      html: `<div style="background: #7B61FF; color: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 0 16px rgba(123,97,255,0.7); border: 2.5px solid #fff; animation: pulseGlow 1.5s infinite;">📍</div>`,
+      html: `<div style="background: #7B61FF; color: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 0 16px rgba(123,97,255,0.7); border: 2.5px solid #fff; animation: pulseGlow 1.5s infinite;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:auto;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>`,
       iconSize: [36, 36],
       iconAnchor: [18, 18]
     });
@@ -332,7 +362,7 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
           <strong style="font-size: 14px; color: #1e293b; display: block; margin-bottom: 4px;">${item.name}</strong>
           <p style="font-size: 12px; color: #64748b; margin: 0 0 10px 0; line-height: 1.4;">${item.display_name}</p>
           <button id="btn-open-modal-preview" style="background: linear-gradient(135deg, #FF4B72, #7B61FF); color: white; border: none; padding: 7px 12px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; width: 100%;">
-            ⚙️ Configurar Parada ou Base
+            Configurar Parada ou Base
           </button>
         </div>
       `)
@@ -349,13 +379,50 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
       }
     }, 300);
 
-    this.showToastNotification(`🎯 Mapa centralizado em: ${item.name}. Clique no ponto para configurar.`);
+    this.showToastNotification(`Mapa centralizado em: ${item.name}. Clique no ponto para configurar.`);
   }
 
   onSearchFocus(): void {
-    if (this.favorites().length > 0 || this.searchResults().length > 0) {
-      this.showSearchDropdown.set(true);
+    if (this.searchResults().length === 0 && !this.searchQuery) {
+      this.searchResults.set([
+        {
+          name: 'SENAI CIMATEC',
+          display_name: 'SENAI CIMATEC, Avenida Orlando Gomes, Piatã, Salvador, BA',
+          lat: -12.9352,
+          lon: -38.3619,
+          type: 'university'
+        },
+        {
+          name: 'Hospital Geral do Estado (HGE)',
+          display_name: 'HGE - Hospital Geral do Estado da Bahia, Brotas, Salvador, BA',
+          lat: -12.9984,
+          lon: -38.4908,
+          type: 'hospital'
+        },
+        {
+          name: 'Hospital Universitário Edgard Santos (HUPES)',
+          display_name: 'HUPES - Hospital das Clínicas da UFBA, Canela, Salvador, BA',
+          lat: -12.9925,
+          lon: -38.5208,
+          type: 'hospital'
+        },
+        {
+          name: 'Hospital da Bahia',
+          display_name: 'Hospital da Bahia, Av. Prof. Magalhães Neto, Pituba, Salvador, BA',
+          lat: -12.9912,
+          lon: -38.4523,
+          type: 'hospital'
+        },
+        {
+          name: 'UPA 24h Barris',
+          display_name: 'UPA 24h Barris, Vale dos Barris, Centro, Salvador, BA',
+          lat: -12.9868,
+          lon: -38.5132,
+          type: 'emergency'
+        }
+      ]);
     }
+    this.showSearchDropdown.set(true);
   }
 
   getFilteredFavorites(): FavoritePoint[] {
@@ -379,6 +446,7 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
     this.modalPointPriority = 'REGULAR';
     this.modalPointCritical = false;
     this.modalPointAssignedVehicle = null;
+    this.modalPointServiceDuration = this.defaultServiceMinutes || 15;
     this.modalPointSaveFavorite = this.isFavorite(this.modalPointLat, this.modalPointLon);
     this.showPointModal.set(true);
     this.cdr.detectChanges();
@@ -398,6 +466,7 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
     this.modalPointPriority = 'REGULAR';
     this.modalPointCritical = false;
     this.modalPointAssignedVehicle = null;
+    this.modalPointServiceDuration = 0;
     this.modalPointSaveFavorite = this.isFavorite(curDepot.lat, curDepot.lon);
     this.showPointModal.set(true);
     this.cdr.detectChanges();
@@ -417,6 +486,7 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
     this.modalPointPriority = (rawPrio === 'CRITICAL' || rawPrio === 'HIGH') ? rawPrio as 'CRITICAL' | 'HIGH' : 'REGULAR';
     this.modalPointCritical = (this.modalPointPriority === 'CRITICAL');
     this.modalPointAssignedVehicle = p.assigned_vehicle ?? null;
+    this.modalPointServiceDuration = p.service_duration_minutes ?? this.defaultServiceMinutes ?? 15;
     this.modalPointSaveFavorite = this.isFavorite(p.lat, p.lon);
     this.showPointModal.set(true);
     this.cdr.detectChanges();
@@ -442,41 +512,7 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
     this.isBackdropMouseDown = false;
   }
 
-  // --- CONTROLE DO MODAL DE CONFIGURAÇÃO DE PARÂMETROS DO AG ---
-  openConfigModal(): void {
-    this.showConfigModal.set(true);
-    this.cdr.detectChanges();
-  }
 
-  closeConfigModal(): void {
-    this.showConfigModal.set(false);
-    this.isConfigBackdropMouseDown = false;
-    this.cdr.detectChanges();
-    if (this.optimizationResult && this.deliveries.length > 0) {
-      this.runOptimization();
-    }
-  }
-
-  onConfigBackdropMouseDown(event: MouseEvent): void {
-    this.isConfigBackdropMouseDown = (event.target === event.currentTarget);
-  }
-
-  onConfigBackdropMouseUp(event: MouseEvent): void {
-    if (this.isConfigBackdropMouseDown && event.target === event.currentTarget) {
-      this.closeConfigModal();
-    }
-    this.isConfigBackdropMouseDown = false;
-  }
-
-  resetConfigDefaults(): void {
-    this.numVehicles = 2;
-    this.maxDistanceKm = 100.0;
-    this.populationSize = 40;
-    this.generations = 25;
-    this.mutationRate = 0.20;
-    this.showToastNotification('⚙️ Parâmetros redefinidos para os valores padrão.');
-    this.cdr.detectChanges();
-  }
 
   /**
    * Confirma e salva o ponto (novo ou editado, como Parada ou como Base)
@@ -501,12 +537,13 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
       };
       this.depot.set(newDepot);
       localStorage.setItem('healthai_custom_depot', JSON.stringify(newDepot));
-      this.showToastNotification(`🏢 "${newDepot.name}" salva como Base Central padrão!`);
+      this.showToastNotification(`Base Central padrão definida: "${newDepot.name}".`);
     } else {
       // 2. Tratamento para PARADA DE ENTREGA
       const assignedVehicle = this.modalPointAssignedVehicle ? Number(this.modalPointAssignedVehicle) : null;
       const prio = this.modalPointPriority;
       const isCrit = (prio === 'CRITICAL');
+      const serviceDur = Math.max(1, Number(this.modalPointServiceDuration) || 15);
 
       if (this.editingPointIndex !== null && this.editingPointIndex >= 0) {
         const p = this.deliveries[this.editingPointIndex];
@@ -516,7 +553,8 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
         p.critical_medication = isCrit;
         p.priority = prio;
         p.assigned_vehicle = assignedVehicle;
-        this.showToastNotification(`✏️ "${p.name}" atualizado.`);
+        p.service_duration_minutes = serviceDur;
+        this.showToastNotification(`"${p.name}" atualizado.`);
       } else {
         const newPoint: DeliveryPoint = {
           id: `del-${Date.now()}-${this.deliveries.length + 1}`,
@@ -526,10 +564,11 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
           demand: 10.0,
           priority: prio,
           critical_medication: isCrit,
-          assigned_vehicle: assignedVehicle
+          assigned_vehicle: assignedVehicle,
+          service_duration_minutes: serviceDur
         };
         this.deliveries.push(newPoint);
-        this.showToastNotification(`📍 "${newPoint.name}" adicionado à rota!`);
+        this.showToastNotification(`"${newPoint.name}" adicionado à rota.`);
       }
     }
 
@@ -566,7 +605,7 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
     localStorage.setItem('healthai_custom_depot', JSON.stringify(newDepot));
     this.clearCalculatedRoutes();
     this.updateMapMarkers();
-    this.showToastNotification(`🏢 "${newDepot.name}" agora é a Base Central de Expedição!`);
+    this.showToastNotification(`"${newDepot.name}" definida como Base Central de Expedição.`);
   }
 
   /**
@@ -577,7 +616,7 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
     localStorage.removeItem('healthai_custom_depot');
     this.clearCalculatedRoutes();
     this.updateMapMarkers();
-    this.showToastNotification('🧹 Base Central removida. Defina um novo ponto como Base.');
+    this.showToastNotification('Base Central removida. Defina um novo ponto como Base.');
   }
 
   // --- GERENCIAMENTO DE FAVORITOS ---
@@ -598,10 +637,10 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
       updated.splice(existingIdx, 1);
       this.favorites.set(updated);
       this.saveFavoritesToStorage();
-      this.showToastNotification(`⭐ "${point.name}" removido dos favoritos.`);
+      this.showToastNotification(`[Favoritos] "${point.name}" removido.`);
     } else {
       this.addFavorite(point.name, point.lat, point.lon, isCrit);
-      this.showToastNotification(`⭐ "${point.name}" adicionado aos favoritos!`);
+      this.showToastNotification(`[Favoritos] "${point.name}" adicionado.`);
     }
   }
 
@@ -643,7 +682,7 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
     const updated = this.favorites().filter(f => f.id !== favId);
     this.favorites.set(updated);
     this.saveFavoritesToStorage();
-    this.showToastNotification('⭐ Favorito excluído.');
+    this.showToastNotification('[Favoritos] Ponto removido dos favoritos.');
   }
 
   removeDelivery(index: number): void {
@@ -651,7 +690,7 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
     this.clearCalculatedRoutes();
     this.updateMapMarkers();
     if (removed.length > 0) {
-      this.showToastNotification(`🗑️ "${removed[0].name}" removido.`);
+      this.showToastNotification(`"${removed[0].name}" removido.`);
     }
   }
 
@@ -662,7 +701,7 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
     this.clearCalculatedRoutes();
     this.updateMapMarkers();
     this.showToastNotification(
-      `Status de "${point.name}": ${point.critical_medication ? '🚨 Crítico (Refrigerado)' : '📦 Regular'}`
+      `Status de "${point.name}": ${point.critical_medication ? 'Crítico (Refrigerado)' : 'Regular'}`
     );
   }
 
@@ -673,9 +712,9 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
     this.clearCalculatedRoutes();
     this.updateMapMarkers();
     if (val) {
-      this.showToastNotification(`🚐 "${point.name}" vinculado exclusivamente à Van ${val}.`);
+      this.showToastNotification(`"${point.name}" vinculado exclusivamente à Van ${val}.`);
     } else {
-      this.showToastNotification(`⚡ "${point.name}" com motorista definido automaticamente.`);
+      this.showToastNotification(`"${point.name}" com motorista definido automaticamente.`);
     }
   }
 
@@ -685,15 +724,15 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
     if (prio === 'REGULAR') {
       point.priority = 'HIGH';
       point.critical_medication = false;
-      this.showToastNotification(`⚡ "${point.name}" definida como Alta Prioridade.`);
+      this.showToastNotification(`"${point.name}" definida como Alta Prioridade.`);
     } else if (prio === 'HIGH') {
       point.priority = 'CRITICAL';
       point.critical_medication = true;
-      this.showToastNotification(`🚨 "${point.name}" definida como Urgência Crítica.`);
+      this.showToastNotification(`"${point.name}" definida como Urgência Crítica.`);
     } else {
       point.priority = 'REGULAR';
       point.critical_medication = false;
-      this.showToastNotification(`📦 "${point.name}" definida como Regular.`);
+      this.showToastNotification(`"${point.name}" definida como Regular.`);
     }
     this.clearCalculatedRoutes();
     this.updateMapMarkers();
@@ -713,7 +752,7 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
     }
     this.updateMapMarkers();
     this.activeSidebarTab.set('points');
-    this.showToastNotification('🧹 Paradas limpas. A Base Central foi mantida.');
+    this.showToastNotification('Paradas limpas. A Base Central foi mantida.');
   }
 
   loadDemoScenario(city: string = 'salvador'): void {
@@ -738,8 +777,8 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
         this.fitMapToMarkers();
         this.showToastNotification(
           city === 'salvador' 
-            ? '✅ Cenário de Salvador-BA carregado com Base e 10 paradas!'
-            : '✅ Cenário de São Paulo carregado com Base e 10 paradas!'
+            ? 'Cenário de Salvador-BA carregado com Base e 10 paradas.'
+            : 'Cenário de São Paulo carregado com Base e 10 paradas.'
         );
       },
       error: (err) => {
@@ -769,7 +808,7 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
     if (currentDepot) {
       const hubIcon = L.divIcon({
         className: 'custom-hub-marker',
-        html: `<div style="background: #0F172A; color: white; border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 0 18px rgba(15,23,42,0.7); border: 2.5px solid #fff;">🏢</div>`,
+        html: `<div style="background: #0F172A; color: white; border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 0 18px rgba(15,23,42,0.7); border: 2.5px solid #fff;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:auto;"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="9" y1="22" x2="9" y2="22.01"/><line x1="15" y1="22" x2="15" y2="22.01"/><line x1="8" y1="6" x2="8.01" y2="6"/><line x1="12" y1="6" x2="12.01" y2="6"/><line x1="16" y1="6" x2="16.01" y2="6"/></svg></div>`,
         iconSize: [38, 38],
         iconAnchor: [19, 19]
       });
@@ -789,14 +828,14 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
     this.deliveries.forEach((d, idx) => {
       const prio = (d.priority || (d.critical_medication ? 'CRITICAL' : 'REGULAR')).toUpperCase();
       let bgColor = '#2563EB'; // REGULAR (Blue)
-      let priorityLabel = '<span style="color: #2563EB; font-weight: 600;">📦 Regular (Insumos de Rotina)</span>';
+      let priorityLabel = '<span style="color: #2563EB; font-weight: 600;">Regular (Insumos de Rotina)</span>';
 
       if (prio === 'CRITICAL' || d.critical_medication) {
         bgColor = '#E11D48'; // Rose / Red
-        priorityLabel = '<span style="color: #E11D48; font-weight: 700;">🚨 Urgência Crítica (Cadeia de Frio / Sangue)</span>';
+        priorityLabel = '<span style="color: #E11D48; font-weight: 700;">Urgência Crítica (Cadeia de Frio / Sangue)</span>';
       } else if (prio === 'HIGH') {
         bgColor = '#F59E0B'; // Amber / Orange
-        priorityLabel = '<span style="color: #D97706; font-weight: 700;">⚡ Alta Prioridade (UTI / Antibióticos)</span>';
+        priorityLabel = '<span style="color: #D97706; font-weight: 700;">Alta Prioridade (UTI / Antibióticos)</span>';
       }
 
       const badges: string[] = [];
@@ -804,9 +843,9 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
         badges.push(`V${d.assigned_vehicle}`);
       }
       if (prio === 'CRITICAL') {
-        badges.push('🚨');
+        badges.push('[Crítico]');
       } else if (prio === 'HIGH') {
-        badges.push('⚡');
+        badges.push('[Alta]');
       }
 
       const badgeHtml = badges.length > 0 
@@ -826,8 +865,8 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
       });
 
       const vehicleLabel = d.assigned_vehicle 
-        ? `<div style="margin-top: 4px; color: #7B61FF; font-weight: bold; font-size: 12px;">🚐 Van Vinculada: Van ${d.assigned_vehicle}</div>`
-        : `<div style="margin-top: 4px; color: #64748b; font-size: 12px;">⚡ Motorista: Automático (IA)</div>`;
+        ? `<div style="margin-top: 4px; color: #7B61FF; font-weight: bold; font-size: 12px;">Van Vinculada: Van ${d.assigned_vehicle}</div>`
+        : `<div style="margin-top: 4px; color: #64748b; font-size: 12px;">Motorista: Automático (IA)</div>`;
 
       const popupContent = `
         <div style="min-width: 190px; padding: 4px;">
@@ -860,7 +899,7 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
   runOptimization(): void {
     const curDepot = this.depot();
     if (!curDepot) {
-      this.errorMessage.set('É necessário definir uma Base Central antes de otimizar rotas. Clique no mapa e marque a opção "🏢 Base Central de Expedição".');
+      this.errorMessage.set('É necessário definir uma Base Central antes de otimizar rotas. Clique no mapa e marque a opção "Base Central de Expedição".');
       return;
     }
 
@@ -884,7 +923,10 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
         population_size: this.populationSize,
         generations: this.generations,
         mutation_rate: this.mutationRate
-      }
+      },
+      departure_time: this.departureTime || '08:00',
+      default_service_minutes: Math.max(1, Number(this.defaultServiceMinutes) || 15),
+      base_city: this.baseCity || 'Salvador'
     };
 
     this.routesService.optimizeRoutes(payload).subscribe({
@@ -894,8 +936,15 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
         this.activeSidebarTab.set('results');
         this.activeTab.set('itinerary');
         this.filteredVehicleId.set(0);
+        this.selectedVehicleId = 1;
+        this.driverInstructionsText.set('');
+        this.driverInstructionsByVehicle.set({});
+        this.efficiencyReportText.set('');
         this.renderRoutesOnMap(res.routes);
-        this.showToastNotification('🎉 Otimização equilibrada concluída com sucesso!');
+        this.showToastNotification('Rotas otimizadas com sucesso! Gerando roteiro e relatório...');
+        // Geração automática sem necessidade de clique manual
+        this.generateDriverInstructionsForVehicle(1, false);
+        this.generateEfficiencyReport(false);
       },
       error: (err) => {
         console.error('Erro na otimização:', err);
@@ -905,6 +954,34 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
         this.isLoading.set(false);
       }
     });
+  }
+
+  getTrafficBadgeClass(condition?: string): string {
+    switch (condition) {
+      case 'PICO_MANHA':
+        return 'tag--traffic-peak-morning';
+      case 'PICO_TARDE':
+        return 'tag--traffic-peak-afternoon';
+      case 'RODOVIA':
+        return 'tag--traffic-highway';
+      case 'MODERADO':
+        return 'tag--traffic-moderate';
+      case 'LIVRE':
+      default:
+        return 'tag--traffic-free';
+    }
+  }
+
+  getTrafficDescription(factor?: number, condition?: string): string {
+    if (!factor || factor <= 1.0) {
+      return 'Trânsito livre (sem retenção)';
+    }
+    const percent = Math.round((factor - 1.0) * 100);
+    const condName = condition === 'PICO_MANHA' ? 'Pico da Manhã' 
+      : condition === 'PICO_TARDE' ? 'Pico da Tarde' 
+      : condition === 'RODOVIA' ? 'Trecho Rodoviário' 
+      : 'Tráfego Intenso';
+    return `${condName} (+${percent}% no tempo viário)`;
   }
 
   private renderRoutesOnMap(routes: VehicleRouteResponse[]): void {
@@ -956,16 +1033,37 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
     }
   }
 
-  selectVehicle(vId: number): void {
-    this.selectedVehicleId = vId;
-    this.generateDriverInstructionsForVehicle(vId);
+  switchTab(tab: 'itinerary' | 'instructions' | 'report' | 'chat'): void {
+    this.activeTab.set(tab);
+    if (tab === 'instructions') {
+      const cached = this.driverInstructionsByVehicle()[this.selectedVehicleId];
+      if (cached) {
+        this.driverInstructionsText.set(cached);
+      }
+    }
   }
 
-  generateDriverInstructionsForVehicle(vId: number): void {
+  selectVehicle(vId: number): void {
+    this.selectedVehicleId = vId;
+    const cached = this.driverInstructionsByVehicle()[vId];
+    if (cached) {
+      this.driverInstructionsText.set(cached);
+    } else {
+      this.generateDriverInstructionsForVehicle(vId, false);
+    }
+  }
+
+  generateDriverInstructionsForVehicle(vId: number, force: boolean = false): void {
     if (!this.optimizationResult) return;
+    const cached = this.driverInstructionsByVehicle()[vId];
+    if (cached && !force) {
+      this.driverInstructionsText.set(cached);
+      return;
+    }
     const vRoute = this.optimizationResult.routes.find((r) => r.vehicle_id === vId);
     if (!vRoute) return;
 
+    this.isGeneratingInstructions.set(true);
     this.isGeneratingLLM.set(true);
     this.routesService.getDriverInstructions({
       vehicle_id: vRoute.vehicle_id,
@@ -975,14 +1073,25 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
     }).subscribe({
       next: (res) => {
         this.driverInstructionsText.set(res.instructions);
+        this.driverInstructionsByVehicle.update((map) => ({ ...map, [vId]: res.instructions }));
+        this.isGeneratingInstructions.set(false);
         this.isGeneratingLLM.set(false);
       },
-      error: () => this.isGeneratingLLM.set(false)
+      error: (err) => {
+        console.error('Erro ao gerar instruções da van:', err);
+        this.driverInstructionsText.set('Não foi possível conectar ao serviço de IA para gerar o roteiro. Tente novamente em instantes.');
+        this.isGeneratingInstructions.set(false);
+        this.isGeneratingLLM.set(false);
+      }
     });
   }
 
-  generateEfficiencyReport(): void {
+  generateEfficiencyReport(force: boolean = false): void {
     if (!this.optimizationResult) return;
+    if (this.efficiencyReportText() && !force) {
+      return;
+    }
+    this.isGeneratingReport.set(true);
     this.isGeneratingLLM.set(true);
     this.routesService.getEfficiencyReport({
       summary: this.optimizationResult.summary,
@@ -990,10 +1099,45 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
     }).subscribe({
       next: (res) => {
         this.efficiencyReportText.set(res.report);
+        this.isGeneratingReport.set(false);
         this.isGeneratingLLM.set(false);
       },
-      error: () => this.isGeneratingLLM.set(false)
+      error: (err) => {
+        console.error('Erro ao gerar relatório executivo:', err);
+        this.efficiencyReportText.set('Não foi possível sintetizar o relatório executivo de IA. Tente novamente.');
+        this.isGeneratingReport.set(false);
+        this.isGeneratingLLM.set(false);
+      }
     });
+  }
+
+  onTabInstructionsClick(): void {
+    const cached = this.driverInstructionsByVehicle()[this.selectedVehicleId];
+    if (cached) {
+      this.driverInstructionsText.set(cached);
+    } else if (!this.driverInstructionsText() && this.optimizationResult) {
+      this.generateDriverInstructionsForVehicle(this.selectedVehicleId, false);
+    }
+  }
+
+  onTabReportClick(): void {
+    if (!this.efficiencyReportText() && this.optimizationResult) {
+      this.generateEfficiencyReport(false);
+    }
+  }
+
+  copyToClipboard(text: string, label: string = 'Texto'): void {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      this.showToastNotification(`${label} copiado com sucesso!`);
+    }).catch(() => {
+      this.showToastNotification('Não foi possível copiar o texto.');
+    });
+  }
+
+  askQuickQuestion(question: string): void {
+    this.chatQuestion = question;
+    this.sendChatMessage();
   }
 
   sendChatMessage(): void {
@@ -1005,6 +1149,7 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
     const currentMsgs = this.chatMessages();
     this.chatMessages.set([...currentMsgs, { sender: 'user', text: userMsg }]);
 
+    this.isChatLoading.set(true);
     this.isGeneratingLLM.set(true);
     this.routesService.chatRoutes({
       question: userMsg,
@@ -1018,6 +1163,7 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
           ...this.chatMessages(),
           { sender: 'ai', text: res.answer }
         ]);
+        this.isChatLoading.set(false);
         this.isGeneratingLLM.set(false);
       },
       error: () => {
@@ -1025,6 +1171,7 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
           ...this.chatMessages(),
           { sender: 'ai', text: 'Não foi possível processar a resposta da IA no momento.' }
         ]);
+        this.isChatLoading.set(false);
         this.isGeneratingLLM.set(false);
       }
     });
@@ -1037,6 +1184,308 @@ export class MedicalRoutesComponent implements OnInit, AfterViewInit, OnDestroy 
         this.toastMessage.set(null);
       }
     }, 4000);
+  }
+
+  renderExecutiveDocument(rawText: string): SafeHtml {
+    const html = this.parseMarkdownToExecutiveHtml(rawText, 'report');
+    return this.sanitizer.bypassSecurityTrustHtml(html);
+  }
+
+  renderDriverInstructionsDocument(rawText: string): SafeHtml {
+    const html = this.parseMarkdownToExecutiveHtml(rawText, 'instructions');
+    return this.sanitizer.bypassSecurityTrustHtml(html);
+  }
+
+  private parseMarkdownToExecutiveHtml(raw: string, docType: 'report' | 'instructions'): string {
+    if (!raw || !raw.trim()) return '';
+
+    const lines = raw.trim().split('\n');
+
+    // 1. Filtragem preliminar: remove linhas vazias, separadores e emojis isolados numa linha
+    const cleanLines: string[] = [];
+    for (const l of lines) {
+      const s = l.trim();
+      if (!s) continue;
+      if (['---', '___', '***'].includes(s) || s.startsWith('━━━━')) continue;
+      // Se a linha for apenas um ou dois delimitadores isolados, ignora
+      if (s.length <= 4 && /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(s)) {
+        continue;
+      }
+      cleanLines.push(s);
+    }
+
+    const htmlParts: string[] = [];
+    let mainTitle = '';
+    let subtitle = '';
+    const metaItems: Array<{ key: string; value: string }> = [];
+    const contentLines: string[] = [];
+    let inHeader = true;
+
+    for (const stripped of cleanLines) {
+      if (inHeader && (stripped.startsWith('# ') || (stripped.startsWith('### ') && !mainTitle && !stripped.toLowerCase().includes('alerta')))) {
+        const clean = stripped.replace(/^[#\s*]+/, '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').replace(/\*/g, '').trim();
+        if (!mainTitle) {
+          mainTitle = clean;
+        } else {
+          subtitle = clean;
+        }
+        continue;
+      }
+
+      if (inHeader && stripped.startsWith('**') && stripped.endsWith('**') && !stripped.includes(':')) {
+        subtitle = stripped.replace(/\*/g, '').trim();
+        continue;
+      }
+
+      if (inHeader && (stripped.includes('**') || stripped.includes(':')) && 
+          ['emissor', 'data', 'status', 'veículo', 'veiculo', 'tempo', 'distância', 'distancia'].some(k => stripped.toLowerCase().includes(k))) {
+        const parts = stripped.split('|');
+        for (const part of parts) {
+          const cleanPart = part.replace(/\*/g, '').trim();
+          if (cleanPart.includes(':')) {
+            const [k, ...v] = cleanPart.split(':');
+            metaItems.push({ key: k.trim(), value: v.join(':').trim() });
+          }
+        }
+        continue;
+      }
+
+      inHeader = false;
+      contentLines.push(stripped);
+    }
+
+    const badgeLabel = docType === 'report' ? 'RELATÓRIO EXECUTIVO OFICIAL' : 'ORDEM DE SERVIÇO DO CONDUTOR';
+    const badgeSvg = docType === 'report'
+      ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>'
+      : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>';
+    if (!mainTitle) {
+      mainTitle = docType === 'report' ? 'Relatório de Eficiência Logística' : 'Roteiro Operacional de Condução';
+    }
+
+    htmlParts.push(`
+      <div class="doc-header-banner">
+        <div class="doc-badge-pill">
+          <span class="badge-icon" style="display:inline-flex;align-items:center;">${badgeSvg}</span> ${badgeLabel}
+        </div>
+        <h2 class="doc-main-title">${mainTitle}</h2>
+    `);
+
+    if (subtitle) {
+      htmlParts.push(`<div class="doc-subtitle">${subtitle}</div>`);
+    }
+
+    if (metaItems.length > 0) {
+      htmlParts.push('<div class="doc-meta-grid">');
+      for (const item of metaItems) {
+        const kLow = item.key.toLowerCase();
+        const iconSvg = kLow.includes('emissor') ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/></svg>' :
+                     kLow.includes('data') ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' :
+                     kLow.includes('tempo') ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' :
+                     kLow.includes('dist') ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a4.5 4.5 0 0 0 0-9H8a3 3 0 0 1 0-6h10"/><circle cx="18" cy="4" r="3"/></svg>' :
+                     kLow.includes('ve') ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>' :
+                     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+        const isStatus = kLow.includes('status');
+        htmlParts.push(`
+          <div class="doc-meta-item">
+            <span class="meta-label" style="display:inline-flex;align-items:center;gap:0.35rem;">${iconSvg} ${item.key}:</span>
+            <span class="meta-value ${isStatus ? 'meta-value--status' : ''}">${item.value}</span>
+          </div>
+        `);
+      }
+      htmlParts.push('</div>');
+    }
+
+    htmlParts.push('</div>'); // end doc-header-banner
+    htmlParts.push('<div class="doc-sections-wrapper">');
+
+    let currentSectionTitle = '';
+    let currentSectionIsAlert = false;
+    let currentSectionLines: string[] = [];
+
+    const flushSection = () => {
+      if (!currentSectionTitle && currentSectionLines.length === 0) return;
+
+      const alertClass = currentSectionIsAlert ? 'doc-section-card--alert' : '';
+      htmlParts.push(`<div class="doc-section-card ${alertClass}">`);
+
+      if (currentSectionTitle) {
+        const numMatch = currentSectionTitle.match(/^(\d+)\.\s*(.*)/);
+        if (numMatch) {
+          htmlParts.push(`
+            <div class="doc-section-header">
+              <span class="section-num-badge">${numMatch[1]}</span>
+              <h3 class="section-title-text">${numMatch[2]}</h3>
+            </div>
+          `);
+        } else {
+          const iconSvg = currentSectionIsAlert
+            ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+            : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.89A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.89A2 2 0 0 0 5 15.24Z"/></svg>';
+          htmlParts.push(`
+            <div class="doc-section-header">
+              <span class="section-icon-badge" style="display:inline-flex;align-items:center;">${iconSvg}</span>
+              <h3 class="section-title-text">${currentSectionTitle}</h3>
+            </div>
+          `);
+        }
+      }
+
+      htmlParts.push('<div class="doc-section-content">');
+      let inList = false;
+
+      for (const sLine of currentSectionLines) {
+        // Converte **texto** em tag bold com classe
+        let formatted = sLine.replace(/\*\*(.*?)\*\*/g, '<strong class="doc-bold">$1</strong>');
+        // Remove quaisquer hashtags remanescentes
+        formatted = formatted.replace(/^#+\s*/, '').trim();
+
+        const low = formatted.toLowerCase();
+        const isCritical = ['2°c a 8°c', '2ºc a 8ºc', 'refrigerad', 'urgência máxima', 'urgência crítica', 'prioridade crítica', 'protocolo de segurança', 'critica', 'crítica'].some(w => low.includes(w));
+
+        // 1. Waypoint / Parada destacada (ex: [Ponto 0] 08:00 — PARTIDA DO HUB CENTRAL)
+        const wpMatch = formatted.match(/^\[(Ponto\s*\d+|Saída|Retorno)\]\s*(\d{2}:\d{2})?\s*[—\-:]?\s*(.*)/i);
+        if (wpMatch) {
+          if (inList) {
+            htmlParts.push('</div>');
+            inList = false;
+          }
+          const pLabel = wpMatch[1];
+          const pTime = wpMatch[2] || '';
+          const pName = wpMatch[3] || '';
+          const wpCritClass = isCritical ? 'doc-waypoint-card--critical' : '';
+          htmlParts.push(`
+            <div class="doc-waypoint-card ${wpCritClass}">
+              <div class="waypoint-title-bar">
+                <span class="waypoint-name" style="display:inline-flex;align-items:center;gap:0.4rem;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  ${pLabel}: ${pName}
+                </span>
+                ${pTime ? `<span class="waypoint-time-pill" style="display:inline-flex;align-items:center;gap:0.3rem;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${pTime}</span>` : ''}
+              </div>
+            </div>
+          `);
+          continue;
+        }
+
+        // 2. Blockquote (> texto ou > - texto)
+        if (formatted.startsWith('&gt;') || formatted.startsWith('>')) {
+          if (inList) {
+            htmlParts.push('</div>');
+            inList = false;
+          }
+          const cleanQuote = formatted.replace(/^[>&gt;\s\-*•]+/, '').trim();
+          const calloutCrit = isCritical ? 'doc-callout-box--critical' : '';
+          const calloutIconSvg = isCritical
+            ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+            : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>';
+          htmlParts.push(`
+            <div class="doc-callout-box ${calloutCrit}">
+              <span class="callout-icon" style="display:inline-flex;align-items:center;">${calloutIconSvg}</span>
+              <div class="callout-text">${cleanQuote}</div>
+            </div>
+          `);
+          continue;
+        }
+
+        // 3. Listas com Bullets (- , * , • , 1. )
+        const isBullet = /^([*\-•]|\d+\.)\s+/.test(formatted);
+        if (isBullet) {
+          if (!inList) {
+            htmlParts.push('<div class="doc-metrics-list">');
+            inList = true;
+          }
+          const cleanItem = formatted.replace(/^([*\-•]|\d+\.)\s*/, '').trim();
+          if (isCritical) {
+            const alertSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+            htmlParts.push(`
+              <div class="doc-metric-item doc-metric-item--alert">
+                <span class="item-bullet" style="display:inline-flex;align-items:center;">${alertSvg}</span>
+                <div class="item-text">${cleanItem}</div>
+              </div>
+            `);
+          } else {
+            const hasKey = cleanItem.includes(':') && cleanItem.includes('<strong');
+            const isCheck = low.includes('protocolo') || low.includes('checagem') || low.includes('conferir') || low.includes('canhoto');
+            const bulletSvg = isCheck
+              ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'
+              : (hasKey ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.5"><circle cx="12" cy="12" r="5"/></svg>' : '•');
+            htmlParts.push(`
+              <div class="doc-metric-item">
+                <span class="item-bullet" style="display:inline-flex;align-items:center;">${bulletSvg}</span>
+                <div class="item-text">${cleanItem}</div>
+              </div>
+            `);
+          }
+          continue;
+        }
+
+        // 4. Parágrafo comum ou alerta isolado
+        if (inList) {
+          htmlParts.push('</div>');
+          inList = false;
+        }
+
+        if (isCritical && (low.includes('alerta') || low.includes('atenção') || low.includes('urgência'))) {
+          const alertSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+          htmlParts.push(`
+            <div class="doc-callout-box doc-callout-box--critical">
+              <span class="callout-icon" style="display:inline-flex;align-items:center;">${alertSvg}</span>
+              <div class="callout-text">${formatted}</div>
+            </div>
+          `);
+        } else {
+          htmlParts.push(`<p class="doc-paragraph">${formatted}</p>`);
+        }
+      }
+
+      if (inList) {
+        htmlParts.push('</div>');
+      }
+
+      htmlParts.push('</div>'); // doc-section-content
+      htmlParts.push('</div>'); // doc-section-card
+
+      currentSectionTitle = '';
+      currentSectionIsAlert = false;
+      currentSectionLines = [];
+    };
+
+    for (const stripped of contentLines) {
+      // Reconhece headers principais (## , ### ou #### ou **SEÇÃO**)
+      const isHeaderPrefix = /^#{2,4}\s+/.test(stripped);
+      const isHeaderBold = stripped.startsWith('**') && stripped.endsWith('**') && 
+        ['sequência', 'sequencia', 'etapas', 'recomendações', 'sumário', 'indicadores', 'sla', 'impacto', 'conclusão', 'protocolo', 'checklist', 'alerta', 'itinerário', 'itinerario'].some(w => stripped.toLowerCase().includes(w));
+
+      // Se for um waypoint como #### [Ponto 0], direciona para o corpo da seção para renderizar o waypoint card
+      const isWaypointHeader = /^#{2,4}\s*\[(Ponto|Saída|Retorno)/i.test(stripped);
+      if (isWaypointHeader) {
+        const cleanWp = stripped.replace(/^#{2,4}\s*/, '').trim();
+        currentSectionLines.push(cleanWp);
+        continue;
+      }
+
+      if (isHeaderPrefix || isHeaderBold) {
+        flushSection();
+        const cleanTitle = stripped.replace(/^[#*\s]+/, '').replace(/\*/g, '').trim();
+        currentSectionTitle = cleanTitle;
+        currentSectionIsAlert = ['alerta', 'crítica', 'critica', 'urgência', '2°c', '2ºc'].some(w => cleanTitle.toLowerCase().includes(w));
+        continue;
+      }
+
+      if (!currentSectionTitle) {
+        currentSectionTitle = 'Visão Geral e Instruções';
+      }
+
+      currentSectionLines.push(stripped);
+    }
+
+    flushSection();
+    htmlParts.push('</div>'); // doc-sections-wrapper
+
+    let result = htmlParts.join('');
+    // Sanitização final anti-hashtag: remove quaisquer hashtags no texto renderizado fora de tags
+    result = result.replace(/>(#{1,6})\s*/g, '>');
+    return result;
   }
 
   getCriticalCount(): number {

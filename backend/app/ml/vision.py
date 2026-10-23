@@ -17,8 +17,12 @@ Arquiteturas Suportadas (Trocáveis via Painel Admin):
 
 import os
 import io
-import json
-import cv2
+try:
+    import cv2
+    CV2_AVAILABLE = True
+except Exception as e:
+    cv2 = None
+    CV2_AVAILABLE = False
 import numpy as np
 try:
     import torch
@@ -30,17 +34,8 @@ except Exception as e:
 from PIL import Image
 
 def apply_clahe(img_np):
-    """
-    ----------------------------------------------------------------------------------------------
-    FUNÇÃO DE PRÉ-PROCESSAMENTO: apply_clahe
-    Objetivo: Melhorar o contraste local de imagens médicas.
-    O que é CLAHE? Contrast Limited Adaptive Histogram Equalization. 
-    Diferente de clarear a imagem toda (o que pode estourar os brancos), o CLAHE divide a imagem
-    em pequenos quadrados (8x8) e melhora o contraste dentro de cada quadrado independentemente.
-    Isso é vital em Mamografias para realçar "Microcalcificações" (pontos minúsculos) que podem
-    ser o início de um tumor.
-    ----------------------------------------------------------------------------------------------
-    """
+    if not CV2_AVAILABLE or cv2 is None:
+        return img_np
     # OpenCV geralmente espera tons de cinza para operações matemáticas de histograma
     if len(img_np.shape) == 3:
         img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
@@ -54,16 +49,8 @@ def apply_clahe(img_np):
     return clahe_img
 
 def auto_crop_breast(img_np):
-    """
-    ----------------------------------------------------------------------------------------------
-    FUNÇÃO DE PRÉ-PROCESSAMENTO: auto_crop_breast
-    Objetivo: Remover fundo preto morto.
-    Imagens de Raio-X costumam ter muito espaço preto ao redor do tecido real. 
-    Se não cortar isso, a IA vai gastar processamento (e perder resolução útil) analisando o nada.
-    Esta função usa contornos (cv2.findContours) para desenhar uma "Caixa" ao redor do maior
-    objeto branco (o seio) e corta a imagem nessa caixa.
-    ----------------------------------------------------------------------------------------------
-    """
+    if not CV2_AVAILABLE or cv2 is None:
+        return img_np
     gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY) if len(img_np.shape) == 3 else img_np
     # Treshold (Limiarização): Tudo abaixo de 10 (quase preto) vira 0, tudo acima vira 255 (branco)
     _, thresh = cv2.threshold(gray, 10, 255, cv2.THRESH_BINARY)

@@ -1,11 +1,14 @@
 {
   "baseline_fase1": {
-    "model": "Random Forest (Default/GridSearch)",
+    "model": "Random Forest (GridSearchCV - Fase 1)",
+    "training_metric": "Acurácia (accuracy)",
+    "hyperparameter_space": "Grade fixa de 12 opções discretas",
     "metrics": {
-      "accuracy": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0,
-      "f2_score": 1.0
+      "accuracy": 0.9474,
+      "recall": 0.9048,
+      "f1_score": 0.9268,
+      "f2_score": 0.9135,
+      "roc_auc": 0.978
     }
   },
   "experiments": [
@@ -17,9 +20,10 @@
         "population_size": 20,
         "generations": 10,
         "mutation_rate": 0.05,
-        "crossover_rate": 0.7
+        "crossover_rate": 0.7,
+        "elitism": 1
       },
-      "elapsed_seconds": 266.7,
+      "elapsed_seconds": 188.54,
       "best_hyperparameters": {
         "n_estimators": 82,
         "max_depth": null,
@@ -179,19 +183,22 @@
           }
         ]
       },
-      "plot_path": "C:\\Users\\PC\\Documents\\GitHub\\tech-challenge-health-ai\\backend\\weights\\plots\\genetic_exp_1_quick.png"
+      "plot_path": "C:\\Users\\PC\\Documents\\GitHub\\tech-challenge-health-ai\\backend\\weights\\plots\\genetic_exp_1_quick.png",
+      "elapsed_text": "~3,1 min",
+      "objective": "Foco em velocidade de execução e baixo consumo computacional. Avalia a capacidade de convergência rápida do AG com parâmetros conservadores."
     },
     {
       "id": "exp_2_balanced",
-      "name": "Experimento 2 (Exploração Balanceada)",
+      "name": "Experimento 2 (Balanceado - Campeão)",
       "description": "Equilíbrio padrão de exploração e refinamento com elitismo de 2 melhores.",
       "parameters": {
         "population_size": 40,
         "generations": 20,
         "mutation_rate": 0.15,
-        "crossover_rate": 0.85
+        "crossover_rate": 0.85,
+        "elitism": 2
       },
-      "elapsed_seconds": 678.67,
+      "elapsed_seconds": 669.67,
       "best_hyperparameters": {
         "n_estimators": 100,
         "max_depth": null,
@@ -481,17 +488,20 @@
           }
         ]
       },
-      "plot_path": "C:\\Users\\PC\\Documents\\GitHub\\tech-challenge-health-ai\\backend\\weights\\plots\\genetic_exp_2_balanced.png"
+      "plot_path": "C:\\Users\\PC\\Documents\\GitHub\\tech-challenge-health-ai\\backend\\weights\\plots\\genetic_exp_2_balanced.png",
+      "elapsed_text": "~11,1 min",
+      "objective": "Equilíbrio ideal entre diversidade genética (exploração) e elitismo/refinamento (intensificação). Atingiu o teto clínico com recall de 95,76% e F2 de 95,66%."
     },
     {
       "id": "exp_3_robust",
-      "name": "Experimento 3 (Otimização Robusta / Global)",
+      "name": "Experimento 3 (Robusto)",
       "description": "Busca global intensiva no hiperespaço com mutação adaptativa e alta diversidade genética.",
       "parameters": {
         "population_size": 80,
         "generations": 30,
         "mutation_rate": 0.25,
-        "crossover_rate": 0.9
+        "crossover_rate": 0.9,
+        "elitism": 2
       },
       "elapsed_seconds": 1596.03,
       "best_hyperparameters": {
@@ -913,7 +923,9 @@
           }
         ]
       },
-      "plot_path": "C:\\Users\\PC\\Documents\\GitHub\\tech-challenge-health-ai\\backend\\weights\\plots\\genetic_exp_3_robust.png"
+      "plot_path": "C:\\Users\\PC\\Documents\\GitHub\\tech-challenge-health-ai\\backend\\weights\\plots\\genetic_exp_3_robust.png",
+      "elapsed_text": "~26,6 min",
+      "objective": "Varredura ampla e exaustiva com alta pressão seletiva e alta taxa de mutação (0,25) para exploração global do hiperplano e prevenção de mínimos locais."
     }
   ]
 }

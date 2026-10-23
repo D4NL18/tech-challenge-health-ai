@@ -24,7 +24,11 @@ class VRPSolver:
         generations: int = 30,
         mutation_rate: float = 0.20,
         crossover_rate: float = 0.85,
-        elitism_count: int = 2
+        elitism_count: int = 2,
+        departure_time_minutes: Optional[float] = 480.0,
+        default_service_minutes: int = 15,
+        base_city: Optional[str] = "Salvador",
+        points_cities: Optional[List[str]] = None
     ):
         self.num_deliveries = len(deliveries_data)
         self.evaluator = VRPFitnessEvaluator(
@@ -33,7 +37,11 @@ class VRPSolver:
             deliveries_data=deliveries_data,
             num_vehicles=num_vehicles,
             capacity_per_vehicle=capacity_per_vehicle,
-            max_distance_km_per_vehicle=max_distance_km_per_vehicle
+            max_distance_km_per_vehicle=max_distance_km_per_vehicle,
+            departure_time_minutes=departure_time_minutes,
+            default_service_minutes=default_service_minutes,
+            base_city=base_city,
+            points_cities=points_cities
         )
         self.population_size = max(10, population_size)
         self.generations = max(5, generations)

@@ -30,6 +30,19 @@ def test_routes_optimize_endpoint():
     assert "summary" in data
     assert "routes" in data
     assert len(data["routes"]) >= 1
+    assert data["summary"]["departure_clock"] == "08:00"
+    assert "estimated_finish_clock" in data["summary"]
+    assert "total_transit_minutes" in data["summary"]
+    assert "total_service_minutes" in data["summary"]
+
+    first_stop = data["routes"][0]["stops"][0]
+    assert first_stop["action"] == "DEPARTURE"
+    assert first_stop["estimated_arrival_clock"] == "08:00"
+
+    second_stop = data["routes"][0]["stops"][1]
+    assert "traffic_factor" in second_stop
+    assert "traffic_condition" in second_stop
+    assert "estimated_arrival_clock" in second_stop
 
 def test_routes_instructions_and_report_endpoints():
     inst_payload = {
