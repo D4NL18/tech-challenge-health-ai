@@ -1,0 +1,40 @@
+# Postgres local com pgvector para desenvolvimento e testes de integração (Fase 3 / F0, passo 0.10).
+# É o mesmo container usado como service no CI (.github/workflows/deploy.yml).
+#
+# Uso:
+#   docker compose -f docker-compose.dev.yml up -d
+#   docker compose -f docker-compose.dev.yml down        # mantém os dados
+#   docker compose -f docker-compose.dev.yml down -v     # apaga os dados
+#
+# As credenciais abaixo são defaults LOCAIS de desenvolvimento (sem dado real) e podem ser trocadas
+# por variáveis de ambiente ou pelo .env. Nunca use estes valores em produção: o banco de produção é o
+# Supabase, e a URL dele só existe em secrets (GitHub Actions / Cloud Run).
+#
+# URL para o backend e para os testes de integração:
+#   postgresql+psycopg://healthai:healthai_dev@localhost:5433/healthai_dev
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: healthai-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DEV_POSTGRES_USER:-healthai}
+      POSTGRES_PASSWORD: ${DEV_POSTGRES_PASSWORD:-healthai_dev}
+      POSTGRES_DB: ${DEV_POSTGRES_DB:-healthai_dev}
+    ports:
+      # Só na interface local; porta 5433 para não colidir com um Postgres já instalado na máquina.
+      - "127.0.0.1:${DEV_POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - healthai_pgdata:/var/lib/postgresql/data
+    # As extensões `vector` e `unaccent` são criadas pelas migrações (Alembic, F4) ou, antes delas, com:
+    #   docker exec healthai-postgres-dev psql -U healthai -d healthai_dev \
+    #     -c "CREATE EXTENSION IF NOT EXISTS vector;" -c "CREATE EXTENSION IF NOT EXISTS unaccent;"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DEV_POSTGRES_USER:-healthai} -d ${DEV_POSTGRES_DB:-healthai_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  healthai_pgdata:

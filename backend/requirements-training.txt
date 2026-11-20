@@ -1,0 +1,23 @@
+# Dependências de TREINO / FINE-TUNING / AVALIAÇÃO (Fase 3, F1–F3 e F10). Nunca entram na imagem de produção
+# (o .dockerignore exclui este arquivo, finetuning/ e evaluation/).
+#
+# Este arquivo NÃO fixa torch: o PyTorch vem de fora, conforme o ambiente.
+#   - CI (smoke sem GPU): pip install -r requirements.txt -r requirements-training.txt -r requirements-dev.txt
+#     (usa o torch CPU fixado no requirements.txt).
+#   - WSL2 Ubuntu com GPU (passo 0.9): instalar primeiro o torch CUDA no venv de treino e só então este arquivo.
+#     Ver .agents/docs/tasks/F0-runbook-infra.md.
+#
+# Versões resolvidas com `pip install --dry-run` sobre o requirements.txt em 2026-11-20 (Python 3.12.1).
+# A instalação completa e o funcionamento com GPU (bitsandbytes, Unsloth) só são verificados no passo 0.9.
+# bitsandbytes e Unsloth devem ser importados de forma tardia no código de treino, para o smoke rodar sem GPU.
+peft==0.22.0
+trl==1.18.2
+accelerate==1.16.0
+bitsandbytes==0.50.2
+datasets==5.2.0
+huggingface_hub==1.33.0
+optuna==5.1.0
+spacy==3.8.18
+evaluate==0.4.6
+rouge-score==0.1.2
+bert-score==0.3.13
