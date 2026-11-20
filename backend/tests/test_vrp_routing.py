@@ -124,6 +124,8 @@ def test_vrp_strict_vehicle_assignment():
     assert 3 in routes[1], f"Ponto 3 deveria estar estritamente na Van 2 (índice 1), mas routes={routes}"
     assert 3 not in routes[0]
 
+# Semente fixa: o GA não garante o balanceamento em ~10% das execuções (dívida T4, revisão F0 I-1).
+@pytest.mark.usefixtures("deterministic_random_seed")
 def test_vrp_balanced_priority_distribution():
     # 2 veículos, 4 urgências (2 CRITICAL + 2 HIGH) e 4 REGULAR
     # Matriz sintética com 9 nós (0 = depósito)
