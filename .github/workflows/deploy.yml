@@ -1,15 +1,192 @@
-name: Deploy HealthAI (GCP & Firebase)
+name: CI e Deploy HealthAI (GCP & Firebase)
+
+# Fase 3 / F0 (passos 0.7 e 0.10):
+# - o job `test` roda antes de qualquer deploy (`needs: test`): teste quebrado bloqueia o deploy;
+# - filtro de caminhos: o workflow só dispara quando backend, frontend ou o próprio workflow mudam,
+#   e cada deploy só roda quando a sua pasta mudou;
+# - em pull request só rodam os testes; deploy apenas em push na master ou disparo manual na master.
+# Nenhum segredo em texto aqui: tudo vem de `secrets.*`. As credenciais do Postgres abaixo são de um
+# container descartável do próprio runner (sem dado real, sem acesso externo).
 
 on:
   push:
     branches:
-      - master # O deploy será acionado automaticamente quando o código for mesclado na branch master
-  workflow_dispatch: # Permite disparar o deploy manualmente pela interface do GitHub
+      - master
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/deploy.yml'
+  pull_request:
+    branches:
+      - master
+      - feature/fase3
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch: # Permite disparar manualmente pela interface do GitHub
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  changes:
+    name: Detectar pastas alteradas
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      finetuning: ${{ steps.filter.outputs.finetuning }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calcular filtro de caminhos
+        id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BASE="$PR_BASE_SHA"
+          else
+            BASE="${BEFORE_SHA:-}"
+          fi
+
+          # Disparo manual, primeira versão da branch ou base indisponível: considera tudo alterado.
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] || [ -z "$BASE" ] \
+             || [ "$BASE" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            {
+              echo "backend=true"
+              echo "frontend=true"
+              echo "finetuning=true"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CHANGED="$(git diff --name-only "$BASE" "$HEAD_SHA")"
+          echo "$CHANGED"
+
+          match() {
+            if echo "$CHANGED" | grep -qE "$1"; then echo true; else echo false; fi
+          }
+
+          {
+            echo "backend=$(match '^(backend/|\.github/workflows/deploy\.yml$)')"
+            echo "frontend=$(match '^(frontend/|\.github/workflows/deploy\.yml$)')"
+            echo "finetuning=$(match '^backend/(finetuning/|requirements-training\.txt$)')"
+          } >> "$GITHUB_OUTPUT"
+
+  test:
+    name: Testes do backend (pytest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: healthai
+          POSTGRES_PASSWORD: healthai_ci
+          POSTGRES_DB: healthai_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U healthai -d healthai_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Banco descartável do runner; usado só pelos testes com marker `integration`.
+      TEST_DATABASE_URL: postgresql+psycopg://healthai:healthai_ci@localhost:5432/healthai_test
+      ASSISTANT_ENABLED: 'false'
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      - name: Instalar dependências (runtime + dev)
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Habilitar extensões do Postgres de teste
+        env:
+          PGPASSWORD: healthai_ci
+        run: |
+          psql -h localhost -U healthai -d healthai_test -v ON_ERROR_STOP=1 \
+            -c "CREATE EXTENSION IF NOT EXISTS vector;" \
+            -c "CREATE EXTENSION IF NOT EXISTS unaccent;"
+
+      - name: Rodar testes (sem slow, gpu e llm_live)
+        working-directory: ./backend
+        run: pytest -m "not slow and not gpu and not llm_live"
+
+  test-finetuning:
+    name: Smoke do fine-tuning (sem GPU)
+    needs: changes
+    if: needs.changes.outputs.finetuning == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-training.txt
+            backend/requirements-dev.txt
+
+      # O requirements.txt declara o índice de wheels CPU do PyTorch: o runner não baixa as libs CUDA.
+      # `bitsandbytes` e Unsloth precisam de import tardio no código de treino para este smoke rodar sem GPU.
+      - name: Instalar dependências (runtime + treino + dev)
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-training.txt -r requirements-dev.txt
+
+      - name: Rodar testes de fine-tuning (sem slow, gpu e llm_live)
+        working-directory: ./backend
+        run: |
+          if [ -d tests/finetuning ]; then
+            pytest tests/finetuning -m "not slow and not gpu and not llm_live"
+          else
+            echo "tests/finetuning ainda não existe; nada a rodar."
+          fi
+
   deploy-backend:
     name: Deploy Backend (Cloud Run)
+    needs: [changes, test]
+    if: >-
+      github.event_name != 'pull_request'
+      && github.ref == 'refs/heads/master'
+      && needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -20,7 +197,12 @@ jobs:
         with:
           credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
-      # O comando abaixo faz o build da imagem Docker e o deploy automaticamente
+      # O comando abaixo faz o build da imagem Docker e o deploy automaticamente.
+      # Guardrails de custo (D14 / ADR-010): escala a zero, no máximo 2 instâncias, CPU só durante a requisição.
+      # Pendente de aprovação no checkpoint (ver .agents/docs/tasks/F0-runbook-infra.md):
+      #   - acrescentar `--service-account healthai-backend@healthai-diagnostics.iam.gserviceaccount.com`
+      #     depois de criar a service account;
+      #   - acrescentar DATABASE_URL e DATABASE_DIRECT_URL em `env_vars` depois de criar o projeto Supabase.
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
         with:
@@ -34,11 +216,17 @@ jobs:
             ADMIN_USERNAME=${{ secrets.ADMIN_USERNAME }}
             ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
-          flags: '--allow-unauthenticated --max-instances 2 --memory 2Gi'
+          flags: '--allow-unauthenticated --min-instances 0 --max-instances 2 --cpu 1 --memory 2Gi --cpu-throttling'
 
   deploy-frontend:
     name: Deploy Frontend (Firebase Hosting)
+    needs: [changes, test]
+    if: >-
+      github.event_name != 'pull_request'
+      && github.ref == 'refs/heads/master'
+      && needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
