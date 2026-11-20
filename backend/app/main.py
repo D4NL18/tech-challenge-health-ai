@@ -23,6 +23,7 @@ from collections import defaultdict
 
 from app.api.routers import anamnesis, admin, routes_router
 from app.services.inference import inference_service
+from app.assistant.bootstrap import register_assistant, init_assistant_resources
 
 class AdvancedExponentialRateLimiter(BaseHTTPMiddleware):
     """
@@ -90,6 +91,7 @@ async def lifespan(app: FastAPI):
     Uso: Injetado na inicialização do objeto FastAPI.
     ----------------------------------------------------------------------------------------------
     """
+    init_assistant_resources()
     print("Iniciando carregamento dos Modelos de Inteligência Artificial para a RAM...")
     inference_service.load_all_models()
     yield
@@ -129,6 +131,7 @@ app.add_middleware(
 app.include_router(anamnesis.router)
 app.include_router(admin.router)
 app.include_router(routes_router.router)
+register_assistant(app)
 
 @app.get("/")
 def read_root():
