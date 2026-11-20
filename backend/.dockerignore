@@ -4,3 +4,22 @@ __pycache__/
 .git/
 datasets/
 .env
+
+# Fase 3 (F0, passo 0.7): nada de treino, avaliacao ou teste na imagem de producao
+finetuning/
+data/finetuning/
+evaluation/
+tests/
+requirements-training.txt
+requirements-dev.txt
+pytest.ini
+.pytest_cache/
+.coverage
+htmlcov/
+target/
+datasets.zip
+*.gguf
+*.safetensors
+**/adapters/
+**/__pycache__/
+.env.*

@@ -26,3 +26,14 @@ gcp_key.json
 
 .agents/
 GEMINI.md
+
+# Fase 3 (F0, passo 0.7): dados brutos e artefatos de fine-tuning nunca entram no Git
+backend/data/finetuning/raw/
+*.gguf
+**/adapters/
+*.safetensors
+
+# Caches de teste e cobertura
+.pytest_cache/
+.coverage
+htmlcov/
