@@ -173,7 +173,8 @@ jobs:
         working-directory: ./backend
         run: |
           if [ -d tests/finetuning ]; then
-            pytest tests/finetuning -m "not slow and not gpu and not llm_live"
+            # Exit 5 = nenhum teste coletado (a pasta existe, mas os testes de fine-tuning só chegam na F1/F3).
+            pytest tests/finetuning -m "not slow and not gpu and not llm_live" || [ $? -eq 5 ]
           else
             echo "tests/finetuning ainda não existe; nada a rodar."
           fi
