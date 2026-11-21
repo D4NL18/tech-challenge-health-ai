@@ -1,0 +1,27 @@
+# O `gcloud run deploy --source ./backend` envia este diretório ao Cloud Build segundo ESTE arquivo
+# (não o .dockerignore). Sem ele, datasets.zip (5 GB), datasets/, venv/ e target/ subiam a cada deploy.
+# Espelha o backend/.dockerignore; o Dockerfile continua copiando só as pastas que usa.
+.gcloudignore
+.git/
+venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+.env
+.env.*
+datasets/
+datasets.zip
+target/
+finetuning/
+data/finetuning/
+evaluation/
+tests/
+requirements-training.txt
+requirements-dev.txt
+pytest.ini
+.pytest_cache/
+.coverage
+htmlcov/
+*.gguf
+*.safetensors
+**/adapters/

@@ -35,6 +35,8 @@ import pytest
 DEFAULT_TEST_DATABASE_URL = "postgresql+psycopg://healthai:healthai_dev@localhost:5433/healthai_dev"
 LOCAL_DATABASE_HOSTS = {"localhost", "127.0.0.1", "::1", "postgres"}
 POSTGRES_CONNECT_TIMEOUT_SECONDS = 3
+# Com "1" (CI), banco de teste fora do ar reprova em vez de pular.
+REQUIRE_TEST_DB_ENV = "REQUIRE_TEST_DB"
 
 # Respostas padrão do modelo falso: curtas, sem dado pessoal, só para exercitar o fluxo.
 DEFAULT_FAKE_RESPONSES = [
@@ -143,7 +145,12 @@ def postgres_engine() -> Iterator["Engine"]:  # noqa: F821
     except SQLAlchemyError as exc:
         engine.dispose()
         # Só o tipo do erro: a mensagem pode conter a URL com senha.
-        pytest.skip(f"Postgres de teste inacessível ({type(exc).__name__}); suba o docker-compose.dev.yml")
+        reason = f"Postgres de teste inacessível ({type(exc).__name__}); suba o docker-compose.dev.yml"
+        # No CI (REQUIRE_TEST_DB=1) banco fora do ar é falha, não skip: senão o gate fica verde sem
+        # cobertura de integração (sugestão S-6 da revisão F0).
+        if os.environ.get(REQUIRE_TEST_DB_ENV) == "1":
+            pytest.fail(reason)
+        pytest.skip(reason)
     yield engine
     engine.dispose()
 

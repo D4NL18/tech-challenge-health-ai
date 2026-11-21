@@ -35,6 +35,8 @@ jobs:
 
           # O backend usa o formato do SQLAlchemy (postgresql+psycopg://); o psql espera postgresql://.
           PSQL_URL="$(printf '%s' "$DATABASE_URL" | sed -E 's#^postgres(ql)?\+[a-z0-9]+://#postgresql://#')"
+          # A máscara do GitHub só cobre o valor exato do secret; o valor derivado precisa da sua.
+          echo "::add-mask::$PSQL_URL"
 
           for attempt in 1 2 3; do
             if psql "$PSQL_URL" -v ON_ERROR_STOP=1 -At -c "SELECT 1;" >/dev/null; then

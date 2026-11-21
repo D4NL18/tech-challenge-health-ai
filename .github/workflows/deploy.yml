@@ -109,6 +109,8 @@ jobs:
     env:
       # Banco descartável do runner; usado só pelos testes com marker `integration`.
       TEST_DATABASE_URL: postgresql+psycopg://healthai:healthai_ci@localhost:5432/healthai_test
+      # Banco fora do ar reprova o job em vez de pular os testes de integração (S-6 da revisão F0).
+      REQUIRE_TEST_DB: '1'
       ASSISTANT_ENABLED: 'false'
     steps:
       - name: Checkout Code
