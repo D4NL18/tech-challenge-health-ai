@@ -6,7 +6,7 @@ Este documento é mantido exclusivamente pelo **Orquestrador**. Ele serve como u
 - **Feature/Entidade:** Fase 3 — Assistente Médico Personalizado (Fine-tuning + LangChain + LangGraph)
 - **Plano Mestre:** `.agents/docs/plans/INDEX.md` (v3 — um arquivo por fase em `.agents/docs/plans/F00…F11`; fases **sequenciais**, paralelismo só entre agentes dentro de cada fase, em rodadas com arquivos exclusivos)
 - **Triagem:** T1 (Full-Stack + IA + PII). Os agentes são escolhidos fase a fase (matriz em `.agents/docs/plans/00-modelo-de-execucao.md`); o `product-owner` não é acionado (backlog já fatiado).
-- **Etapa Atual do Fluxo:** F0 em execução (ver "F0 — Execução" abaixo). Decisões registradas no planejamento: a lista de candidatos (D1) e o scorecard pré-registrado (D13) são aprovados no checkpoint da F0; D3/D4 precisam estar tomadas antes da F3 (D4: fine-tuned obrigatório em produção, servido em CPU no Cloud Run; D14: projeto inteiro no free tier ou ≤ R$5/mês, Cloud Run com cold start aceito e custo estimado com base em ~5 h/mês de uso, sem limite; D3: treino no computador pessoal com GTX 1660 SUPER 6 GB; D15: Supabase; D16: API na mesma origem via Firebase Hosting; D17: vetorização com pgvector).
+- **Etapa Atual do Fluxo:** **F0 concluída em 2026-11-21**; próxima fase: **F1 — Coleta e Geração do Corpus** (`.agents/docs/plans/F01-corpus.md`). Decisões consolidadas em `.agents/docs/KNOWLEDGE_GRAPH.md`.
 - **Branch de integração planejada:** `feature/fase3` (uma branch por fase, mesclada ao fim de cada uma; nada direto na `master`).
 
 ### Fases (uma de cada vez)
@@ -38,8 +38,8 @@ Este documento é mantido exclusivamente pelo **Orquestrador**. Ele serve como u
 | R4 (Fechamento) | Orquestrador | ✅ 2026-11-20: 11 commits atômicos na `feature/fase3-f0-fundacao`, merge em `feature/fase3`, push das duas branches. CI no GitHub verde na `feature/fase3` (run 44781593316); prova do bloqueio com teste quebrado (run 44780797129: job `test` falhou, deploys pulados; branch descartável apagada). Imagem Docker auditada (4,13 GB, sem libs de treino nem dados). Testes de integração com pgvector: 2 passed. Passo 0.9 (A8, A9, A10 local) executado: ver `STATE_F0_smoke-gpu.md` |
 
 ### Pendências que ficam abertas depois da F0
-- **Decisão do usuário — `compute_dtype`:** a regra pré-registrada dá fp16 (0 NaN, loss caindo), mas na GTX 1660 SUPER o fp16 é ~4,8x mais lento (sem Tensor Cores): ~9,3 h contra ~1,9 h na triagem do 1B. Recomendação do `ai-specialist`: fp32, com adendo ao ADR-001 §2.3. Unsloth funciona (fp32 ~10% mais rápido e ~33% menos VRAM que peft).
-- **Decisão do usuário — `llama-swap`:** o `llama-server` atual troca de modelo sozinho (`--models-dir`, `--models-max 1`); recomendação: tirar o `llama-swap` do ADR-002 e fixar `ctx-size` no preset de cada modelo (sem isso o Llama 1B ocupou 4,9 GiB, acima dos 4 GiB do `healthai-llm`).
+- **`compute_dtype` — decidido em 2026-11-21:** fp32 com peft + trl (opção B, aprovada pelo usuário). ADR-001 Adendo 1; contingência de VRAM no `tucano-2b4` com Unsloth mantendo fp32.
+- **`llama-swap` — decidido em 2026-11-21 pela regra do ADR-002 (ponto 5):** sai; `llama-server` em modo router com `ctx-size` fixo no preset de cada modelo. ADR-002 Adendo 1.
 - **Ações de nuvem (runbook A0–A7 e A10 no Cloud Run):** não executadas. A ativação da Cloud Billing API foi negada pelo modo automático; o usuário roda os comandos do runbook. Artifact Registry com 3,5 GB (~US$0,30/mês).
 - **Supabase (A6):** a conta só tem a organização "Fitoherb" (projeto "Fitoherb Website"); o projeto do HealthAI não deve ser criado lá. O usuário cria uma organização pessoal e o projeto em `us-east-1`.
 - **Prova do bloqueio de deploy na `master`:** feita com `workflow_dispatch` numa branch descartável (job `test` falhou, deploys pulados); a prova na própria `master` só acontece no primeiro push para ela.
@@ -47,8 +47,8 @@ Este documento é mantido exclusivamente pelo **Orquestrador**. Ele serve como u
 - **Imagem Docker de 4,13 GB:** `nvidia` (205 MB) numa imagem só de CPU e `kubernetes` (119 MB, via `chromadb`); revisar quando a F6 remover o `chromadb`.
 - **Tier da chave do Gemini:** conferir no AI Studio.
 - **Dívidas técnicas (T4):** `app/ml/vision.py:105` sem `import json`; modelos scikit-learn salvos com 1.5.2 e carregados com 1.3.2; GA do VRP sem garantia de balanceamento. Sessão de hotfix proposta.
-- **Sugestões do reviewer** S-1…S-12 em `STATE_F0_reviewer.md` (S-6, S-7, S-12 antes da F4).
-- **`backend/venv`** (usado pelo hook de `.agents/hooks.json`) não tem `psycopg`: reinstalar com `requirements.txt` + `requirements-dev.txt`.
+- **Sugestões do reviewer:** S-6 (`REQUIRE_TEST_DB=1` no CI), S-7 (`::add-mask::` no keep-alive) e S-12 (`backend/.gcloudignore`) aplicadas em 2026-11-21. Seguem abertas S-1…S-5 e S-8…S-11 em `STATE_F0_reviewer.md` (fases F5, F7, F9, F11).
+- **`backend/venv`:** reinstalado em 2026-11-21 com `requirements.txt` + `requirements-dev.txt` (usado pelo hook de `.agents/hooks.json`).
 
 ### Agentes acionados e pulados na F0
 - **Acionados (plano):** `analyst`, `architect`, `ai-specialist`, `privacy-officer`, `devops` (R1); `tester`, `developer` (R2); `reviewer`, `tester` (R3).

@@ -2,7 +2,7 @@
 
 > [Índice](INDEX.md) · Anterior: — · Próxima: [F1 →](F01-corpus.md)  
 > Referências: [Contexto e decisões](00-contexto-e-decisoes.md) · [Modelo de execução](00-modelo-de-execucao.md)  
-> **Status:** 🔄 Em andamento — R1 (Etapas 1–2) despachada em 2026-11-13; checkpoint com o usuário em seguida
+> **Status:** ✅ Concluída em 2026-11-21 — código, testes, CI, ADRs e passo 0.9 entregues e mesclados em `feature/fase3`. Ações de nuvem do runbook (A0–A7, A10 na nuvem) ficam com o usuário; ver `STATE.md`
 
 ## Objetivo
 

@@ -2,7 +2,7 @@
 
 > **Fonte dos requisitos:** `8IADT - Fase 3 - Tech challenge.pdf`
 > **Classificação na triagem (AGENTS.md):** T1 — Nova Feature Completa (Full-Stack + IA + Dados Pessoais)
-> **Versão:** v3 (2026-11-07) · **Status geral:** 📝 Planejado — aguardando a aprovação dos candidatos (D1) e do scorecard (D13) no checkpoint da F0, e a D4 (latência em CPU) confirmada na F3 · orçamento ≤ R$5/mês (D14)
+> **Versão:** v3 (2026-11-07) · **Status geral:** 🔄 F0 concluída em 2026-11-21 (D1 e D13 aprovadas; scorecard congelado; treino em fp32; troca nativa no `llama-server`); próxima: F1. D4 (latência em CPU) confirmada na F3 · orçamento ≤ R$5/mês (D14)
 
 O plano está dividido em **12 fases (F0–F11), executadas uma de cada vez**. Uma fase só começa quando a anterior cumpriu o DoD e foi mesclada em `feature/fase3`. **Dentro de cada fase**, o trabalho é organizado em **rodadas**: agentes em paralelo, cada um com arquivos exclusivos. Cada fase aciona só os agentes e as etapas da pipeline que agregam valor a ela.
 
@@ -19,7 +19,7 @@ O plano está dividido em **12 fases (F0–F11), executadas uma de cada vez**. U
 
 | # | Fase | Objetivo | Requisitos do PDF | Agentes acionados | Checkpoint | Status |
 | :--- | :--- | :--- | :--- | :--- | :-: | :-: |
-| **F0** | [Fundação, Governança e Infraestrutura de Testes](F00-fundacao.md) | Deixar o repositório pronto para a Fase 3: regras, ADRs, RIPD, dependências, CI que bloqueia deploy quebrado, infraestrutura de testes, esqueleto de pastas e o ponto único de ligação do assistente no `main.py` | R4.1 | analyst, architect, ai-specialist, privacy-officer, devops, tester, developer, reviewer | ✓ | 🔄 |
+| **F0** | [Fundação, Governança e Infraestrutura de Testes](F00-fundacao.md) | Deixar o repositório pronto para a Fase 3: regras, ADRs, RIPD, dependências, CI que bloqueia deploy quebrado, infraestrutura de testes, esqueleto de pastas e o ponto único de ligação do assistente no `main.py` | R4.1 | analyst, architect, ai-specialist, privacy-officer, devops, tester, developer, reviewer | ✓ | ✅ |
 | **F1** | [Coleta e Geração do Corpus](F01-corpus.md) | Montar o corpus bruto do fine-tuning: PubMedQA, MedQuAD filtrado e um corpus interno sintético em pt-BR (protocolos, FAQ de médicos, laudos, receitas e procedimentos) | R1.1–R1.3, E4 | ai-specialist, tester×2, developer×2, reviewer | — | ⏳ |
 | **F2** | [Preprocessing, Anonimização e Curadoria](F02-anonimizacao-curadoria.md) | Transformar o corpus bruto em dataset de instruções limpo, anonimizado e curado, com split sem vazamento | R1.4, E1, E4 | privacy-officer, ai-specialist, tester×2, developer×2, reviewer | ✓ | ⏳ |
 | **F3** | [Pipeline de Fine-tuning QLoRA, Otimização de Hiperparâmetros e Publicação](F03-fine-tuning-qlora.md) | Fazer a triagem de 5 modelos base e treinar os 2–3 finalistas com QLoRA usando a melhor configuração de hiperparâmetros encontrada por otimização bayesiana multifidelidade (Optuna TPE + Hyperband), registrar os experimentos e publicar os fine-tuned **em produção** (serviço único `healthai-llm` em CPU, com troca sob demanda e aquecimento automático, no free tier) | R1.1–R1.3, E1, E5 | ai-specialist, tester×2, developer×3, devops, security, reviewer | — | ⏳ |
