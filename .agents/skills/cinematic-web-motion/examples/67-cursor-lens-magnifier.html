@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>67 · Cursor Lens Magnifier</title>
+<!--
+PATTERN: A circular magnifier lens follows the cursor and reveals a zoomed copy of an illustration.
+Motion: The scene (an SVG constellation/blueprint) is cloned into the lens and scaled by ZOOM
+  around the pointer; the lens position is lerped for a soft trailing feel. The lens grows on
+  pointer down and hides when the pointer leaves.
+Accessibility: Illustration has role="img" + aria-label; the clone is aria-hidden. The lens is
+  purely visual enhancement. prefers-reduced-motion: lens follows without easing (no lerp, no
+  grow). Touch: dragging a finger moves the lens. Without pointer: no lens, scene fully visible.
+Adapting: ZOOM, SIZE constants; swap the SVG inside #scene with any artwork.
+  Libraries: none.
+-->
+<style>
+:root{--bg:#0b1020;--fg:#dfe8ff}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif;overflow:hidden}
+main{height:100%;display:grid;place-items:center;padding:4vmin;cursor:none}
+.wrap{position:relative;width:min(92vw,1000px);aspect-ratio:16/10;border-radius:16px;overflow:hidden;background:#0d1530;touch-action:none}
+.wrap svg{position:absolute;inset:0;width:100%;height:100%}
+.lens{position:absolute;left:0;top:0;width:var(--s,180px);height:var(--s,180px);border-radius:50%;overflow:hidden;pointer-events:none;
+  border:3px solid #9fc0ff;box-shadow:0 10px 40px #000a,inset 0 0 30px #9fc0ff55;opacity:0;transition:opacity .2s,width .25s,height .25s;background:#0d1530}
+.lens.on{opacity:1}
+.lens.down{--s:240px}
+.lens .zoom{position:absolute;left:0;top:0;transform-origin:0 0}
+h1{position:absolute;top:4vmin;left:5vmin;font:600 clamp(1rem,2.5vw,1.6rem) ui-monospace,monospace;letter-spacing:.15em;text-transform:uppercase;opacity:.7;z-index:2;pointer-events:none}
+@media(hover:none){main{cursor:auto}}
+</style>
+</head>
+<body>
+<main>
+  <div class="wrap" id="wrap">
+    <h1>Star chart · hover to magnify</h1>
+    <div id="scene" role="img" aria-label="A constellation drawn on a blueprint grid with tiny labels">
+      <svg viewBox="0 0 1000 625" id="art">
+        <defs>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#2a3a73" stroke-width="1"/></pattern>
+        </defs>
+        <rect width="1000" height="625" fill="url(#grid)"/>
+        <g stroke="#6f8cff" stroke-width="1.5" fill="none">
+          <polyline points="140,420 280,300 430,340 560,200 720,260 860,150"/>
+          <polyline points="430,340 500,480 650,460 720,260"/>
+          <circle cx="500" cy="320" r="220" stroke-dasharray="4 8" stroke="#3b4f9a"/>
+        </g>
+        <g fill="#fff">
+          <circle cx="140" cy="420" r="6"/><circle cx="280" cy="300" r="4"/><circle cx="430" cy="340" r="7"/>
+          <circle cx="560" cy="200" r="5"/><circle cx="720" cy="260" r="8"/><circle cx="860" cy="150" r="4"/>
+          <circle cx="500" cy="480" r="4"/><circle cx="650" cy="460" r="5"/>
+        </g>
+        <g fill="#9fc0ff" font-family="monospace" font-size="9">
+          <text x="150" y="440">ALPHA-01</text><text x="290" y="290">BETA-02</text><text x="440" y="362">GAMMA-03</text>
+          <text x="570" y="190">DELTA-04</text><text x="730" y="285">EPSILON-05</text><text x="868" y="140">ZETA-06</text>
+          <text x="510" y="500">ETA-07</text><text x="660" y="480">THETA-08</text>
+        </g>
+      </svg>
+    </div>
+    <div class="lens" id="lens" aria-hidden="true"><div class="zoom" id="zoom"></div></div>
+  </div>
+</main>
+<script>
+(function(){
+  var ZOOM=2.6;
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var wrap=document.getElementById("wrap"),lens=document.getElementById("lens"),zoom=document.getElementById("zoom");
+  var scene=document.getElementById("scene");
+  var clone=scene.cloneNode(true);clone.removeAttribute("id");clone.removeAttribute("role");clone.removeAttribute("aria-label");
+  clone.querySelector("svg").removeAttribute("id");
+  clone.style.cssText="position:absolute;left:0;top:0";
+  zoom.appendChild(clone);
+
+  var tx=0,ty=0,x=0,y=0,raf=0,running=false;
+  function sync(){
+    var w=wrap.clientWidth,h=wrap.clientHeight;
+    clone.style.width=w+"px";clone.style.height=h+"px";
+    zoom.style.width=w+"px";zoom.style.height=h+"px";
+    zoom.style.transform="scale("+ZOOM+")";
+  }
+  function place(){
+    var s=lens.offsetWidth;
+    lens.style.transform="translate("+(x-s/2)+"px,"+(y-s/2)+"px)";
+    // shift zoomed content so the point under the cursor stays under the lens centre
+    zoom.style.transform="translate("+(s/2-x*ZOOM)+"px,"+(s/2-y*ZOOM)+"px) scale("+ZOOM+")";
+  }
+  function tick(){
+    if(reduce){x=tx;y=ty}else{x+=(tx-x)*.18;y+=(ty-y)*.18}
+    place();
+    if(Math.abs(tx-x)>.1||Math.abs(ty-y)>.1)raf=requestAnimationFrame(tick);else running=false;
+  }
+  function move(e){
+    var r=wrap.getBoundingClientRect();
+    tx=e.clientX-r.left;ty=e.clientY-r.top;
+    lens.classList.add("on");
+    if(!running){running=true;raf=requestAnimationFrame(tick)}
+  }
+  sync();addEventListener("resize",function(){sync();place()});
+  wrap.addEventListener("pointermove",move);
+  wrap.addEventListener("pointerdown",function(e){if(!reduce)lens.classList.add("down");move(e)});
+  addEventListener("pointerup",function(){lens.classList.remove("down")});
+  wrap.addEventListener("pointerleave",function(){lens.classList.remove("on")});
+})();
+</script>
+</body>
+</html>

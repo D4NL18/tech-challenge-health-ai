@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>106 · Color Chapters Background Shift</title>
+<!--
+PATTERN: Scroll-linked colour chapters. The page background, ink and accent colours are interpolated continuously between chapter palettes as the viewport middle travels from one chapter to the next, like a day passing.
+Motion: On scroll (rAF-throttled) the midpoint of the viewport is located between two chapter centres, smoothstep(t) blends both palettes in RGB and writes --bg/--ink/--accent on :root; a fixed clock counts from 04:30 to 22:00 with the same t.
+Accessibility: Every palette pair has at least 4.5:1 contrast at its own chapter; during the blend the text is always mid-way between two valid pairs; prefers-reduced-motion switches to hard per-chapter colours (no interpolation, no clock tween); :focus-visible styled.
+Adapting: Edit CHAPTERS palettes in the script; each <section data-ch> becomes one stop. Keep ink/bg contrast high.
+Libraries: none (vanilla JS). Concept demo: "Forno Velho" is a fictional bakery.
+-->
+<style>
+:root{--bg:#1b2420;--ink:#f0e6cf;--accent:#f2b36d;
+--serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Segoe UI","Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;overflow-x:hidden}
+a{color:inherit}a:focus-visible{outline:3px solid var(--accent);outline-offset:4px}
+.top{position:fixed;z-index:5;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:1.2rem 6vw;font-size:.78rem;letter-spacing:.2em;text-transform:uppercase;mix-blend-mode:normal;pointer-events:none}
+.top b{font:400 1.3rem var(--serif);letter-spacing:.01em;text-transform:none}
+.clock{position:fixed;z-index:5;right:6vw;bottom:5vh;font:400 clamp(2rem,5vw,4rem)/1 var(--serif);letter-spacing:-.03em;text-align:right}
+.clock small{display:block;font:600 .7rem var(--sans);letter-spacing:.2em;text-transform:uppercase;color:var(--accent)}
+.ch{min-height:100vh;padding:18vh 6vw 14vh;display:grid;grid-template-columns:repeat(12,1fr);align-content:center;gap:0 2rem}
+.hour{grid-column:1/8;font:400 clamp(7rem,24vw,22rem)/.78 var(--serif);letter-spacing:-.06em;color:var(--accent)}
+.body{grid-column:7/13;margin-top:-2vw}
+.ch:nth-of-type(even) .hour{grid-column:6/13;text-align:right;grid-row:1}
+.ch:nth-of-type(even) .body{grid-column:1/7;grid-row:2;margin-top:2rem}
+.body h2{font:400 clamp(2rem,4.4vw,4rem)/1 var(--serif);letter-spacing:-.02em;margin-bottom:1rem}
+.body p{max-width:30rem;margin-bottom:1rem}
+.body ul{list-style:none;max-width:30rem;border-top:1px solid currentColor}
+.body li{display:flex;justify-content:space-between;padding:.7rem 0;border-bottom:1px solid currentColor;font-size:.95rem}
+.body li span{font-weight:600;letter-spacing:.08em}
+.end{min-height:60vh;padding:12vh 6vw;display:grid;align-content:center;gap:1.2rem}
+.end h2{font:400 clamp(2rem,5.4vw,4.8rem)/1 var(--serif);max-width:13em}
+.end a{justify-self:start;border-bottom:2px solid var(--accent);text-decoration:none;padding-bottom:.2rem}
+.disc{font-size:.72rem;padding:1rem 6vw 6rem}
+.hard .ch[data-i="0"]{--bg:#1b2420;--ink:#f0e6cf;--accent:#f2b36d}
+.hard .ch{background:var(--bg);color:var(--ink)}
+@media (max-width:760px){
+ .ch{grid-template-columns:1fr;padding-top:16vh}
+ .hour,.body,.ch:nth-of-type(even) .hour,.ch:nth-of-type(even) .body{grid-column:1;grid-row:auto;text-align:left;margin-top:0}
+ .hour{font-size:34vw;margin-bottom:1rem}
+ .clock{right:5vw;bottom:2vh;font-size:1.8rem}
+}
+</style>
+</head>
+<body>
+<div class="top" aria-hidden="true"><b>Forno Velho</b><span>Um dia na padaria</span></div>
+<div class="clock" aria-hidden="true"><small>Agora na massa</small><span id="clk">04:30</span></div>
+<main>
+<section class="ch" data-i="0" aria-labelledby="h0">
+ <div class="hour" aria-hidden="true">04h</div>
+ <div class="body"><h2 id="h0">Madrugada: a massa que dormiu na geladeira</h2><p>Às 4h30 o forno de tijolos já está a 280 graus. Rui tira da câmara fria as massas de sábado, fermentadas por 36 horas, e separa as de centeio.</p><ul><li>Pão de centeio <span>8 kg</span></li><li>Pão de fermentação natural <span>60 un.</span></li></ul></div>
+</section>
+<section class="ch" data-i="1" aria-labelledby="h1">
+ <div class="hour" aria-hidden="true">06h</div>
+ <div class="body"><h2 id="h1">Aurora: primeira fornada</h2><p>O vapor sobe, a casca racha e a rua inteira sente o cheiro. Nesta hora só quem acordou cedo conhece o miolo ainda quente.</p><ul><li>Baguete de tradição <span>06h10</span></li><li>Croissant de manteiga <span>06h40</span></li></ul></div>
+</section>
+<section class="ch" data-i="2" aria-labelledby="h2">
+ <div class="hour" aria-hidden="true">10h</div>
+ <div class="body"><h2 id="h2">Manhã: balcão cheio</h2><p>A fila dá a volta no quarteirão. Dona Ilda leva sempre o mesmo, meio pão de forma integral e duas broas de milho, e paga com notas contadas.</p><ul><li>Café coado <span>R$ 6</span></li><li>Pão na chapa <span>R$ 9</span></li></ul></div>
+</section>
+<section class="ch" data-i="3" aria-labelledby="h3">
+ <div class="hour" aria-hidden="true">16h</div>
+ <div class="body"><h2 id="h3">Tarde: a segunda fornada, dos doces</h2><p>Quando o forno baixa para 200 graus entram o bolo de fubá, o pão de mel e as tortas. É a hora em que a luz fica cor de casca.</p><ul><li>Bolo de fubá <span>16h20</span></li><li>Torta de goiabada <span>17h00</span></li></ul></div>
+</section>
+<section class="ch" data-i="4" aria-labelledby="h4">
+ <div class="hour" aria-hidden="true">22h</div>
+ <div class="body"><h2 id="h4">Noite: o forno esfria, a massa começa</h2><p>Enquanto a cidade dorme, Rui mistura a farinha, a água e o fermento do dia seguinte. A massa descansa até as 4h30 e tudo recomeça.</p><ul><li>Fermento mãe, 11 anos <span>alimentado</span></li><li>Farinha moída na região <span>100 kg</span></li></ul></div>
+</section>
+<section class="end"><h2>Encomendas de fim de semana até quinta, às 18h.</h2><a href="#">Ver cardápio de sábado</a></section>
+</main>
+<p class="disc">Demo conceitual: Forno Velho é uma marca fictícia criada apenas para ilustrar o padrão.</p>
+<script>
+(function(){
+  var CHAPTERS=[
+    {bg:[27,36,32],ink:[240,230,207],acc:[242,179,109],t:4.5},
+    {bg:[242,185,151],ink:[42,23,18],acc:[140,52,24],t:6.2},
+    {bg:[243,227,166],ink:[42,36,16],acc:[150,62,22],t:10},
+    {bg:[200,90,53],ink:[255,240,220],acc:[255,222,150],t:16},
+    {bg:[43,26,31],ink:[244,217,184],acc:[242,150,90],t:22}
+  ];
+  var secs=[].slice.call(document.querySelectorAll(".ch")),root=document.documentElement,clk=document.getElementById("clk");
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function mix(a,b,t){return [0,1,2].map(function(i){return Math.round(a[i]+(b[i]-a[i])*t)})}
+  function css(c){return "rgb("+c.join(",")+")"}
+  function setPalette(p){root.style.setProperty("--bg",css(p.bg));root.style.setProperty("--ink",css(p.ink));root.style.setProperty("--accent",css(p.acc))}
+  function fmt(h){var m=Math.round((h%1)*60),hh=Math.floor(h);if(m===60){m=0;hh++}return (hh<10?"0":"")+hh+":"+(m<10?"0":"")+m}
+  var ticking=false;
+  function update(){
+    ticking=false;
+    var mid=scrollY+innerHeight*.5,centers=secs.map(function(s){return s.offsetTop+s.offsetHeight/2}),i=0;
+    if(mid<=centers[0]){setPalette(CHAPTERS[0]);clk.textContent=fmt(CHAPTERS[0].t);return}
+    var last=centers.length-1;
+    if(mid>=centers[last]){setPalette(CHAPTERS[last]);clk.textContent=fmt(CHAPTERS[last].t);return}
+    while(i<last-1&&mid>centers[i+1])i++;
+    var t=(mid-centers[i])/(centers[i+1]-centers[i]);
+    if(reduce){var k=t<.5?i:i+1;setPalette(CHAPTERS[k]);clk.textContent=fmt(CHAPTERS[k].t);return}
+    t=t*t*(3-2*t);
+    var a=CHAPTERS[i],b=CHAPTERS[i+1];
+    setPalette({bg:mix(a.bg,b.bg,t),ink:mix(a.ink,b.ink,t),acc:mix(a.acc,b.acc,t)});
+    clk.textContent=fmt(a.t+(b.t-a.t)*t);
+  }
+  function req(){if(!ticking){ticking=true;requestAnimationFrame(update)}}
+  addEventListener("scroll",req,{passive:true});addEventListener("resize",req);update();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kanban Board Drag & Keyboard Move — Subtle UI Motion</title>
+  <!--
+    PATTERN: Lightweight Kanban Board with Drag-and-Drop & Keyboard Move
+    A 3-column task board supporting native HTML5 drag-and-drop plus accessible keyboard
+    arrow buttons to move cards across columns without pointer dependency.
+    - Motion: Dragged card dims to 0.45 opacity; target column highlights border and soft
+      surface tint over 140ms; newly moved card settles with a subtle 160ms fade-in.
+    - Accessibility: Each card exposes explicit Move Left / Move Right buttons with
+      descriptive aria-labels and an aria-live="polite" region announcing moves.
+    - Adapting: Add columns to `COLUMNS` or tasks to `tasks`; state stays in plain JS.
+  -->
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --surface-subtle: #f4f4f5;
+      --border: #e4e4e7;
+      --text: #18181b;
+      --text-muted: #71717a;
+      --drop-border: #2563eb;
+      --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #09090b;
+        --surface: #18181b;
+        --surface-subtle: #27272a;
+        --border: #27272a;
+        --text: #fafafa;
+        --text-muted: #a1a1aa;
+        --drop-border: #60a5fa;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap { width: 100%; max-width: 860px; }
+    .head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 14px;
+    }
+    .head h1 { font-size: 15px; font-weight: 600; margin: 0; }
+    .hint { font-size: 12px; color: var(--text-muted); margin: 0; }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    @media (max-width: 700px) { .board { grid-template-columns: 1fr; } }
+    .col {
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      min-height: 260px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: border-color 140ms var(--ease), background 140ms var(--ease);
+    }
+    .col.drag-over {
+      border-color: var(--drop-border);
+      background: color-mix(in srgb, var(--drop-border) 8%, var(--surface-subtle));
+    }
+    .col-head {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      padding: 2px 4px 6px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 11px 12px;
+      cursor: grab;
+      transition: opacity 140ms var(--ease), transform 140ms var(--ease), box-shadow 140ms var(--ease);
+      animation: settle 160ms var(--ease);
+    }
+    @keyframes settle {
+      from { opacity: 0.7; transform: translateY(3px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .card:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); }
+    .card.dragging { opacity: 0.45; cursor: grabbing; }
+    .card-title { font-size: 13px; font-weight: 500; margin: 0 0 8px; }
+    .card-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .tag {
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--surface-subtle);
+      padding: 2px 7px;
+      border-radius: 6px;
+    }
+    .move-btns { display: flex; gap: 4px; }
+    .mv {
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .mv:hover:not(:disabled) { background: var(--surface-subtle); color: var(--text); }
+    .mv:disabled { opacity: 0.3; cursor: default; }
+    .mv:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="head">
+      <h1>Sprint Board</h1>
+      <p class="hint">Drag cards or use ← / → buttons</p>
+    </div>
+    <div class="board" id="board"></div>
+    <div class="sr-only" id="live" aria-live="polite"></div>
+  </main>
+
+  <script>
+    const COLUMNS = [
+      { id: 'todo', label: 'To Do' },
+      { id: 'doing', label: 'In Progress' },
+      { id: 'done', label: 'Done' }
+    ];
+
+    let tasks = [
+      { id: 't1', title: 'Audit keyboard focus traps', tag: 'A11y', col: 'todo' },
+      { id: 't2', title: 'Refine token contrast', tag: 'Design', col: 'todo' },
+      { id: 't3', title: 'Ship webhook retries', tag: 'Backend', col: 'doing' },
+      { id: 't4', title: 'Add CSP report-only header', tag: 'Security', col: 'done' }
+    ];
+
+    const board = document.getElementById('board');
+    const live = document.getElementById('live');
+    let draggedId = null;
+
+    function moveTask(id, targetCol) {
+      const task = tasks.find(t => t.id === id);
+      if (!task || task.col === targetCol) return;
+      task.col = targetCol;
+      const colName = COLUMNS.find(c => c.id === targetCol)?.label || targetCol;
+      live.textContent = `Moved ${task.title} to ${colName}.`;
+      render();
+    }
+
+    function render() {
+      board.innerHTML = COLUMNS.map((col, colIdx) => {
+        const items = tasks.filter(t => t.col === col.id);
+        return `
+          <section class="col" data-col="${col.id}" aria-label="${col.label}">
+            <div class="col-head"><span>${col.label}</span><span>${items.length}</span></div>
+            ${items.map(t => `
+              <article class="card" draggable="true" data-id="${t.id}">
+                <p class="card-title">${t.title}</p>
+                <div class="card-foot">
+                  <span class="tag">${t.tag}</span>
+                  <div class="move-btns">
+                    <button class="mv" type="button" data-dir="-1" data-id="${t.id}" ${colIdx === 0 ? 'disabled' : ''} aria-label="Move ${t.title} left">←</button>
+                    <button class="mv" type="button" data-dir="1" data-id="${t.id}" ${colIdx === COLUMNS.length - 1 ? 'disabled' : ''} aria-label="Move ${t.title} right">→</button>
+                  </div>
+                </div>
+              </article>
+            `).join('')}
+          </section>
+        `;
+      }).join('');
+    }
+
+    board.addEventListener('dragstart', (e) => {
+      const card = e.target.closest('.card');
+      if (!card) return;
+      draggedId = card.dataset.id;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    board.addEventListener('dragend', (e) => {
+      const card = e.target.closest('.card');
+      if (card) card.classList.remove('dragging');
+      document.querySelectorAll('.col.drag-over').forEach(c => c.classList.remove('drag-over'));
+      draggedId = null;
+    });
+
+    board.addEventListener('dragover', (e) => {
+      const col = e.target.closest('.col');
+      if (!col) return;
+      e.preventDefault();
+      col.classList.add('drag-over');
+    });
+
+    board.addEventListener('dragleave', (e) => {
+      const col = e.target.closest('.col');
+      if (col && !col.contains(e.relatedTarget)) col.classList.remove('drag-over');
+    });
+
+    board.addEventListener('drop', (e) => {
+      const col = e.target.closest('.col');
+      if (!col || !draggedId) return;
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      moveTask(draggedId, col.dataset.col);
+    });
+
+    board.addEventListener('click', (e) => {
+      const btn = e.target.closest('.mv');
+      if (!btn) return;
+      const task = tasks.find(t => t.id === btn.dataset.id);
+      if (!task) return;
+      const idx = COLUMNS.findIndex(c => c.id === task.col);
+      const next = COLUMNS[idx + Number(btn.dataset.dir)];
+      if (next) moveTask(task.id, next.id);
+    });
+
+    render();
+  </script>
+</body>
+</html>

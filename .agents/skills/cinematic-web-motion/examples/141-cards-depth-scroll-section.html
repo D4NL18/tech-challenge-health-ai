@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>141 · Cards Depth Scroll Section</title>
+<!--
+PATTERN: Immersive section where a stack of cards sits along the Z axis of a perspective stage. Scrolling
+  flies the "camera" through the stack: the focus card is sharp, the ones behind are dim and blurred, the
+  one just passed rushes toward the viewer and dissolves.
+Motion: A tall track (620vh) holds a sticky 100vh stage. Scroll progress p (0..N-1) is computed per frame;
+  each card gets translate3d(x, y, z) from d = index - p (z = -d * DEPTH), plus filter:blur and opacity as
+  a function of |d|. Values are written with one rAF-throttled loop (no layout reads in the loop).
+Accessibility: Cards are real <article> elements in DOM order; the active card gets aria-current="true".
+  prefers-reduced-motion: the sticky stage is dropped and the cards become a plain, readable vertical list.
+  Keyboard: sections and links are focusable with a visible :focus-visible ring.
+Adapting: Edit the card markup, DEPTH (z spacing), BLUR_MAX, and the stage perspective in CSS.
+  Libraries: none (vanilla JS + CSS 3D).
+-->
+<style>
+:root{
+  --ink:#0e1915; --ink-2:#16261f; --bone:#ece4d1; --bone-dim:#b9b3a1; --rust:#c9582b; --brass:#d8a24a;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--ink)}
+body{background:var(--ink);color:var(--bone);font-family:var(--sans);line-height:1.5;overflow-x:hidden}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--brass);outline-offset:4px;border-radius:2px}
+.eyebrow{font:600 .72rem/1 var(--sans);letter-spacing:.22em;text-transform:uppercase;color:var(--brass)}
+.top{position:fixed;inset:0 0 auto 0;z-index:20;display:flex;justify-content:space-between;align-items:center;padding:20px clamp(18px,4vw,48px);mix-blend-mode:difference;color:#fff}
+.top b{font:italic 400 1.15rem var(--serif)}
+.top a{font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;text-decoration:none}
+
+/* intro */
+.intro{min-height:100vh;display:grid;grid-template-columns:repeat(12,1fr);align-items:end;padding:clamp(90px,14vh,140px) clamp(18px,4vw,48px) 8vh;gap:0 16px;position:relative}
+.intro h1{grid-column:1/11;font:400 clamp(3rem,10.5vw,10rem)/.9 var(--serif);letter-spacing:-.03em}
+.intro h1 em{color:var(--rust)}
+.intro p{grid-column:7/13;margin-top:36px;max-width:38ch;color:var(--bone-dim);font-size:1.05rem}
+.intro .eyebrow{grid-column:1/8;margin-bottom:28px}
+.intro .scrollcue{grid-column:1/6;margin-top:36px;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--bone-dim)}
+.intro::after{content:"";position:absolute;left:clamp(18px,4vw,48px);right:clamp(18px,4vw,48px);bottom:0;height:1px;background:linear-gradient(90deg,var(--rust),transparent 70%)}
+
+/* depth track */
+.track{position:relative;height:620vh}
+.stage{position:sticky;top:0;height:100vh;overflow:hidden;perspective:1300px;perspective-origin:62% 46%;background:radial-gradient(ellipse at 62% 46%,#22382f 0%,var(--ink) 62%)}
+.world{position:absolute;inset:0;transform-style:preserve-3d}
+.card{position:absolute;left:50%;top:50%;width:min(440px,78vw);margin:-250px 0 0 -220px;min-height:500px;padding:30px 30px 26px;
+  background:linear-gradient(160deg,#f1e9d6,#e2d7bb);color:#1c1a14;border-radius:4px;box-shadow:0 40px 80px -30px rgba(0,0,0,.7);
+  will-change:transform,opacity,filter;display:flex;flex-direction:column;justify-content:space-between;backface-visibility:hidden}
+.card header{display:flex;justify-content:space-between;font:600 .7rem/1 var(--sans);letter-spacing:.2em;text-transform:uppercase;color:#6b4a2a}
+.card svg{width:100%;height:150px;margin:14px 0}
+.card h3{font:400 2rem/1.05 var(--serif);letter-spacing:-.01em;margin-bottom:10px}
+.card p{font-size:.95rem;color:#3d382b}
+.card footer{margin-top:16px;padding-top:12px;border-top:1px solid rgba(0,0,0,.18);display:flex;justify-content:space-between;font:500 .75rem var(--sans);color:#6b4a2a}
+.caption{position:absolute;left:clamp(18px,4vw,48px);bottom:9vh;z-index:5;max-width:30ch;pointer-events:none}
+.caption .n{font:400 clamp(4rem,9vw,8rem)/.85 var(--serif);color:var(--rust)}
+.caption .n small{font-size:.28em;color:var(--bone-dim);letter-spacing:.1em}
+.caption p{margin-top:12px;font-size:.88rem;color:var(--bone-dim)}
+.meter{position:absolute;right:clamp(18px,4vw,48px);top:50%;transform:translateY(-50%);width:2px;height:34vh;background:rgba(236,228,209,.18);z-index:5}
+.meter i{position:absolute;left:0;top:0;width:100%;height:100%;background:var(--rust);transform-origin:top;transform:scaleY(0)}
+
+/* outro */
+.outro{min-height:90vh;display:grid;place-items:center;text-align:center;padding:12vh clamp(18px,4vw,48px);background:var(--bone);color:var(--ink)}
+.outro h2{font:400 clamp(2.4rem,7vw,6.4rem)/.95 var(--serif);letter-spacing:-.02em;max-width:14ch;margin:0 auto 32px}
+.outro a{display:inline-block;padding:16px 30px;background:var(--ink);color:var(--bone);text-decoration:none;font-size:.82rem;letter-spacing:.16em;text-transform:uppercase;border-radius:2px;transition:background .25s}
+.outro a:hover{background:var(--rust)}
+
+@media (max-width:700px){
+  .intro h1{grid-column:1/13}.intro p,.intro .scrollcue{grid-column:1/13}
+  .card{min-height:440px;margin-top:-220px;padding:24px 22px 20px}.card svg{height:110px}
+  .card h3{font-size:1.6rem}
+  .caption{bottom:3vh}.caption .n{font-size:3.4rem}.caption p{display:none}
+  .meter{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .track{height:auto;padding:12vh clamp(18px,4vw,48px)}
+  .stage{position:static;height:auto;overflow:visible;perspective:none;background:none}
+  .world{position:static;display:grid;gap:28px;max-width:520px;margin:0 auto}
+  .card{position:static;margin:0;width:auto;transform:none!important;opacity:1!important;filter:none!important}
+  .caption,.meter{display:none}
+}
+</style>
+</head>
+<body>
+<div class="top"><b>Skerry Light</b><a href="#log">The Logbook</a></div>
+
+<section class="intro" aria-labelledby="t">
+  <p class="eyebrow">Logbook of the Skerry Light, 1931 to 1938</p>
+  <h1 id="t">Seven winters on a <em>rock</em> with a lamp.</h1>
+  <p>The keepers wrote down everything: wind, oil, the ships that did not come back. These are seven pages from the surviving logbook.</p>
+  <span class="scrollcue">Scroll to enter the logbook</span>
+</section>
+
+<div class="track" id="log">
+  <div class="stage">
+    <div class="world" id="world"></div>
+    <div class="caption" aria-hidden="true"><div class="n"><span id="num">01</span> <small>/ 07</small></div><p id="cap">Oil, brass and a rising swell.</p></div>
+    <div class="meter" aria-hidden="true"><i id="bar"></i></div>
+  </div>
+</div>
+
+<section class="outro">
+  <div>
+    <p class="eyebrow" style="color:var(--rust);margin-bottom:22px">The full logbook</p>
+    <h2>Read the other four hundred pages.</h2>
+    <a href="#t">Open the archive</a>
+  </div>
+</section>
+
+<script>
+(function(){
+  var PAGES=[
+    {d:"14 Oct 1931",t:"First night, lamp lit",p:"Wick trimmed at dusk. Light visible at nine leagues. Keeper Alder reports the lens clean and the brass sound.",k:"Oil used: 3 pints",cap:"Oil, brass and a rising swell.",art:"rays"},
+    {d:"02 Jan 1932",t:"Ice on the gallery",p:"Gale from the north-east, glass falling. Ice two fingers thick on the rail. Fog signal run for eleven hours.",k:"Wind: force 9",cap:"The glass falls and the horn runs.",art:"waves"},
+    {d:"19 Mar 1933",t:"The Marta passes",p:"Trawler Marta rounded the skerry close in. Crew waved. We answered with the lamp, three long flashes.",k:"Vessels: 1",cap:"A trawler, three long flashes.",art:"ship"},
+    {d:"07 Aug 1934",t:"Supply boat late",p:"Nine days without relief. Biscuit and tinned beef holding. Rain water collected, enough for two weeks.",k:"Stores: 11 days",cap:"Nine days without relief.",art:"stack"},
+    {d:"21 Nov 1935",t:"Lens cracked",p:"A wave threw gravel against the lantern room. One prism cracked. Light continues at reduced power until spring.",k:"Output: 70 percent",cap:"A cracked prism, a dimmer light.",art:"crack"},
+    {d:"30 Jan 1937",t:"No ships, no sound",p:"Fog for six days. We counted the horn blasts instead of the hours. Alder says it keeps the mind in order.",k:"Horn: 144 hours",cap:"We counted horn blasts, not hours.",art:"fog"},
+    {d:"09 Sep 1938",t:"Last entry",p:"Relief keepers arrive on the morning tide. The lamp is to be automated. We leave the logbook on the shelf.",k:"Signed: Alder, Voss",cap:"We leave the logbook on the shelf.",art:"door"}
+  ];
+  var C="#1c1a14",R="#c9582b",B="#d8a24a";
+  function art(k){
+    var s='<svg viewBox="0 0 380 150" preserveAspectRatio="none" aria-hidden="true"><rect width="380" height="150" fill="#d9ccae"/>';
+    if(k==="rays"){for(var i=-6;i<=6;i++)s+='<path d="M190 118 L'+(190+i*34)+' 0 L'+(190+i*34+10)+' 0Z" fill="'+B+'" opacity=".55"/>';s+='<rect x="176" y="70" width="28" height="80" fill="'+C+'"/><circle cx="190" cy="64" r="12" fill="'+R+'"/>';}
+    if(k==="waves"){for(var j=0;j<6;j++){s+='<path d="M0 '+(40+j*20)+' Q 48 '+(20+j*20)+' 95 '+(40+j*20)+' T 190 '+(40+j*20)+' T 285 '+(40+j*20)+' T 380 '+(40+j*20)+'" fill="none" stroke="'+(j%2?C:R)+'" stroke-width="3"/>';}}
+    if(k==="ship"){s+='<rect y="104" width="380" height="46" fill="'+C+'"/><path d="M110 104 L270 104 L246 124 L134 124Z" fill="'+R+'"/><rect x="186" y="62" width="8" height="42" fill="'+C+'"/><path d="M194 66 L240 100 L194 100Z" fill="#f1e9d6"/>';}
+    if(k==="stack"){for(var r=0;r<4;r++)for(var c=0;c<5;c++)s+='<rect x="'+(60+c*52+(r%2)*20)+'" y="'+(24+r*28)+'" width="46" height="22" fill="'+((r+c)%3?C:R)+'"/>';}
+    if(k==="crack"){s+='<circle cx="190" cy="75" r="58" fill="'+B+'" opacity=".6"/><path d="M190 17 L176 52 L202 70 L180 104 L194 133" fill="none" stroke="'+C+'" stroke-width="4"/>';}
+    if(k==="fog"){for(var f=0;f<7;f++)s+='<rect x="'+(f*14-10)+'" y="'+(14+f*18)+'" width="'+(260+f*14)+'" height="9" fill="'+C+'" opacity="'+(.9-f*.11)+'"/>';}
+    if(k==="door"){s+='<rect x="140" y="20" width="100" height="130" fill="'+C+'"/><rect x="152" y="32" width="76" height="118" fill="'+R+'"/><circle cx="218" cy="92" r="5" fill="'+B+'"/>';}
+    return s+'</svg>';
+  }
+  var world=document.getElementById("world"),N=PAGES.length,cards=[];
+  PAGES.forEach(function(g,i){
+    var a=document.createElement("article");a.className="card";a.setAttribute("aria-label","Page "+(i+1)+" of "+N+": "+g.t);
+    a.innerHTML='<header><span>'+g.d+'</span><span>Page '+String(i+1).padStart(2,"0")+'</span></header>'+art(g.art)+'<div><h3>'+g.t+'</h3><p>'+g.p+'</p></div><footer><span>'+g.k+'</span><span>Skerry Light</span></footer>';
+    world.appendChild(a);cards.push(a);
+  });
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(reduce)return;
+  var track=document.getElementById("log"),num=document.getElementById("num"),cap=document.getElementById("cap"),bar=document.getElementById("bar");
+  var DEPTH=520,BLUR_MAX=9,ticking=false,last=-1;
+  function frame(){
+    ticking=false;
+    var vh=innerHeight,r=track.getBoundingClientRect();
+    var span=r.height-vh,sc=Math.min(Math.max(-r.top/span,0),1);
+    var p=sc*(N-1),mobile=innerWidth<700,spread=mobile?.18:.3;
+    var act=Math.round(p);
+    for(var i=0;i<N;i++){
+      var d=i-p,ad=Math.abs(d),side=(i%2?1:-1);
+      var x=side*innerWidth*spread*Math.min(ad,1.6)*(d>0?1:.8)+(mobile?0:innerWidth*.08);
+      var y=(d>0?-1:1)*Math.min(ad,2)*(mobile?24:46)+(i%3-1)*18*Math.min(ad,1);
+      var z=-d*DEPTH;
+      var rot=side*Math.min(ad,1.5)*-9;
+      var op=d<-.9?0:Math.max(0,1-Math.max(ad-.15,0)*.36);
+      if(d<0)op=Math.max(0,1-ad*1.25);
+      var blur=Math.min(Math.max(ad-.12,0)*BLUR_MAX,BLUR_MAX+2);
+      var c=cards[i];
+      c.style.transform="translate3d("+x.toFixed(1)+"px,"+y.toFixed(1)+"px,"+z.toFixed(1)+"px) rotateY("+rot.toFixed(2)+"deg)";
+      c.style.opacity=op.toFixed(3);
+      c.style.filter=blur>.05?"blur("+blur.toFixed(2)+"px) brightness("+(1-Math.min(ad,2)*.18).toFixed(2)+")":"none";
+      c.style.zIndex=String(100-Math.round(ad*10));
+      c.style.visibility=op<.01?"hidden":"visible";
+      c.setAttribute("aria-current",i===act?"true":"false");
+    }
+    bar.style.transform="scaleY("+sc.toFixed(4)+")";
+    if(act!==last){last=act;num.textContent=String(act+1).padStart(2,"0");cap.textContent=PAGES[act].cap;}
+  }
+  function req(){if(!ticking){ticking=true;requestAnimationFrame(frame);}}
+  addEventListener("scroll",req,{passive:true});addEventListener("resize",req);frame();
+})();
+</script>
+</body>
+</html>

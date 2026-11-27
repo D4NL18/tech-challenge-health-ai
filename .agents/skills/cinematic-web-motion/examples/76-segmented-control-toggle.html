@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>76 · Segmented Control &amp; Toggle</title>
+<!--
+PATTERN: A segmented control whose thumb slides under native radios, plus a switch whose knob
+  moves with a springy overshoot (ref: Origin UI segmented / switch components).
+Motion: Thumb width and translateX are set from the checked label's offset metrics. The switch knob
+  uses a CSS transform with cubic-bezier(.34,1.56,.64,1) for the spring; the main easing
+  elsewhere is cubic-bezier(.2,.7,.2,1). Knob stretches slightly while pressed.
+Accessibility: Segmented control is real input[type=radio] in a fieldset/legend, arrow keys native.
+  Switch is a button role=switch with aria-checked and an "On"/"Off" text label plus knob position
+  (not colour only). :focus-visible ring on both. prefers-reduced-motion: no transitions.
+Adapting: Option labels in HTML; spring curve in --spring. Libraries: none.
+-->
+<style>
+:root{--bg:#efe8d9;--fg:#201c16;--mut:#51493e;--track:#ddd2bb;--thumb:#fbf8f0;--on:#2f5a43;--acc:#a8401f;--line:#c6bba3;--ease:cubic-bezier(.2,.7,.2,1);--spring:cubic-bezier(.34,1.56,.64,1)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:"Segoe UI",Helvetica,sans-serif;min-height:100vh;padding:10vh 7vw;display:grid;grid-template-columns:minmax(0,6fr) minmax(0,5fr);gap:4rem;align-items:start}
+h1{font-family:Georgia,"Iowan Old Style",serif;font-weight:400;font-size:clamp(2.2rem,5vw,3.8rem);line-height:1;letter-spacing:-.03em;margin-bottom:1rem}
+.lede{color:var(--mut);line-height:1.55;max-width:38ch}
+fieldset{border:0;padding:0;min-width:0;margin-bottom:2.4rem}
+legend,.lbl{font:600 .72rem ui-monospace,monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--mut);margin-bottom:.7rem;padding:0}
+.seg{position:relative;display:inline-flex;background:var(--track);border-radius:6px;padding:3px}
+.thumb{position:absolute;top:3px;left:0;height:calc(100% - 6px);background:var(--thumb);border-radius:4px;box-shadow:0 1px 3px rgba(32,28,22,.3);transition:transform .35s var(--ease),width .35s var(--ease)}
+.seg label{position:relative;z-index:1;padding:.5rem 1rem;cursor:pointer;font-size:.92rem;border-radius:4px}
+.seg input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+.seg label:has(input:checked){font-weight:700}
+.seg label:has(input:checked)::after{content:"";position:absolute;left:1rem;right:1rem;bottom:.28rem;height:2px;background:var(--acc)}
+.seg label:has(input:focus-visible){outline:3px solid var(--acc);outline-offset:2px}
+.sw-row{display:flex;align-items:center;gap:.9rem}
+.sw{position:relative;width:3.2rem;height:1.8rem;border:0;border-radius:999px;background:var(--track);cursor:pointer;transition:background .3s var(--ease)}
+.sw::after{content:"";position:absolute;left:.2rem;top:.2rem;width:1.4rem;height:1.4rem;border-radius:999px;background:var(--thumb);box-shadow:0 1px 3px rgba(32,28,22,.4);transition:transform .45s var(--spring),width .2s var(--ease)}
+.sw:active::after{width:1.8rem}
+.sw[aria-checked=true]{background:var(--on)}
+.sw[aria-checked=true]::after{transform:translateX(1.4rem)}
+.sw[aria-checked=true]:active::after{transform:translateX(1rem)}
+.sw:focus-visible{outline:3px solid var(--acc);outline-offset:3px}
+#st{font-weight:700;min-width:2.4rem}
+.card{border:1px solid var(--line);padding:1.4rem;border-radius:4px;background:#f6f0e2}
+#out{font-family:Georgia,serif;font-size:1.5rem;line-height:1.3}
+@media (max-width:760px){body{grid-template-columns:1fr;gap:2rem}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header><h1>Set up the weekly newsletter.</h1><p class="lede">Choose how often the dispatch lands and whether it includes the recipe archive.</p></header>
+<main>
+  <fieldset><legend>Frequency</legend>
+    <div class="seg" id="seg"><span class="thumb" aria-hidden="true"></span>
+      <label><input type="radio" name="f" value="Every Friday" checked>Weekly</label>
+      <label><input type="radio" name="f" value="Every second Friday">Fortnightly</label>
+      <label><input type="radio" name="f" value="First Friday of the month">Monthly</label>
+    </div>
+  </fieldset>
+  <p class="lbl" id="swl">Recipe archive</p>
+  <div class="sw-row"><button type="button" class="sw" id="sw" role="switch" aria-checked="false" aria-labelledby="swl st"></button><span id="st">Off</span></div>
+  <div class="card" style="margin-top:2.4rem"><p class="lbl">Preview</p><p id="out"></p></div>
+</main>
+<script>
+(function(){
+  var CONFIG={};
+  var seg=document.getElementById("seg"),th=seg.querySelector(".thumb"),sw=document.getElementById("sw"),st=document.getElementById("st"),out=document.getElementById("out");
+  function summary(){
+    var v=seg.querySelector("input:checked").value;
+    out.textContent=v+", "+(sw.getAttribute("aria-checked")==="true"?"with the recipe archive.":"without the recipe archive.");
+  }
+  function place(){
+    var l=seg.querySelector("input:checked").parentNode;
+    th.style.width=l.offsetWidth+"px";th.style.transform="translateX("+l.offsetLeft+"px)";summary();
+  }
+  seg.addEventListener("change",place);
+  sw.addEventListener("click",function(){
+    var on=sw.getAttribute("aria-checked")!=="true";
+    sw.setAttribute("aria-checked",String(on));st.textContent=on?"On":"Off";summary();
+  });
+  addEventListener("resize",place);
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(place);
+  place();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<!--
+  Pattern: Hero Typography Mask Reveal Curtain
+  =============================================
+  Luxury Hardware Motion:
+  - Giant display typography ("KRONOS") acts as a crisp knockout curtain
+    masking a shimmering, procedurally-rendered hardware backdrop & studio
+    gradient.
+  - On scroll, the typography mask scales up smoothly until the full-bleed
+    product stage is revealed, transitioning into editorial specs and CTA.
+
+  How to Adapt:
+  - Replace the SVG `<text>` inside `#heroMask` with your brand wordmark.
+  - Swap the procedural `<canvas id="backdropCanvas">` with a product video
+    or Three.js scene.
+  - `prefers-reduced-motion: reduce` skips the curtain scale scrub and renders
+    the revealed full-bleed hero directly.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KRONOS 01 — Hero Mask Reveal Curtain</title>
+  <style>
+    :root {
+      --bg: #070709;
+      --curtain-bg: #f5f3ee;
+      --text-light: #f4f4f5;
+      --text-dark: #101012;
+      --text-muted: #a1a1aa;
+      --accent: #d4af7a;
+      --border: rgba(255, 255, 255, 0.12);
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text-light);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    .hero-scroll-track {
+      position: relative;
+      height: 220vh;
+    }
+
+    .hero-sticky {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      width: 100%;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #backdropCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Curtain overlay with SVG mask knockout */
+    .curtain-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .curtain-svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .hero-ui-chrome {
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: clamp(1.25rem, 3.5vw, 2.5rem);
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-dark);
+      transition: color 0.3s ease;
+    }
+
+    .top-bar.is-revealed {
+      color: var(--text-light);
+    }
+
+    .scroll-cue {
+      align-self: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-dark);
+    }
+
+    .scroll-line {
+      width: 1px;
+      height: 36px;
+      background: currentColor;
+      opacity: 0.5;
+    }
+
+    .revealed-copy {
+      position: relative;
+      z-index: 5;
+      max-width: 680px;
+      padding: 2rem;
+      text-align: center;
+      opacity: 0;
+      transform: translateY(24px);
+    }
+
+    .revealed-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 0 0 0.75rem;
+    }
+
+    .revealed-copy h2 {
+      margin: 0 0 1rem;
+      font-size: clamp(2rem, 4.5vw, 3.6rem);
+      font-weight: 500;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+    }
+
+    .revealed-copy p {
+      margin: 0 auto 1.75rem;
+      max-width: 52ch;
+      color: var(--text-muted);
+      line-height: 1.6;
+      font-size: 1.02rem;
+    }
+
+    .cta-btn {
+      pointer-events: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.85rem 1.7rem;
+      border-radius: 999px;
+      border: 1px solid rgba(212, 175, 122, 0.55);
+      background: rgba(212, 175, 122, 0.12);
+      color: var(--text-light);
+      text-decoration: none;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      backdrop-filter: blur(10px);
+      transition: background 0.25s ease, border-color 0.25s ease;
+    }
+
+    .cta-btn:hover {
+      background: rgba(212, 175, 122, 0.24);
+      border-color: var(--accent);
+    }
+
+    .specs-band {
+      padding: clamp(4rem, 10vh, 7rem) clamp(1.5rem, 5vw, 4rem);
+      max-width: 1120px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 2rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .spec-item h3 {
+      margin: 0 0 0.4rem;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .spec-item p {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+    }
+  </style>
+</head>
+<body>
+  <section class="hero-scroll-track" id="heroTrack">
+    <div class="hero-sticky">
+      <canvas id="backdropCanvas" aria-hidden="true"></canvas>
+
+      <div class="revealed-copy" id="revealedCopy">
+        <p class="revealed-eyebrow">Grade 5 Titanium // Calibre 01</p>
+        <h2>Precision sculpted in light and shadow.</h2>
+        <p>Machined from a solid billet of aerospace titanium with a sapphire-crystal acoustic chamber and 72-hour reserve.</p>
+        <a href="#specs" class="cta-btn">Explore Architecture →</a>
+      </div>
+
+      <div class="curtain-overlay" id="curtainOverlay" aria-hidden="true">
+        <svg class="curtain-svg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <mask id="heroMask">
+              <rect width="1440" height="900" fill="white" />
+              <g id="maskTextGroup" transform-origin="720 450">
+                <text
+                  x="720"
+                  y="450"
+                  text-anchor="middle"
+                  dominant-baseline="central"
+                  fill="black"
+                  font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Inter, sans-serif"
+                  font-weight="800"
+                  font-size="250"
+                  letter-spacing="-8"
+                >KRONOS</text>
+              </g>
+            </mask>
+          </defs>
+          <rect width="1440" height="900" fill="#f5f3ee" mask="url(#heroMask)" />
+        </svg>
+      </div>
+
+      <div class="hero-ui-chrome">
+        <div class="top-bar" id="topBar">
+          <span>KRONOS // GENEVA</span>
+          <span>EDITION 01 — 2026</span>
+        </div>
+        <div class="scroll-cue" id="scrollCue">
+          <span>Scroll to unveil</span>
+          <span class="scroll-line"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="specs-band" id="specs">
+    <div class="spec-item">
+      <h3>Chassis</h3>
+      <p>Micro-blasted Grade 5 Titanium</p>
+    </div>
+    <div class="spec-item">
+      <h3>Crystal</h3>
+      <p>Dual-domed Anti-Reflective Sapphire</p>
+    </div>
+    <div class="spec-item">
+      <h3>Tolerance</h3>
+      <p>±0.002 mm CNC Five-Axis Milling</p>
+    </div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.min.js"></script>
+  <script>
+    (() => {
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const canvas = document.getElementById('backdropCanvas');
+      const ctx = canvas.getContext('2d');
+      const maskTextGroup = document.getElementById('maskTextGroup');
+      const curtainOverlay = document.getElementById('curtainOverlay');
+      const revealedCopy = document.getElementById('revealedCopy');
+      const scrollCue = document.getElementById('scrollCue');
+      const topBar = document.getElementById('topBar');
+
+      let width = 0;
+      let height = 0;
+      let t = 0;
+
+      function resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      // Procedural shimmering studio backdrop + luxury dial/hardware silhouette
+      function renderBackdrop(timeSec) {
+        ctx.clearRect(0, 0, width, height);
+
+        const bgGrad = ctx.createRadialGradient(
+          width * (0.5 + Math.sin(timeSec * 0.4) * 0.08),
+          height * (0.46 + Math.cos(timeSec * 0.3) * 0.05),
+          20,
+          width * 0.5,
+          height * 0.5,
+          Math.max(width, height) * 0.72
+        );
+        bgGrad.addColorStop(0, '#3a2d1d');
+        bgGrad.addColorStop(0.35, '#191614');
+        bgGrad.addColorStop(0.75, '#0b0b0e');
+        bgGrad.addColorStop(1, '#050507');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, width, height);
+
+        // Shimmering diagonal studio light sweep
+        const sweepX = width * (0.5 + Math.sin(timeSec * 0.55) * 0.35);
+        const sweep = ctx.createLinearGradient(sweepX - 240, 0, sweepX + 240, height);
+        sweep.addColorStop(0, 'rgba(212, 175, 122, 0)');
+        sweep.addColorStop(0.5, 'rgba(212, 175, 122, 0.16)');
+        sweep.addColorStop(1, 'rgba(212, 175, 122, 0)');
+        ctx.fillStyle = sweep;
+        ctx.fillRect(0, 0, width, height);
+
+        // Minimalist precision bezel rings behind the mask
+        const cx = width * 0.5;
+        const cy = height * 0.5;
+        const baseR = Math.min(width, height) * 0.31;
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(212, 175, 122, 0.26)';
+        ctx.lineWidth = 1.25;
+        ctx.beginPath();
+        ctx.arc(cx, cy, baseR, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.09)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, baseR * 0.78, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Rotating radial ticks
+        const rot = reducedMotion ? 0 : timeSec * 0.12;
+        for (let i = 0; i < 60; i++) {
+          const a = (i / 60) * Math.PI * 2 + rot;
+          const inner = i % 5 === 0 ? baseR * 0.87 : baseR * 0.92;
+          ctx.beginPath();
+          ctx.moveTo(cx + Math.cos(a) * inner, cy + Math.sin(a) * inner);
+          ctx.lineTo(cx + Math.cos(a) * baseR * 0.96, cy + Math.sin(a) * baseR * 0.96);
+          ctx.strokeStyle = i % 5 === 0 ? 'rgba(212, 175, 122, 0.55)' : 'rgba(255, 255, 255, 0.14)';
+          ctx.lineWidth = i % 5 === 0 ? 1.5 : 1;
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      gsap.ticker.add((_, delta) => {
+        if (!reducedMotion) t += delta * 0.001;
+        renderBackdrop(t);
+      });
+
+      if (reducedMotion) {
+        curtainOverlay.style.display = 'none';
+        scrollCue.style.display = 'none';
+        topBar.classList.add('is-revealed');
+        gsap.set(revealedCopy, { opacity: 1, y: 0 });
+      } else {
+        gsap.registerPlugin(ScrollTrigger);
+
+        const lenis = new Lenis({ smoothWheel: true, lerp: 0.08 });
+        lenis.on('scroll', ScrollTrigger.update);
+        gsap.ticker.add((time) => lenis.raf(time * 1000));
+
+        const tl = gsap.timeline({
+          scrollTrigger: {
+            trigger: '#heroTrack',
+            start: 'top top',
+            end: 'bottom bottom',
+            scrub: 0.6
+          }
+        });
+
+        tl.to(scrollCue, { opacity: 0, duration: 0.12 }, 0)
+          .to(maskTextGroup, {
+            scale: 28,
+            ease: 'power2.in',
+            duration: 0.65
+          }, 0)
+          .to(curtainOverlay, {
+            opacity: 0,
+            duration: 0.15
+          }, 0.55)
+          .to(revealedCopy, {
+            opacity: 1,
+            y: 0,
+            ease: 'power2.out',
+            duration: 0.35
+          }, 0.58)
+          .call(() => {
+            topBar.classList.toggle('is-revealed', tl.progress() > 0.45);
+          }, null, 0.45);
+
+        ScrollTrigger.create({
+          trigger: '#heroTrack',
+          start: 'top top',
+          end: 'bottom bottom',
+          onUpdate: (self) => {
+            topBar.classList.toggle('is-revealed', self.progress > 0.45);
+          }
+        });
+      }
+
+      window.addEventListener('resize', resize);
+      resize();
+    })();
+  </script>
+</body>
+</html>

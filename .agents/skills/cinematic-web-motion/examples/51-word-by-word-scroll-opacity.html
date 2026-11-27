@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>51 · Word by Word Scroll Opacity</title>
+<!--
+PATTERN: Scroll-scrubbed word highlight paragraph.
+Motion: Each word goes from 0.15 to 1 opacity as the paragraph travels through the viewport (GSAP ScrollTrigger scrub, per-word stagger).
+Accessibility: Full text stays in the DOM; prefers-reduced-motion shows every word at full opacity, no scrub.
+Adapting: Edit the paragraph text, change START/END or the dim opacity in CONFIG; words are split at runtime.
+-->
+<style>
+:root{--bg:#0e0e0c;--fg:#f1ede4;--acc:#ff5a36}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif}
+.gap{height:70vh;display:grid;place-items:center;font:500 .8rem ui-monospace,monospace;letter-spacing:.2em;text-transform:uppercase;color:var(--acc)}
+.wrap{min-height:140vh;padding:10vh 8vw;display:flex;align-items:center}
+p{font-size:clamp(1.8rem,5vw,4.5rem);line-height:1.12;letter-spacing:-.03em;font-weight:600;max-width:20em}
+.w{display:inline-block;opacity:.15;margin-right:.25em}
+@media (prefers-reduced-motion:reduce){.w{opacity:1}}
+</style>
+</head>
+<body>
+<div class="gap">Scroll ↓</div>
+<div class="wrap"><p id="txt">Great motion does not shout. It guides the eye, one word at a time, until the whole idea has quietly arrived and nothing else is left in the room.</p></div>
+<div class="gap">End</div>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  var CONFIG={dim:.15,start:"top 80%",end:"bottom 40%"};
+  var p=document.getElementById("txt");
+  var words=p.textContent.trim().split(/\s+/);
+  p.setAttribute("aria-label",p.textContent.trim());
+  p.textContent="";
+  words.forEach(function(t){var s=document.createElement("span");s.className="w";s.setAttribute("aria-hidden","true");s.textContent=t;p.appendChild(s)});
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches||!window.gsap)return;
+  gsap.registerPlugin(ScrollTrigger);
+  gsap.fromTo(".w",{opacity:CONFIG.dim},{opacity:1,ease:"none",stagger:.5,
+    scrollTrigger:{trigger:p,start:CONFIG.start,end:CONFIG.end,scrub:true}});
+})();
+</script>
+</body>
+</html>

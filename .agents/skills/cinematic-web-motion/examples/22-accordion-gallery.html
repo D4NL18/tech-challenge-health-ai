@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>22 · Expanding Accordion Gallery</title>
+<!--
+  EFFECT: A row of flex panels; the hovered / clicked / keyboard-focused panel expands (flex-grow animated by GSAP)
+  while the others compress. Title rotates from vertical to horizontal and details fade in with a stagger.
+  Below 800px the row becomes a vertical stack and panels expand in height instead.
+
+  HOW TO ADAPT:
+  - Add <button class="panel"> items with a --a gradient (or <img> as background).
+  - Change FLEX_OPEN / FLEX_CLOSED ratios to alter how wide the open panel gets.
+  - Set `trigger = "click"` to disable hover-opening on desktop.
+  - Reduced motion: state changes are instant (duration 0).
+-->
+<style>
+  :root { --bg:#0e0e11; --fg:#f4f1ea; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--fg); font-family:"Helvetica Neue",Arial,sans-serif; min-height:100vh; display:flex; flex-direction:column; justify-content:center; padding:5vh 4vw; gap:3vh; }
+  header { display:flex; justify-content:space-between; align-items:end; flex-wrap:wrap; gap:1rem; }
+  h1 { font-weight:300; font-size:clamp(2rem,5vw,4rem); letter-spacing:-.02em; }
+  header p { color:#8b8a93; font-size:.8rem; letter-spacing:.2em; text-transform:uppercase; }
+  .acc { display:flex; gap:1vw; height:min(70vh,640px); }
+  .panel { all:unset; box-sizing:border-box; position:relative; flex:1 1 0; min-width:0; overflow:hidden; border-radius:14px; cursor:pointer; background:var(--a); }
+  .panel:focus-visible { outline:2px solid #fff; outline-offset:3px; }
+  .panel::after { content:""; position:absolute; inset:0; background:linear-gradient(transparent 40%,#000a); pointer-events:none; }
+  .panel .shade { position:absolute; inset:0; background:radial-gradient(circle at 70% 20%,#ffffff40,transparent 50%); mix-blend-mode:overlay; }
+  .num { position:absolute; top:1.2rem; left:1.4rem; font-size:.8rem; letter-spacing:.2em; z-index:2; opacity:.8; }
+  .label { position:absolute; left:1.4rem; bottom:1.4rem; z-index:2; white-space:nowrap; transform-origin:left bottom; }
+  .label h2 { font-weight:400; font-size:1.6rem; }
+  .label p { margin-top:.5rem; font-size:.9rem; color:#ddd; max-width:34ch; white-space:normal; opacity:0; }
+  .panel:not(.open) .label { transform:rotate(-90deg) translate(0,0); left:1.2rem; bottom:1.4rem; }
+  .p1{--a:linear-gradient(160deg,#ff9966,#ff5e62 60%,#3b0d1e)}
+  .p2{--a:linear-gradient(160deg,#56ccf2,#2f80ed 55%,#0a1740)}
+  .p3{--a:linear-gradient(160deg,#a8e063,#2b8a5a 55%,#04271c)}
+  .p4{--a:linear-gradient(160deg,#c471f5,#7a3fe0 55%,#1a0a45)}
+  .p5{--a:linear-gradient(160deg,#fddb92,#d1913c 55%,#4a2a0a)}
+  @media (max-width:800px){
+    .acc{flex-direction:column;height:80vh} .panel:not(.open) .label{transform:none;bottom:50%;translate:0 50%} .label p{max-width:none}
+  }
+  @media (prefers-reduced-motion:reduce){ * { transition:none !important; } }
+</style>
+</head>
+<body>
+<header><h1>Five landscapes</h1><p>Hover · click · tab</p></header>
+<div class="acc" id="acc">
+  <button class="panel p1 open"><span class="shade"></span><span class="num">01</span><div class="label"><h2>Sunrise</h2><p>Warm gradients bleeding over a quiet horizon.</p></div></button>
+  <button class="panel p2"><span class="shade"></span><span class="num">02</span><div class="label"><h2>Tide</h2><p>Cold water folding into deeper blue.</p></div></button>
+  <button class="panel p3"><span class="shade"></span><span class="num">03</span><div class="label"><h2>Moss</h2><p>Forest floor, wet light, soft edges.</p></div></button>
+  <button class="panel p4"><span class="shade"></span><span class="num">04</span><div class="label"><h2>Nebula</h2><p>Violet dust drifting between stars.</p></div></button>
+  <button class="panel p5"><span class="shade"></span><span class="num">05</span><div class="label"><h2>Dune</h2><p>Sand ridges stretched by late sun.</p></div></button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script>
+(function(){
+  var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var FLEX_OPEN = 5, FLEX_CLOSED = 1, trigger = "hover"; // "hover" | "click"
+  var panels = Array.prototype.slice.call(document.querySelectorAll(".panel"));
+  var dur = reduce || !window.gsap ? 0 : .8;
+
+  function open(p){
+    panels.forEach(function(el){
+      var on = el === p;
+      el.classList.toggle("open", on);
+      el.setAttribute("aria-expanded", on);
+      if (window.gsap) {
+        gsap.to(el, { flexGrow:on ? FLEX_OPEN : FLEX_CLOSED, duration:dur, ease:"power3.inOut", overwrite:true });
+        gsap.to(el.querySelector(".label p"), { opacity:on ? 1 : 0, y:on ? 0 : 10, duration:on ? dur : .25, delay:on ? dur*.5 : 0, overwrite:true });
+      }
+    });
+  }
+  panels.forEach(function(p){
+    p.addEventListener("click", function(){ open(p); });
+    p.addEventListener("focus", function(){ open(p); });
+    p.addEventListener("pointerenter", function(e){
+      if (trigger === "hover" && e.pointerType === "mouse" && matchMedia("(min-width:801px)").matches) open(p);
+    });
+  });
+  if (window.gsap) { gsap.set(panels, { flexGrow:FLEX_CLOSED }); }
+  open(panels[0]);
+})();
+</script>
+</body>
+</html>

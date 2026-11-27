@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CSS 3D Cube</title>
+<!--
+  EFFECT: A pure-CSS 3D product box (six faces, preserve-3d). Auto-rotates on two axes, slows and tilts toward
+  the pointer on hover, can be dragged to spin with inertia (JS only updates two CSS variables), and "explodes"
+  slightly on hover (faces translate outward). No libraries.
+  ADAPT: change --s (cube size), face content/gradients in .face.* rules, SPIN speeds in the JS constants.
+  For a flat product box, give faces different widths/depths by editing the translateZ values.
+  Reduced motion: no auto-spin or inertia; drag and hover tilt still work (user-initiated), explode disabled.
+-->
+<style>
+  :root{--s:clamp(160px,28vmin,280px)}
+  html,body{margin:0;height:100%;background:radial-gradient(circle at 50% 45%,#1b1b24,#08080b 70%);color:#fff;font-family:Inter,system-ui,sans-serif;overflow:hidden}
+  .scene{position:fixed;inset:0;display:grid;place-items:center;perspective:1200px;cursor:grab;touch-action:none;user-select:none}
+  .scene.drag{cursor:grabbing}
+  .cube{position:relative;width:var(--s);height:var(--s);transform-style:preserve-3d;
+    transform:rotateX(var(--rx,-20deg)) rotateY(var(--ry,30deg))}
+  .face{position:absolute;inset:0;display:grid;place-items:center;text-align:center;font-weight:800;letter-spacing:.2em;font-size:calc(var(--s)*.09);text-transform:uppercase;
+    border:1px solid rgba(255,255,255,.25);background:linear-gradient(145deg,var(--a),var(--b));box-shadow:inset 0 0 40px rgba(0,0,0,.35);
+    backface-visibility:hidden;transition:transform .6s cubic-bezier(.2,.8,.2,1)}
+  .face small{display:block;font-weight:400;opacity:.65;letter-spacing:.3em;font-size:.55em;margin-top:.6em}
+  .front {--a:#6d5dfc;--b:#2a1f7a;transform:rotateY(0)   translateZ(calc(var(--s)/2 + var(--ex,0px)))}
+  .back  {--a:#ff6b4a;--b:#7a2a1f;transform:rotateY(180deg) translateZ(calc(var(--s)/2 + var(--ex,0px)))}
+  .right {--a:#16c79a;--b:#0b5a46;transform:rotateY(90deg)  translateZ(calc(var(--s)/2 + var(--ex,0px)))}
+  .left  {--a:#f5c542;--b:#6b520d;transform:rotateY(-90deg) translateZ(calc(var(--s)/2 + var(--ex,0px)))}
+  .top   {--a:#ececf3;--b:#8d8da0;color:#111;transform:rotateX(90deg)  translateZ(calc(var(--s)/2 + var(--ex,0px)))}
+  .bottom{--a:#3a3a46;--b:#101015;transform:rotateX(-90deg) translateZ(calc(var(--s)/2 + var(--ex,0px)))}
+  .shadow{position:absolute;left:50%;top:calc(50% + var(--s)*.85);width:var(--s);height:calc(var(--s)*.18);transform:translateX(-50%);
+    background:radial-gradient(ellipse,rgba(0,0,0,.7),transparent 70%);filter:blur(10px)}
+  .scene.hover .cube{--ex:calc(var(--s)*.08)}
+  h1{position:fixed;top:6vh;width:100%;text-align:center;margin:0;font-weight:300;letter-spacing:.4em;font-size:.8rem;text-transform:uppercase;color:#9a9aab}
+  .hint{position:fixed;bottom:5vh;width:100%;text-align:center;font-size:.7rem;letter-spacing:.25em;color:#6d6d7d;text-transform:uppercase}
+</style>
+</head>
+<body>
+<h1>CSS 3D Cube</h1>
+<div class="scene" id="scene">
+  <div class="shadow"></div>
+  <div class="cube" id="cube">
+    <div class="face front">Cube<small>front</small></div>
+    <div class="face back">Back<small>02</small></div>
+    <div class="face right">Right<small>03</small></div>
+    <div class="face left">Left<small>04</small></div>
+    <div class="face top">Top<small>05</small></div>
+    <div class="face bottom">Base<small>06</small></div>
+  </div>
+</div>
+<div class="hint">Drag to spin · Hover to open</div>
+<script>
+(function(){
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const SPIN_Y = 14, SPIN_X = 4;           // deg/sec idle spin
+  const scene = document.getElementById('scene'), cube = document.getElementById('cube');
+  let rx=-20, ry=30, vx=0, vy=0, dragging=false, hovering=false, lx=0, ly=0, px=0, py=0;
+  let last = performance.now();
+
+  function apply(){ cube.style.setProperty('--rx', rx+'deg'); cube.style.setProperty('--ry', ry+'deg'); }
+
+  scene.addEventListener('pointerdown',e=>{dragging=true;lx=e.clientX;ly=e.clientY;vx=vy=0;scene.classList.add('drag');scene.setPointerCapture(e.pointerId);});
+  scene.addEventListener('pointermove',e=>{
+    px=e.clientX/innerWidth-.5; py=e.clientY/innerHeight-.5;
+    if(!dragging)return;
+    const dx=e.clientX-lx, dy=e.clientY-ly; lx=e.clientX; ly=e.clientY;
+    ry+=dx*.5; rx-=dy*.5; vy=dx*.5; vx=-dy*.5; apply();
+  });
+  const up=()=>{dragging=false;scene.classList.remove('drag');};
+  scene.addEventListener('pointerup',up); scene.addEventListener('pointercancel',up);
+  cube.addEventListener('pointerenter',()=>{hovering=true; if(!reduce)scene.classList.add('hover');});
+  cube.addEventListener('pointerleave',()=>{hovering=false;scene.classList.remove('hover');});
+
+  function tick(now){
+    const dt=Math.min(.05,(now-last)/1000); last=now;
+    if(!dragging){
+      // inertia decays; idle spin slows when hovered
+      ry += vy; rx += vx; vy*=.95; vx*=.95;
+      const k = hovering ? .15 : 1;
+      ry += SPIN_Y*dt*k; rx += SPIN_X*dt*k*Math.sin(now*.0005);
+      if(hovering){ ry += px*60*dt; rx += -py*40*dt; }
+      apply();
+    }
+    requestAnimationFrame(tick);
+  }
+  apply();
+  if(!reduce) requestAnimationFrame(tick);
+  else { // reduced: keep inertia only while user-driven; no idle spin
+    (function t(){ if(!dragging && (Math.abs(vx)>.01||Math.abs(vy)>.01)){ry+=vy;rx+=vx;vy*=.9;vx*=.9;apply();} requestAnimationFrame(t); })();
+  }
+})();
+</script>
+</body>
+</html>

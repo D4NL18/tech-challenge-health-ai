@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>62 · Scroll-Driven CSS Timeline</title>
+<!--
+PATTERN: Pure-CSS scroll-linked animation using animation-timeline: scroll() and view().
+Motion: A top progress bar scrubs with page scroll (scroll()); cards fade/slide/scale as they
+  cross the viewport (view() with animation-range); a big number rotates with scroll.
+  Zero JavaScript drives the animation.
+Accessibility: prefers-reduced-motion disables all animations and shows content statically.
+  Browsers without animation-timeline support (@supports not) also get the static layout,
+  plus a tiny IntersectionObserver fallback that adds a simple fade-in class.
+Adapting: Tune animation-range (e.g. entry 0% entry 60%) and keyframes. Chrome/Edge 115+,
+  Safari 26+; Firefox needs a flag. Libraries: none.
+-->
+<style>
+:root{--bg:#0f1115;--fg:#f2efe8;--mut:#8a8d98;--acc:#ffb300}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif}
+.bar{position:fixed;inset:0 0 auto 0;height:5px;background:var(--acc);transform-origin:0 50%;transform:scaleX(0);z-index:9}
+header{min-height:100vh;display:grid;place-items:center;text-align:center;padding:6vw}
+h1{font-size:clamp(2.5rem,9vw,8rem);letter-spacing:-.04em;line-height:.95}
+.spin{display:inline-block;color:var(--acc);font-family:Georgia,serif;font-style:italic}
+main{max-width:900px;margin:0 auto;padding:10vh 6vw 30vh;display:grid;gap:18vh}
+.card{padding:clamp(1.5rem,4vw,3rem);border:1px solid #ffffff1f;border-radius:20px;background:#ffffff08}
+.card span{font:500 .75rem ui-monospace,monospace;letter-spacing:.2em;color:var(--acc);text-transform:uppercase}
+.card h2{font-size:clamp(1.8rem,4vw,3rem);margin:.6rem 0;letter-spacing:-.03em}
+.card p{color:var(--mut);line-height:1.5;font-size:1.1rem}
+footer{min-height:60vh;display:grid;place-items:center;color:var(--mut)}
+
+/* Static default (fallback + reduced motion) is simply the layout above. */
+.js-fade .card{opacity:0;transform:translateY(40px);transition:opacity .8s,transform .8s}
+.js-fade .card.in{opacity:1;transform:none}
+
+@supports (animation-timeline: scroll()){
+  @media (prefers-reduced-motion: no-preference){
+    .bar{animation:grow linear both;animation-timeline:scroll(root block)}
+    .card{animation:rise linear both;animation-timeline:view();animation-range:entry 0% cover 40%}
+    .spin{animation:turn linear both;animation-timeline:scroll(root block);animation-range:0 60vh}
+    @keyframes grow{to{transform:scaleX(1)}}
+    @keyframes rise{from{opacity:0;transform:translateY(80px) scale(.94)}to{opacity:1;transform:none}}
+    @keyframes turn{to{transform:rotate(360deg) scale(.6)}}
+  }
+}
+</style>
+</head>
+<body>
+<div class="bar" aria-hidden="true"></div>
+<header>
+  <h1>Scroll is the <span class="spin">clock</span></h1>
+</header>
+<main>
+  <article class="card"><span>01 · scroll()</span><h2>Progress without JavaScript</h2><p>The bar above is bound to the root scroller via <code>animation-timeline: scroll()</code>.</p></article>
+  <article class="card"><span>02 · view()</span><h2>Enter on cue</h2><p>Each card animates while it crosses the viewport, driven by <code>view()</code> and <code>animation-range</code>.</p></article>
+  <article class="card"><span>03 · compositor</span><h2>Runs off the main thread</h2><p>Transforms and opacity are scrubbed by the compositor, so the effect stays smooth.</p></article>
+  <article class="card"><span>04 · fallback</span><h2>Degrades quietly</h2><p>Unsupported browsers get a plain layout with a light fade-in.</p></article>
+</main>
+<footer>The end</footer>
+<script>
+(function(){
+  var supported=CSS.supports("animation-timeline","scroll()");
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(supported||reduce||!("IntersectionObserver" in window))return;
+  document.documentElement.classList.add("js-fade");
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target)}})},{threshold:.2});
+  [].forEach.call(document.querySelectorAll(".card"),function(c){io.observe(c)});
+})();
+</script>
+</body>
+</html>

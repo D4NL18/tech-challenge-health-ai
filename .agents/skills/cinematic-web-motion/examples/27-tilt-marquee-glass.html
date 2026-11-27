@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tilt card, marquee, glass, magnetic button</title>
+<style>
+:root{--bg:#09090B;--accent:#D4FF28}
+*{margin:0;box-sizing:border-box}body{background:var(--bg);color:#fff;font-family:system-ui,sans-serif;overflow-x:hidden}
+.glass{background:rgba(20,20,20,.38);backdrop-filter:blur(18px) saturate(1.2);border:1px solid rgba(255,255,255,.14);border-radius:20px}
+.nav{position:fixed;top:16px;left:50%;translate:-50% 0;padding:.4rem;border-radius:999px;display:flex;gap:.3rem;z-index:5}
+.nav a{color:#fff;text-decoration:none;padding:.5rem 1rem;border-radius:999px;font-size:.9rem}.nav a.on{background:#EFE6D2;color:#111}
+h1{font:800 clamp(4rem,16vw,15rem)/.85 'Arial Black',Impact,sans-serif;letter-spacing:-.05em;text-align:center;padding-top:22vh}
+h1 em{font:italic 400 .6em Georgia,serif;letter-spacing:0;color:var(--accent)}
+.ribbon{transform:rotate(-3deg);background:var(--accent);color:#111;overflow:hidden;white-space:nowrap;margin:12vh -5vw}
+.track{display:inline-flex;gap:3rem;padding:1rem 0;animation:mq 22s linear infinite;font:italic 800 2.4rem Georgia,serif}
+@keyframes mq{to{transform:translateX(-50%)}}
+.grid{display:grid;place-items:center;height:80vh;perspective:900px}
+.card{width:min(380px,80vw);aspect-ratio:1.58;border-radius:22px;transition:transform .2s ease-out;transform-style:preserve-3d;
+ background:radial-gradient(circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.22),transparent 45%),linear-gradient(135deg,#222,#050505);
+ border:1px solid rgba(255,255,255,.12);padding:1.5rem;display:flex;flex-direction:column;justify-content:space-between;font-family:monospace}
+.btn{display:inline-block;margin:0 auto;padding:1rem 2rem;border-radius:999px;background:var(--accent);color:#111;font-weight:800;border:0;cursor:pointer}
+.center{display:grid;place-items:center;height:40vh}
+@media (prefers-reduced-motion:reduce){.track{animation:none}}
+</style></head><body>
+<nav class="nav glass"><a class="on" href="#">Home</a><a href="#">Courts</a><a href="#">Book</a></nav>
+<h1>DE<em>u</em>CE</h1>
+<div class="ribbon"><div class="track"><span>the best bowl • the best court • the best surface •</span><span>the best bowl • the best court • the best surface •</span><span>the best bowl • the best court • the best surface •</span><span>the best bowl • the best court • the best surface •</span></div></div>
+<div class="grid"><div class="card" id="card"><b>VISA</b><span>•••• 4242</span></div></div>
+<div class="center"><button class="btn" id="mag">Explore the courts →</button></div>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script>
+const card=document.getElementById('card');
+card.addEventListener('pointermove',e=>{const r=card.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;
+ card.style.transform=`rotateY(${x*16}deg) rotateX(${-y*16}deg) scale(1.04)`;card.style.setProperty('--mx',(x+.5)*100+'%');card.style.setProperty('--my',(y+.5)*100+'%')});
+card.addEventListener('pointerleave',()=>card.style.transform='');
+const b=document.getElementById('mag');
+b.addEventListener('pointermove',e=>{const r=b.getBoundingClientRect();gsap.to(b,{x:(e.clientX-r.left-r.width/2)*.3,y:(e.clientY-r.top-r.height/2)*.3,duration:.4})});
+b.addEventListener('pointerleave',()=>gsap.to(b,{x:0,y:0,duration:.7,ease:'elastic.out(1,.4)'}));
+</script></body></html>

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>111 · Hero Text Mask Reveal</title>
+<!--
+  PATTERN: Hero de texto-máscara. A palavra gigante é um "recorte" (SVG mask) numa folha de papel; por trás dela
+           há uma cena procedural (salinas em CSS). Ao rolar, a palavra cresce a partir de dentro da haste do L
+           até o recorte preencher a tela e a cena assumir a viewport; então a próxima seção sobe.
+  Motion: scroll progress (0..1) numa seção de 300vh com stage sticky -> scale do <text> da máscara, com lerp
+          suave por rAF. A cena deriva lentamente (CSS keyframes) para provar que está viva por trás do recorte.
+  Accessibility: <h1> real com o texto; o SVG é aria-hidden. prefers-reduced-motion: sem scale nem deriva,
+          recorte fica estático e a seção seguinte segue o fluxo normal. :focus-visible nos links.
+  Adapting: troque a palavra em #word, a cena em .scene (qualquer fundo/HTML/vídeo serve), STOP_SCALE para
+          controlar o quanto cresce, e altura de .runway para a duração. O ponto de zoom (ox, oy) fica dentro da haste do L;
+          #stem é um retângulo que repete a haste para sobreviver a escalas enormes.
+  Libraries: nenhuma (JS puro). Sem dependência de CDN, conteúdo sempre visível.
+-->
+<style>
+  :root{
+    --paper:#efe6d6; --ink:#1d2320; --salt:#f6efe4; --rose:#d9795f; --clay:#a8472f; --sea:#274a47; --moss:#6d7c52;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:"Gill Sans","Trebuchet MS","Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:auto}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);overflow-x:hidden}
+  a{color:inherit}
+  a:focus-visible,button:focus-visible{outline:3px solid var(--clay);outline-offset:4px}
+
+  .runway{position:relative;height:320vh}
+  .stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--paper)}
+  .scene{position:absolute;inset:-6%;
+    background:
+      linear-gradient(180deg,rgba(255,255,255,.0) 0 38%,rgba(255,255,255,.18) 38.2% 100%),
+      repeating-linear-gradient(90deg,rgba(29,35,32,.28) 0 3px,transparent 3px 160px),
+      repeating-linear-gradient(0deg,rgba(29,35,32,.22) 0 3px,transparent 3px 120px),
+      linear-gradient(100deg,var(--rose) 0 22%,#e9a58d 22% 41%,var(--salt) 41% 58%,#e7b8a1 58% 77%,var(--rose) 77%);
+    animation:drift 26s ease-in-out infinite alternate}
+  .scene::before{content:"";position:absolute;inset:0;
+    background:radial-gradient(60% 40% at 25% 70%,rgba(39,74,71,.55),transparent 70%),radial-gradient(50% 35% at 80% 30%,rgba(109,124,82,.5),transparent 70%)}
+  .scene::after{content:"";position:absolute;left:0;right:0;top:0;height:36%;background:linear-gradient(180deg,#f3d9a8,#f6efe4 85%)}
+  @keyframes drift{from{transform:translate3d(-2%,0,0) scale(1.02)}to{transform:translate3d(2%,-2%,0) scale(1.08)}}
+
+  svg.cut{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .cut text{font-family:var(--serif);font-weight:900;letter-spacing:-.04em}
+
+  .meta{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:clamp(1rem,3vw,2.2rem)}
+  .meta *{pointer-events:auto}
+  .top{display:flex;justify-content:space-between;align-items:flex-start;font-size:.78rem;letter-spacing:.16em;text-transform:uppercase}
+  .top b{font-family:var(--serif);font-size:1.15rem;letter-spacing:0;text-transform:none}
+  .bottom{display:grid;grid-template-columns:minmax(0,26rem) 1fr;gap:1rem;align-items:end}
+  .bottom p{margin:0;font-size:1rem;line-height:1.5;max-width:26rem}
+  .hint{justify-self:end;font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;writing-mode:vertical-rl}
+  .meta{transition:opacity .2s}
+
+  .after{background:var(--ink);color:var(--paper);padding:clamp(4rem,10vw,9rem) clamp(1.2rem,6vw,6rem)}
+  .after .grid{display:grid;grid-template-columns:5fr 7fr;gap:clamp(1.5rem,5vw,5rem);max-width:78rem;margin:0 auto}
+  .after h2{font-family:var(--serif);font-weight:700;font-size:clamp(2.2rem,5.4vw,4.8rem);line-height:1;margin:0;letter-spacing:-.02em}
+  .after h2 em{color:var(--rose);font-weight:400}
+  .after p{font-size:1.1rem;line-height:1.65;max-width:38rem;margin:0 0 1.2rem;color:#d8cfbd}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:2.5rem;border-top:1px solid #4c554f;padding-top:1.4rem}
+  .stats dt{font-family:var(--serif);font-size:2.2rem}
+  .stats dd{margin:.2rem 0 0;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:#a9a592}
+  .stats div{margin:0}
+  .more{background:var(--paper);padding:clamp(4rem,8vw,7rem) clamp(1.2rem,6vw,6rem);min-height:70vh}
+  .more h3{font-family:var(--serif);font-size:clamp(1.8rem,4vw,3.2rem);max-width:30rem;margin:0 0 1.5rem;line-height:1.05}
+  .more p{max-width:34rem;line-height:1.65}
+
+  @media (max-width:700px){
+    .after .grid{grid-template-columns:1fr}
+    .bottom{grid-template-columns:1fr}
+    .hint{display:none}
+    .stats{grid-template-columns:1fr 1fr 1fr;gap:.6rem}
+    .stats dt{font-size:1.6rem}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .scene{animation:none}
+    .runway{height:auto}
+    .stage{position:relative;height:100svh}
+  }
+</style>
+</head>
+<body>
+<section class="runway" id="runway">
+  <div class="stage">
+    <div class="scene" aria-hidden="true"></div>
+    <svg class="cut" id="cut" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <defs>
+        <mask id="m" maskUnits="userSpaceOnUse" x="-20000" y="-20000" width="40000" height="40000">
+          <rect x="-20000" y="-20000" width="40000" height="40000" fill="#fff"/>
+          <g id="g"><text id="word" x="500" y="445" text-anchor="middle" font-size="430" fill="#000">SAL</text><rect id="stem" x="714" y="185" width="52" height="245" fill="#000"/></g>
+        </mask>
+      </defs>
+      <rect x="-20000" y="-20000" width="40000" height="40000" fill="#efe6d6" mask="url(#m)"/>
+    </svg>
+    <div class="meta" id="meta">
+      <div class="top"><b>Salina Vasa</b><span>Rio Real · desde 1911</span></div>
+      <div class="bottom">
+        <p>Sal marinho colhido à mão em tanques de argila, uma maré de cada vez. Role e entre na salina.</p>
+        <span class="hint">Role para entrar</span>
+      </div>
+    </div>
+    <h1 class="sr" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Sal marinho artesanal, colhido à mão</h1>
+  </div>
+</section>
+
+<section class="after">
+  <div class="grid">
+    <h2>Quatro meses de sol para uma <em>colher</em> de flor de sal.</h2>
+    <div>
+      <p>A água entra pela maré de lua cheia e percorre sete tanques rasos. No último, o vento forma uma película de cristais na superfície: a flor de sal, recolhida antes do meio-dia.</p>
+      <p>Não lavamos, não refinamos e não adicionamos antiaglomerantes. O que chega à mesa é o que o tanque entregou.</p>
+      <dl class="stats">
+        <div><dt>7</dt><dd>tanques</dd></div>
+        <div><dt>118</dt><dd>dias de sol</dd></div>
+        <div><dt>0</dt><dd>aditivos</dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+<section class="more">
+  <h3>Do tanque ao armazém, sem pressa.</h3>
+  <p>Cada lote leva a data da colheita e o número do tanque. Visitas à salina acontecem às quintas, com a maré baixa.</p>
+  <p><a href="#runway">Voltar ao início</a></p>
+</section>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const runway = document.getElementById('runway');
+  const g = document.getElementById('g');
+  const word = document.getElementById('word');
+  const meta = document.getElementById('meta');
+  const STOP_SCALE = 40;
+  // Ponto de zoom: haste esquerda da última letra (L)
+  let ox = 740, oy = 308;
+  // O retângulo #stem repete a haste do L: glifos gigantes são descartados pelo rasterizador,
+  // o retângulo mantém o recorte preenchendo a tela em qualquer escala.
+  let cur = 0, target = 0;
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const read = () => {
+    const r = runway.getBoundingClientRect();
+    target = clamp(-r.top / (r.height - innerHeight), 0, 1);
+  };
+  const ease = t => t * t * (3 - 2 * t);
+  const apply = () => {
+    const p = ease(clamp(cur / 0.9, 0, 1));
+    const s = Math.pow(STOP_SCALE, p);
+    g.setAttribute('transform', `translate(${ox} ${oy}) scale(${s}) translate(${-ox} ${-oy})`);
+    meta.style.opacity = clamp(1 - cur * 6, 0, 1);
+  };
+  if (reduce) return;
+  const tick = () => {
+    read();
+    cur += (target - cur) * 0.12;
+    if (Math.abs(target - cur) < 0.0002) cur = target;
+    apply();
+    requestAnimationFrame(tick);
+  };
+  tick();
+})();
+</script>
+</body>
+</html>

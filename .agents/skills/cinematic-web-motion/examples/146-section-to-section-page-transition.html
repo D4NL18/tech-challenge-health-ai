@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>146 · Section To Section Page Transition</title>
+<!--
+PATTERN: A one-screen-at-a-time site. Four full-screen sections are navigated by anchors (nav, keyboard, wheel,
+  swipe); each change plays a stagger-panel transition: vertical panels rise to cover the screen, the section
+  swaps underneath, then the panels exit upward. The destination content then staggers in.
+Motion: 6 panels animate scaleY 0 -> 1 (origin bottom) with 70ms stagger, swap at full cover, then scaleY 1 -> 0
+  (origin top). WAAPI only. Section content enters with translateY + opacity delays. A lock prevents re-entry.
+Accessibility: Real sections with ids, real <a href="#id"> links (works without JS: all sections stack), aria-current
+  on the active link, inactive sections are inert + aria-hidden, focus moves to the new section heading.
+  Hash changes (back/forward) are honoured. prefers-reduced-motion: instant swap, no panels.
+Adapting: Edit SECTIONS in markup, PANELS count, panel colour, DURATION. Wheel/swipe handler can be removed.
+  Libraries: none.
+-->
+<style>
+:root{--paper:#ede6d6;--ink:#161512;--brick:#b0432a;--olive:#4c5a34;--sky:#c9d3c3;--sand:#d9bf8c;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--sans);color:var(--ink);background:var(--paper);overflow:hidden}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--brick);outline-offset:4px}
+.nav{position:fixed;z-index:40;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:20px clamp(18px,4vw,48px);color:var(--ink);transition:color .3s .4s}
+body.dk .nav,body.dk .pager,body.dk .hint{color:var(--paper)}
+.nav b{font:italic 400 1.25rem var(--serif)}
+.nav ul{display:flex;gap:clamp(14px,3vw,36px);list-style:none}
+.nav a{text-decoration:none;font-size:.74rem;letter-spacing:.16em;text-transform:uppercase;padding:6px 0;border-bottom:1px solid transparent}
+
+.nav a[aria-current="page"]{border-color:currentColor}
+.pager{position:fixed;z-index:40;left:clamp(18px,4vw,48px);bottom:24px;font:400 .9rem var(--serif);color:var(--ink);letter-spacing:.1em;transition:color .3s .4s}
+.hint{position:fixed;z-index:40;right:clamp(18px,4vw,48px);bottom:24px;font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);transition:color .3s .4s}
+body.dk .nav,body.dk .pager,body.dk .hint{color:var(--paper)}
+section{position:absolute;inset:0;display:grid;grid-template-columns:repeat(12,1fr);gap:0 16px;padding:clamp(80px,13vh,130px) clamp(18px,4vw,48px) 70px;overflow:hidden}
+section[hidden]{display:none}
+section h1,section h2{font:400 clamp(2.8rem,9vw,8.6rem)/.9 var(--serif);letter-spacing:-.035em;align-self:end}
+section p{max-width:40ch;font-size:1.05rem}
+.s1{background:var(--paper)}.s1 h1{grid-column:1/10;grid-row:1}.s1 p{grid-column:1/6;grid-row:2;margin-top:28px}
+.s1 .art{position:absolute;right:6vw;top:16vh;width:min(32vw,420px);aspect-ratio:4/5}
+.s2{background:var(--olive);color:var(--paper)}.s2 h2{grid-column:4/13;grid-row:1;text-align:left}.s2 .cols{grid-column:4/13;display:grid;grid-template-columns:1fr 1fr;gap:20px 40px;margin-top:30px;grid-row:2}
+.s3{background:var(--brick);color:var(--paper)}.s3 h2{grid-column:1/9;grid-row:1}.s3 ol{grid-column:7/13;grid-row:2;list-style:none;margin-top:24px;border-top:1px solid rgba(237,230,214,.5)}
+.s3 li{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(237,230,214,.35);font-size:1rem}
+.s4{background:var(--ink);color:var(--paper)}.s4 h2{grid-column:1/11;grid-row:1}.s4 .contact{grid-column:1/8;grid-row:2;margin-top:28px;display:grid;gap:10px}
+.s4 a.big{font:italic 400 clamp(1.4rem,3vw,2.4rem) var(--serif);text-decoration:none;border-bottom:1px solid var(--sand);width:max-content;max-width:100%;overflow-wrap:anywhere}
+.s4 a.big:hover{color:var(--sand)}
+.eyebrow{font:600 .7rem/1 var(--sans);letter-spacing:.22em;text-transform:uppercase;color:var(--brick);margin-bottom:16px;display:block}
+.s2 .eyebrow,.s3 .eyebrow,.s4 .eyebrow{color:var(--sand)}
+.s1 .art svg,.art svg{width:100%;height:100%;display:block}
+.in{opacity:0;transform:translateY(34px)}
+.active .in{opacity:1;transform:none;transition:opacity .8s ease,transform .9s cubic-bezier(.16,1,.3,1);transition-delay:calc(var(--i,0) * 90ms + 250ms)}
+.panels{position:fixed;inset:0;z-index:100;display:grid;grid-template-columns:repeat(6,1fr);pointer-events:none}
+.panels i{background:var(--ink);transform:scaleY(0);transform-origin:bottom;border-right:1px solid rgba(237,230,214,.08)}
+.panels i:nth-child(even){background:#26231e}
+.panels .lbl{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);font:italic 400 clamp(2rem,6vw,4rem) var(--serif);color:var(--paper);opacity:0;z-index:101;background:none}
+@media (max-width:720px){
+  .nav b{display:none}.nav ul{gap:12px;width:100%;justify-content:space-between}.nav a{font-size:.66rem;letter-spacing:.1em}
+  section{padding-top:80px}.s1 h1,.s2 h2,.s3 h2,.s4 h2{grid-column:1/13}.s1 p{grid-column:1/13}
+  .s1 .art{width:36vw;top:12vh}.s2 .cols{grid-column:1/13;grid-template-columns:1fr}.s2 h2{grid-column:1/13}
+  .s3 ol{grid-column:1/13}.s4 .contact{grid-column:1/13}.hint{display:none}
+  .panels{grid-template-columns:repeat(4,1fr)}.panels i:nth-child(n+5){display:none}
+}
+@media (prefers-reduced-motion:reduce){.in{opacity:1!important;transform:none!important;transition:none!important}.panels{display:none}}
+/* no-JS: sections stack and scroll */
+html:not(.js),html:not(.js) body{height:auto;overflow:auto}
+html:not(.js) section{position:relative;min-height:100vh}.html:not(.js) .in{opacity:1}
+html:not(.js) .in{opacity:1;transform:none}
+</style>
+</head>
+<body>
+<script>document.documentElement.classList.add("js")</script>
+<nav class="nav" aria-label="Sections">
+  <b>Isola Arquitetos</b>
+  <ul><li><a href="#studio">Studio</a></li><li><a href="#method">Method</a></li><li><a href="#projects">Projects</a></li><li><a href="#contact">Contact</a></li></ul>
+</nav>
+<div class="pager" id="pager" aria-hidden="true">01 / 04</div>
+<div class="hint" aria-hidden="true">Scroll, swipe or use arrows</div>
+
+<main>
+<section id="studio" class="s1" aria-labelledby="h-studio">
+  <h1 id="h-studio" class="in" tabindex="-1" style="--i:0">Houses that listen to the <em style="color:var(--brick)">street.</em></h1>
+  <p class="in" style="--i:2"><span class="eyebrow">Studio · Porto, since 2009</span>Nine architects who build small: schools, courtyard houses and the occasional bakery. Most of our work sits within 30 kilometres of the studio so we can visit it in the rain.</p>
+  <div class="art in" style="--i:3" aria-hidden="true"><svg viewBox="0 0 400 500"><rect width="400" height="500" fill="#d9bf8c"/><rect x="60" y="150" width="190" height="300" fill="#161512"/><rect x="250" y="230" width="100" height="220" fill="#b0432a"/><path d="M60 150 L155 70 L250 150Z" fill="#4c5a34"/><rect x="95" y="200" width="40" height="60" fill="#ede6d6"/><rect x="170" y="200" width="40" height="60" fill="#ede6d6"/><rect x="130" y="340" width="50" height="110" fill="#d9bf8c"/><circle cx="330" cy="90" r="36" fill="#ede6d6"/></svg></div>
+</section>
+<section id="method" class="s2" aria-labelledby="h-method" hidden>
+  <h2 id="h-method" class="in" tabindex="-1" style="--i:0">We draw the section before the plan.</h2>
+  <div class="cols"><p class="in" style="--i:2"><span class="eyebrow">Method</span>A building is a series of rooms with light entering at a certain angle. We start with how a morning moves across a wall, then decide where the walls go.</p><p class="in" style="--i:3">Every project starts with a week of observation on site and a model in cardboard that clients are encouraged to cut apart.</p></div>
+</section>
+<section id="projects" class="s3" aria-labelledby="h-projects" hidden>
+  <h2 id="h-projects" class="in" tabindex="-1" style="--i:0">Recent work.</h2>
+  <ol class="in" style="--i:2"><li><span>Escola da Ribeira, 420 pupils</span><span>2024</span></li><li><span>Casa do Pátio, Matosinhos</span><span>2023</span></li><li><span>Padaria Aurora, Foz</span><span>2022</span></li><li><span>Biblioteca de Gaia, extension</span><span>2021</span></li></ol>
+</section>
+<section id="contact" class="s4" aria-labelledby="h-contact" hidden>
+  <h2 id="h-contact" class="in" tabindex="-1" style="--i:0">Bring us a site and a budget.</h2>
+  <div class="contact in" style="--i:2"><span class="eyebrow">Contact</span><a class="big" href="#contact">studio@isola.example</a><p>Rua de Cedofeita 88, Porto. We reply within two working days.</p></div>
+</section>
+</main>
+
+<div class="panels" id="panels" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+<script>
+(function(){
+  var secs=[].slice.call(document.querySelectorAll("main section")),links=[].slice.call(document.querySelectorAll(".nav a"));
+  var panelsEl=document.getElementById("panels"),panels=[].slice.call(panelsEl.children),pager=document.getElementById("pager");
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches,idx=0,busy=false,DUR=520,STAG=70;
+  function set(i){
+    secs.forEach(function(s,k){var on=k===i;s.hidden=!on;s.classList.toggle("active",on);if(on)s.removeAttribute("aria-hidden");else s.setAttribute("aria-hidden","true")});
+    links.forEach(function(a,k){if(k===i)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current")});
+    pager.textContent=String(i+1).padStart(2,"0")+" / "+String(secs.length).padStart(2,"0");
+    document.title="146 · "+secs[i].querySelector("h1,h2").textContent.slice(0,40);
+    document.body.classList.toggle("dk",i>0);idx=i;
+  }
+  function visible(){return panels.filter(function(p){return getComputedStyle(p).display!=="none"})}
+  function go(i,push){
+    if(i===idx||busy||i<0||i>=secs.length)return;
+    if(push!==false)history.pushState(null,"","#"+secs[i].id);
+    if(reduce){set(i);secs[i].querySelector("h1,h2").focus({preventScroll:true});return;}
+    busy=true;var ps=visible(),n=ps.length;
+    var ins=ps.map(function(p,k){return p.animate([{transform:"scaleY(0)",transformOrigin:"bottom"},{transform:"scaleY(1)",transformOrigin:"bottom"}],{duration:DUR,delay:k*STAG,easing:"cubic-bezier(.76,0,.24,1)",fill:"forwards"})});
+    var coverAt=DUR+(n-1)*STAG;
+    setTimeout(function(){
+      set(i);window.scrollTo(0,0);
+      ps.forEach(function(p,k){p.animate([{transform:"scaleY(1)",transformOrigin:"top"},{transform:"scaleY(0)",transformOrigin:"top"}],{duration:DUR,delay:60+k*STAG,easing:"cubic-bezier(.76,0,.24,1)",fill:"forwards"})});
+      ins.forEach(function(a){a.cancel()});
+      setTimeout(function(){busy=false;panels.forEach(function(p){p.getAnimations().forEach(function(a){a.cancel()})});secs[i].querySelector("h1,h2").focus({preventScroll:true});},DUR+(n-1)*STAG+120);
+    },coverAt+40);
+  }
+  function fromHash(){var id=location.hash.slice(1),k=secs.findIndex(function(s){return s.id===id});return k<0?0:k}
+  links.forEach(function(a){a.addEventListener("click",function(e){e.preventDefault();go(links.indexOf(a))})});
+  addEventListener("popstate",function(){go(fromHash(),false)});
+  addEventListener("keydown",function(e){
+    if(e.target.closest&&e.target.closest("a,button,input"))return;
+    if(e.key==="ArrowDown"||e.key==="PageDown")go(idx+1);
+    if(e.key==="ArrowUp"||e.key==="PageUp")go(idx-1);
+  });
+  var wheelLock=0;
+  addEventListener("wheel",function(e){var now=Date.now();if(now<wheelLock||Math.abs(e.deltaY)<18)return;wheelLock=now+1400;go(idx+(e.deltaY>0?1:-1));},{passive:true});
+  var ty=null;
+  addEventListener("touchstart",function(e){ty=e.touches[0].clientY},{passive:true});
+  addEventListener("touchend",function(e){if(ty===null)return;var d=ty-e.changedTouches[0].clientY;ty=null;if(Math.abs(d)>50)go(idx+(d>0?1:-1));},{passive:true});
+  set(fromHash());
+})();
+</script>
+</body>
+</html>

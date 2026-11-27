@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>85 · Search Input Expand Filter</title>
+<!--
+PATTERN: A magnifier button in an archive header expands into a search field; typing filters the
+  article list live and highlights matched text. No matches shows an editorial empty state.
+Motion: The pill's width transitions from the 44px button to the full field (EXPAND_W), the input
+  fades in after the width; matching rows stay, others collapse via the hidden attribute; <mark>
+  highlights underline in. Esc clears and collapses.
+Accessibility: Icon button has aria-label and aria-expanded/aria-controls. Result count is announced
+  through a role="status" region. Highlight uses underline + weight, not colour alone. Empty state
+  offers a "Clear search" button. prefers-reduced-motion: width and fades switch instantly.
+Adapting: EXPAND_W, DEBOUNCE in CONFIG; replace ARTICLES with server results. Libraries: none.
+-->
+<style>
+:root{--paper:#f4efe4;--ink:#1d1a16;--rule:#cfc4ae;--ochre:#e5b94f;--rust:#a63a1c;--ease:cubic-bezier(.2,.7,.2,1);--w:340px;
+--serif:"Iowan Old Style","Palatino Linotype",Georgia,serif;--sans:"Avenir Next","Segoe UI","Helvetica Neue",sans-serif}
+*{box-sizing:border-box;margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);padding:8vh 6vw 10vh 11vw}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:2rem;max-width:760px;border-bottom:2px solid var(--ink);padding-bottom:1rem}
+h1{font:600 clamp(2rem,5.5vw,3.8rem)/1 var(--serif);letter-spacing:-.03em}
+form{display:flex;align-items:center;width:44px;height:44px;border:2px solid var(--ink);border-radius:22px;overflow:hidden;transition:width .45s var(--ease);flex:none}
+form.open{width:var(--w);max-width:60vw}
+form button{flex:none;width:40px;height:40px;border:0;background:none;color:var(--ink);cursor:pointer;display:grid;place-items:center}
+form button:focus-visible{outline:3px solid var(--rust);outline-offset:-4px;border-radius:50%}
+input{flex:1;min-width:0;border:0;background:none;font:1rem var(--sans);color:var(--ink);padding:0 .8rem 0 0;opacity:0;transition:opacity .25s .15s}
+form.open input{opacity:1}
+input:focus-visible{outline:none}
+input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+form:has(input:focus-visible){box-shadow:0 0 0 3px var(--paper),0 0 0 6px var(--rust)}
+ol{list-style:none;padding:0;max-width:760px}
+li{display:grid;grid-template-columns:7ch 1fr;gap:1rem;padding:1.1rem 0;border-bottom:1px solid var(--rule)}
+li[hidden]{display:none}
+.d{font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;padding-top:.35rem}
+h2{font:600 1.3rem/1.2 var(--serif)}
+p{font-size:.9rem;margin-top:.3rem;color:#4f483d}
+mark{background:linear-gradient(var(--ochre),var(--ochre)) 0 100%/100% 45% no-repeat;color:inherit;font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
+.empty{max-width:760px;padding:3rem 0}
+.empty h2{font-style:italic}
+.empty button{margin-top:1rem;font:600 .85rem var(--sans);padding:.6rem 1rem;border:2px solid var(--ink);background:none;cursor:pointer}
+.empty button:hover{background:var(--ink);color:var(--paper)}
+.empty button:focus-visible{outline:3px solid var(--rust);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media(max-width:640px){header{position:relative;padding-top:3.6rem}form{position:absolute;top:0;right:0}form.open{width:100%;max-width:none}}
+@media (prefers-reduced-motion:reduce){form,input{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Archive, 1984 to now</h1>
+  <form id="f" role="search" onsubmit="return false">
+    <button type="button" id="tg" aria-label="Search the archive" aria-expanded="false" aria-controls="q">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="M15 15l6 6"/></svg>
+    </button>
+    <input id="q" type="search" placeholder="Try &quot;harbour&quot;" aria-label="Search articles" tabindex="-1" autocomplete="off">
+  </form>
+</header>
+<p class="sr" id="st" role="status"></p>
+<ol id="list"></ol>
+<div class="empty" id="empty" hidden>
+  <h2>Nothing filed under that name.</h2>
+  <p>Check the spelling, or try a place, a surname or a year.</p>
+  <button type="button" id="clr">Clear search</button>
+</div>
+<script>
+(function(){
+  var CONFIG={EXPAND_W:340,DEBOUNCE:80};
+  var ARTICLES=[["1984","Harbour strike ends after eleven days","Dockers vote 412 to 380 to accept the revised shift pattern."],["1991","The last night of the Tivoli cinema","A projectionist remembers the final reel and the empty seats."],["1999","Flour, rent and the Rua Nova bakers","Three family ovens, one lease dispute, and a rising price of wheat."],["2006","Why the number 9 bus never comes","A timetable audit finds the route was cut in half without notice."],["2013","Harbour dredging: who pays?","Council, port authority and the shipping line trade blame over silt."],["2021","A quiet revival of letterpress","Two apprentices and a 1952 Heidelberg keep a trade alive."]];
+  var f=document.getElementById("f"),tg=document.getElementById("tg"),q=document.getElementById("q"),list=document.getElementById("list"),empty=document.getElementById("empty"),st=document.getElementById("st"),t=0;
+  document.documentElement.style.setProperty("--w",CONFIG.EXPAND_W+"px");
+  ARTICLES.forEach(function(a){
+    var li=document.createElement("li");
+    li.innerHTML='<span class="d"></span><div><h2></h2><p></p></div>';
+    li.querySelector(".d").textContent=a[0];li.querySelector("h2").textContent=a[1];li.querySelector("p").textContent=a[2];
+    li._src=[a[1],a[2]];list.appendChild(li);
+  });
+  function open(){f.classList.add("open");tg.setAttribute("aria-expanded","true");q.tabIndex=0;q.focus()}
+  function close(){q.value="";run();f.classList.remove("open");tg.setAttribute("aria-expanded","false");q.tabIndex=-1;tg.focus()}
+  function mark(el,text,term){
+    el.textContent="";
+    if(!term){el.textContent=text;return}
+    var low=text.toLowerCase(),i=0,j;
+    while((j=low.indexOf(term,i))>-1){
+      el.appendChild(document.createTextNode(text.slice(i,j)));
+      var m=document.createElement("mark");m.textContent=text.slice(j,j+term.length);el.appendChild(m);
+      i=j+term.length;
+    }
+    el.appendChild(document.createTextNode(text.slice(i)));
+  }
+  function run(){
+    var term=q.value.trim().toLowerCase(),n=0;
+    [].forEach.call(list.children,function(li){
+      var hit=!term||li._src.join(" ").toLowerCase().indexOf(term)>-1;
+      li.hidden=!hit;
+      if(hit){n++;mark(li.querySelector("h2"),li._src[0],term);mark(li.querySelector("p"),li._src[1],term)}
+    });
+    empty.hidden=n>0;
+    st.textContent=term?(n?n+" articles match":"No articles match"):"";
+  }
+  tg.addEventListener("click",function(){f.classList.contains("open")&&!q.value?close():open()});
+  q.addEventListener("input",function(){clearTimeout(t);t=setTimeout(run,CONFIG.DEBOUNCE)});
+  q.addEventListener("keydown",function(e){if(e.key==="Escape")close()});
+  q.addEventListener("blur",function(){if(!q.value&&f.classList.contains("open")){f.classList.remove("open");tg.setAttribute("aria-expanded","false");q.tabIndex=-1}});
+  document.getElementById("clr").addEventListener("click",function(){q.value="";run();q.focus()});
+})();
+</script>
+</body>
+</html>

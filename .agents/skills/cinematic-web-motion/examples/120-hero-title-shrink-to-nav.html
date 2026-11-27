@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>120 · Hero Title Shrink To Nav</title>
+<!--
+  PATTERN: Título gigante que, ao rolar, encolhe e viaja até virar a marca de uma barra de navegação compacta e
+           fixa. É o mesmo elemento <h1> do começo ao fim (não há cópia): ele nasce preenchendo a largura
+           do hero e termina no canto esquerdo da barra de 64px. A barra ganha fundo e os links aparecem à
+           medida que o título chega. Depois disso a página segue com a navegação fixa no topo.
+  Motion: técnica FLIP contínua por scroll. Medem-se (1) a posição/largura do "slot" no hero e (2) o destino
+          dentro da barra. t = scrollY / distância; escala e x interpolados com easing; y acompanha o scroll
+          natural até alcançar o destino e depois trava. Somente transform; font-size ajustado uma vez por
+          resize para o título caber exatamente na largura do slot.
+  Accessibility: <h1> real com link para o topo; a barra é <header> com <nav aria-label>. prefers-reduced-motion:
+          o título permanece estático no hero (sem fixed/transform) e a barra mostra uma marca textual
+          própria. :focus-visible em todos os links; alvos com >= 44px de altura na barra.
+  Adapting: NAV_H (altura da barra), TARGET_FS (corpo final do título) e as cores em :root. O slot (#slot)
+          marca onde o título nasce: mova-o para qualquer ponto do hero. Troque os links da <nav>.
+  Libraries: nenhuma.
+-->
+<style>
+  :root{
+    --sage:#dde2d0; --forest:#232d22; --ochre:#c98a1b; --clay:#a4492b; --line:#a9b09a; --mute:#4b5546;
+    --nav-h:64px;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:"Gill Sans","Trebuchet MS","Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--sage);color:var(--forest);font-family:var(--sans);overflow-x:hidden}
+  a{color:inherit}
+  a:focus-visible{outline:3px solid var(--clay);outline-offset:3px}
+
+  .nav{position:fixed;left:0;right:0;top:0;height:var(--nav-h);z-index:20;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(1.2rem,3.5vw,3rem);
+    background:rgba(221,226,208,var(--navbg,0));border-bottom:1px solid rgba(35,45,34,calc(var(--navbg,0) * .6))}
+  .nav .brand-fallback{display:none;font-family:var(--serif);font-weight:700;font-size:1.7rem;letter-spacing:-.03em;text-decoration:none}
+  .nav nav{margin-left:auto}
+  .nav ul{list-style:none;margin:0;padding:0;display:flex;gap:clamp(1rem,3vw,2.4rem);opacity:var(--linkop,0)}
+  .nav a.l{display:inline-flex;align-items:center;min-height:44px;font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;text-decoration:none;position:relative}
+  .nav a.l::after{content:"";position:absolute;left:0;right:0;bottom:8px;height:2px;background:var(--clay);transform:scaleX(0);transform-origin:0 50%;transition:transform .3s}
+  .nav a.l:hover::after,.nav a.l:focus-visible::after{transform:scaleX(1)}
+
+  .title{margin:0;position:absolute;left:0;top:0;z-index:30;font-family:var(--serif);font-weight:700;line-height:1;letter-spacing:-.05em;white-space:nowrap;transform-origin:0 0;will-change:transform;font-size:12.5vw}
+  .title a{text-decoration:none}
+  .title a:focus-visible{outline-offset:6px}
+  .js-fixed .title{position:fixed}
+
+  .hero{position:relative;min-height:100vh;min-height:100svh;padding:calc(var(--nav-h) + clamp(1.5rem,4vw,3rem)) clamp(1.2rem,3.5vw,3rem) clamp(1.2rem,3.5vw,3rem);display:grid;grid-template-rows:1fr auto;gap:2rem}
+  .hero-top{display:grid;grid-template-columns:5fr 7fr;gap:clamp(1.5rem,5vw,5rem);align-items:start}
+  .kick{font-size:.78rem;letter-spacing:.18em;text-transform:uppercase;color:var(--clay);margin:0 0 1rem}
+  .lead{font-family:var(--serif);font-size:clamp(1.4rem,2.5vw,2.2rem);line-height:1.2;margin:0 0 1.4rem;max-width:26rem}
+  .meta{font-size:.95rem;line-height:1.55;max-width:22rem;margin:0;color:var(--mute)}
+  .draw{width:100%;max-width:46rem;justify-self:end;height:auto}
+  .draw .ln{fill:none;stroke:var(--forest);stroke-width:1.4}
+  .draw .fill{fill:var(--ochre)}
+  .draw .fill2{fill:var(--clay)}
+  .draw .dim{stroke:var(--mute);stroke-width:1;stroke-dasharray:3 5;fill:none}
+  .slot{height:var(--slot-h,16vw);position:relative}
+
+  .work{background:var(--forest);color:var(--sage);padding:clamp(4rem,9vw,8rem) clamp(1.2rem,3.5vw,3rem)}
+  .work h2{font-family:var(--serif);font-weight:400;font-size:clamp(2rem,4.6vw,4rem);line-height:1;margin:0 0 clamp(2rem,5vw,4rem);max-width:40rem;letter-spacing:-.02em}
+  .work h2 em{color:var(--ochre)}
+  .rows{list-style:none;margin:0;padding:0;border-top:1px solid #56634f}
+  .rows li{display:grid;grid-template-columns:5rem 1fr 14rem 8rem;gap:1rem;align-items:baseline;padding:1.5rem 0;border-bottom:1px solid #56634f;transition:padding .35s}
+  .rows li:hover{padding-left:1rem}
+  .rows .y{font-size:.85rem;letter-spacing:.14em;color:#c6cdb7}
+  .rows .n{font-family:var(--serif);font-size:clamp(1.5rem,3vw,2.6rem);line-height:1.05}
+  .rows .p,.rows .a{font-size:.95rem;color:#c6cdb7}
+  .rows .a{text-align:right;font-variant-numeric:tabular-nums}
+
+  .method{padding:clamp(4rem,9vw,8rem) clamp(1.2rem,3.5vw,3rem)}
+  .method .grid{max-width:78rem;display:grid;grid-template-columns:6fr 5fr;gap:clamp(1.5rem,5vw,5rem)}
+  .method h2{font-family:var(--serif);font-size:clamp(1.9rem,3.8vw,3.4rem);line-height:1.04;margin:0;letter-spacing:-.02em}
+  .method p{font-size:1.1rem;line-height:1.65;margin:0 0 1.1rem;max-width:34rem}
+  .method .q{font-family:var(--serif);font-size:1.5rem;line-height:1.25;border-left:4px solid var(--clay);padding-left:1.2rem;margin-top:2rem}
+  .contact{background:var(--ochre);color:var(--forest);padding:clamp(3rem,7vw,6rem) clamp(1.2rem,3.5vw,3rem);min-height:50vh}
+  .contact h3{font-family:var(--serif);font-size:clamp(1.8rem,4vw,3.4rem);margin:0 0 1rem;line-height:1.05;max-width:30rem}
+  .contact p{max-width:32rem;line-height:1.6}
+
+  @media (max-width:760px){
+    .hero-top{grid-template-columns:1fr}
+    .draw{justify-self:start}
+    .rows li{grid-template-columns:3.4rem 1fr;gap:.2rem 1rem}
+    .rows .p,.rows .a{grid-column:2;text-align:left}
+    .method .grid{grid-template-columns:1fr}
+    .nav li:not(:last-child){display:none}
+  }
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    .title{position:relative !important;transform:none !important}
+    .nav .brand-fallback{display:inline-flex}
+    .nav ul{opacity:1}
+    .nav{--navbg:1}
+    .slot{height:auto}
+  }
+</style>
+</head>
+<body id="top">
+<header class="nav" id="nav">
+  <a class="brand-fallback" href="#top">Estúdio Arco</a>
+  <nav aria-label="Principal">
+    <ul>
+      <li><a class="l" href="#obras">Obras</a></li>
+      <li><a class="l" href="#metodo">Método</a></li>
+      <li><a class="l" href="#contato">Contato</a></li>
+    </ul>
+  </nav>
+</header>
+
+<h1 class="title" id="title"><a href="#top">Estúdio Arco</a></h1>
+
+<section class="hero" id="hero">
+  <div class="hero-top">
+    <div>
+      <p class="kick">Arquitetura e restauro · Olinda, PE</p>
+      <p class="lead">Casas antigas que voltam a funcionar sem perder a cara.</p>
+      <p class="meta">Onze pessoas, 42 obras entregues e uma regra de ateliê: o que pode ser consertado não é trocado.</p>
+    </div>
+    <svg class="draw" viewBox="0 0 640 380" role="img" aria-label="Desenho técnico de três arcos de uma fachada colonial, com cotas">
+      <rect class="fill" x="70" y="240" width="500" height="30"/>
+      <path class="ln" d="M70 270V130a70 70 0 0 1 140 0V270M250 270V130a70 70 0 0 1 140 0V270M430 270V130a70 70 0 0 1 140 0V270"/>
+      <path class="fill2" d="M250 130a70 70 0 0 1 140 0V270H250Z" opacity=".9"/>
+      <path class="ln" d="M70 270H570M50 270H590"/>
+      <path class="ln" d="M250 130a70 70 0 0 1 140 0"/>
+      <path class="dim" d="M70 310H570M70 300V320M570 300V320M320 40V120M320 130a70 70 0 0 1 0 0"/>
+      <text x="320" y="338" text-anchor="middle" font-size="14" fill="#4b5546" font-family="Gill Sans, Trebuchet MS, sans-serif" letter-spacing="2">FACHADA LESTE · 5,00 M</text>
+      <text x="326" y="68" font-size="12" fill="#4b5546" font-family="Gill Sans, Trebuchet MS, sans-serif" letter-spacing="2">VÃO CENTRAL 1,40 M</text>
+    </svg>
+  </div>
+  <div class="slot" id="slot" aria-hidden="true"></div>
+</section>
+
+<section class="work" id="obras">
+  <h2>Obras que <em>continuam</em> em uso.</h2>
+  <ol class="rows">
+    <li><span class="y">2024</span><span class="n">Sobrado da Rua do Amparo</span><span class="p">Residência e ateliê</span><span class="a">412 m²</span></li>
+    <li><span class="y">2023</span><span class="n">Mercearia Lopes</span><span class="p">Restauro de fachada e piso</span><span class="a">96 m²</span></li>
+    <li><span class="y">2022</span><span class="n">Casa dos Quatro Cantos</span><span class="p">Pousada de seis quartos</span><span class="a">630 m²</span></li>
+    <li><span class="y">2021</span><span class="n">Escola da Ladeira da Sé</span><span class="p">Reforma e acessibilidade</span><span class="a">1.150 m²</span></li>
+    <li><span class="y">2019</span><span class="n">Capela do Engenho Novo</span><span class="p">Consolidação estrutural</span><span class="a">210 m²</span></li>
+  </ol>
+</section>
+
+<section class="method" id="metodo">
+  <div class="grid">
+    <h2>Primeiro a gente escuta a parede.</h2>
+    <div>
+      <p>Antes de qualquer desenho, medimos umidade, raspamos três camadas de tinta e descobrimos qual cal foi usada. O projeto nasce desse levantamento, não de uma imagem de referência.</p>
+      <p>Trabalhamos com mestres de obra da região e com cal virgem curada em tanque, a mesma técnica que sustentou essas casas por trezentos anos.</p>
+      <p class="q">Obra boa é aquela em que o morador esquece quem foi o arquiteto.</p>
+    </div>
+  </div>
+</section>
+
+<section class="contact" id="contato">
+  <h3>Tem uma casa que ninguém quer largar?</h3>
+  <p>Mande fotos e o endereço. Visitamos em até duas semanas, sem custo, e dizemos o que dá para salvar. <a href="#top">Voltar ao topo</a></p>
+</section>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) return;
+  const root = document.documentElement;
+  const title = document.getElementById('title');
+  const slot = document.getElementById('slot');
+  const nav = document.getElementById('nav');
+  const NAV_H = 64, TARGET_FS_REM = 1.7;
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const ease = t => t * t * (3 - 2 * t);
+  root.classList.add('js-fixed');
+
+  let m = null;
+  const measure = () => {
+    title.style.transform = 'none';
+    // ajusta o corpo para o título ocupar exatamente a largura do slot
+    title.style.fontSize = '100px';
+    const w100 = title.getBoundingClientRect().width;
+    const slotRect = slot.getBoundingClientRect();
+    const fs = 100 * slotRect.width / w100;
+    title.style.fontSize = fs + 'px';
+    slot.style.setProperty('--slot-h', fs + 'px');
+    const slotDocTop = slot.getBoundingClientRect().top + scrollY;
+    const x0 = slot.getBoundingClientRect().left;
+    const targetFs = TARGET_FS_REM * parseFloat(getComputedStyle(root).fontSize);
+    const sEnd = targetFs / fs;
+    const endX = parseFloat(getComputedStyle(nav).paddingLeft);
+    const endY = (NAV_H - targetFs) / 2;
+    m = { fs, slotDocTop, x0, sEnd, endX, endY, D: Math.max(1, slotDocTop - endY) };
+  };
+  const apply = () => {
+    if (!m) return;
+    const t = clamp(scrollY / m.D, 0, 1);
+    const e = ease(t);
+    const s = 1 + (m.sEnd - 1) * e;
+    const x = m.x0 + (m.endX - m.x0) * e;
+    const y = Math.max(m.endY, m.slotDocTop - scrollY);
+    title.style.transform = `translate3d(${x.toFixed(2)}px,${y.toFixed(2)}px,0) scale(${s.toFixed(4)})`;
+    nav.style.setProperty('--navbg', clamp((t - 0.7) / 0.3, 0, 1).toFixed(3));
+    nav.style.setProperty('--linkop', clamp((t - 0.6) / 0.4, 0, 1).toFixed(3));
+  };
+  let ticking = false;
+  const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(() => { apply(); ticking = false; }); } };
+  const remeasure = () => { measure(); apply(); };
+  addEventListener('scroll', onScroll, { passive: true });
+  addEventListener('resize', remeasure);
+  document.fonts && document.fonts.ready.then(remeasure);
+  remeasure();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>42 — Editorial Lookbook Parallax</title>
+<!--
+  EFFECT: Asymmetric editorial product drop ("ATELIER VØID — DROP 04: MONOLITHS") pairing
+  Lenis smooth scroll with GSAP ScrollTrigger parallax speed differentials (`data-speed`),
+  overlapping oversized serif+sans headlines, and subtle inner-frame scale-on-enter (`1.12 -> 1`).
+  All visual plates are procedural SVG/CSS industrial-design compositions with zero external assets.
+  ADAPT: Adjust `data-speed` attributes (positive = slower lag, negative = faster lift) on
+  `.parallax-item` elements; swap `.plate-art` SVGs for product photography or 3D renders;
+  edit `--bg`, `--ink`, and `--accent` for brand palette.
+  Reduced motion: Disables Lenis, parallax scrubbing, and scale-on-enter; renders clean static grid.
+-->
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --ink: #121210;
+    --muted: #6f6c64;
+    --accent: #b84a27;
+    --frame-bg: #171715;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .serif {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 400;
+    font-style: italic;
+  }
+
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 30;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 22px clamp(20px, 4vw, 56px);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    mix-blend-mode: difference;
+    color: #fff;
+  }
+
+  .hero {
+    min-height: 82vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 120px clamp(20px, 5vw, 72px) 64px;
+    max-width: 1440px;
+    margin: 0 auto;
+    position: relative;
+  }
+  .hero-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 24px;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .hero-title {
+    margin: 0;
+    font-size: clamp(3.4rem, 9.5vw, 9.5rem);
+    line-height: 0.88;
+    letter-spacing: -0.04em;
+    font-weight: 600;
+  }
+  .hero-title .serif {
+    font-size: 1.06em;
+    color: var(--accent);
+    padding-right: 0.08em;
+  }
+
+  .lookbook {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 40px clamp(20px, 5vw, 72px) 160px;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(90px, 14vw, 180px);
+  }
+
+  .spread {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    align-items: center;
+    gap: 24px;
+  }
+
+  .plate {
+    position: relative;
+    overflow: hidden;
+    background: var(--frame-bg);
+    border-radius: 4px;
+  }
+  .plate-inner {
+    width: 100%;
+    height: 100%;
+    transform: scale(1.12);
+    will-change: transform;
+  }
+  .plate-inner svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .spread-1 .plate-a { grid-column: 1 / 8; aspect-ratio: 4 / 5; }
+  .spread-1 .plate-b { grid-column: 9 / 13; aspect-ratio: 3 / 4; align-self: end; }
+  .spread-1 .overlap-head {
+    position: absolute;
+    left: 44%;
+    top: 14%;
+    z-index: 5;
+    pointer-events: none;
+  }
+
+  .spread-2 .plate-a { grid-column: 2 / 7; aspect-ratio: 3 / 4; }
+  .spread-2 .plate-b { grid-column: 7 / 13; aspect-ratio: 5 / 4; }
+  .spread-2 .overlap-head {
+    position: absolute;
+    left: 6%;
+    bottom: 8%;
+    z-index: 5;
+    pointer-events: none;
+  }
+
+  .spread-3 .plate-a { grid-column: 1 / 10; aspect-ratio: 16 / 10; }
+  .spread-3 .caption-col { grid-column: 10 / 13; align-self: end; }
+  .spread-3 .overlap-head {
+    position: absolute;
+    right: 4%;
+    top: -6%;
+    z-index: 5;
+    text-align: right;
+    pointer-events: none;
+  }
+
+  .overlap-head h2 {
+    margin: 0;
+    font-size: clamp(2.4rem, 6vw, 5.8rem);
+    line-height: 0.92;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+    mix-blend-mode: normal;
+    text-shadow: 0 2px 24px rgba(244,241,234,0.65);
+  }
+  .overlap-head .serif {
+    display: block;
+    color: var(--accent);
+    font-size: 0.92em;
+  }
+
+  .caption {
+    margin-top: 14px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .editorial-copy {
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--muted);
+    max-width: 34ch;
+  }
+  .index-num {
+    font-size: clamp(3rem, 6vw, 5rem);
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    color: rgba(18,18,16,0.12);
+    line-height: 1;
+    margin-bottom: 12px;
+  }
+
+  footer {
+    border-top: 1px solid rgba(18,18,16,0.12);
+    padding: 36px clamp(20px, 5vw, 72px);
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  @media (max-width: 860px) {
+    .spread { grid-template-columns: 1fr; gap: 28px; }
+    .spread-1 .plate-a, .spread-1 .plate-b,
+    .spread-2 .plate-a, .spread-2 .plate-b,
+    .spread-3 .plate-a, .spread-3 .caption-col {
+      grid-column: 1 / -1;
+    }
+    .overlap-head {
+      position: static !important;
+      text-align: left !important;
+      margin-bottom: -10px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <span>ATELIER VØID</span>
+  <span>DROP 04 // MONOLITHS</span>
+</nav>
+
+<header class="hero">
+  <div class="hero-meta">
+    <span>Industrial Objects</span>
+    <span>Autumn / Winter Edition</span>
+  </div>
+  <h1 class="hero-title">
+    <span class="serif">Quiet</span> Mass<br>in Raw Aluminum
+  </h1>
+</header>
+
+<main class="lookbook">
+
+  <!-- Spread 1 -->
+  <section class="spread spread-1">
+    <div class="overlap-head parallax-item" data-speed="-60">
+      <h2><span class="serif">01.</span> Acoustic<br>Column</h2>
+    </div>
+
+    <div class="parallax-item" style="grid-column: 1 / 8;" data-speed="25">
+      <div class="plate plate-a">
+        <div class="plate-inner">
+          <svg viewBox="0 0 600 750" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <linearGradient id="p1bg" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#22201d"/>
+                <stop offset="100%" stop-color="#0f0e0d"/>
+              </linearGradient>
+              <linearGradient id="cyl" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#3d3a35"/>
+                <stop offset="35%" stop-color="#a8a298"/>
+                <stop offset="70%" stop-color="#292623"/>
+                <stop offset="100%" stop-color="#141311"/>
+              </linearGradient>
+            </defs>
+            <rect width="600" height="750" fill="url(#p1bg)"/>
+            <circle cx="300" cy="360" r="240" fill="#b84a27" fill-opacity="0.1"/>
+            <rect x="205" y="135" width="190" height="470" rx="18" fill="url(#cyl)"/>
+            <ellipse cx="300" cy="135" rx="95" ry="20" fill="#8f897f"/>
+            <line x1="205" y1="240" x2="395" y2="240" stroke="#121110" stroke-width="2"/>
+            <circle cx="300" cy="190" r="6" fill="#b84a27"/>
+          </svg>
+        </div>
+      </div>
+      <div class="caption"><span>M-01 Omnidirectional Speaker</span><span>CNC 6061 Billet</span></div>
+    </div>
+
+    <div class="parallax-item" style="grid-column: 9 / 13;" data-speed="-45">
+      <div class="plate plate-b">
+        <div class="plate-inner">
+          <svg viewBox="0 0 400 530" preserveAspectRatio="xMidYMid slice">
+            <rect width="400" height="530" fill="#181715"/>
+            <circle cx="200" cy="265" r="130" fill="none" stroke="#b84a27" stroke-width="1.5" stroke-opacity="0.6"/>
+            <circle cx="200" cy="265" r="88" fill="#23211e" stroke="#47433d" stroke-width="2"/>
+            <circle cx="200" cy="265" r="26" fill="#0d0c0b"/>
+            <text x="200" y="470" text-anchor="middle" fill="#6f6c64" font-size="11" letter-spacing="4">BASS PORT // 38HZ</text>
+          </svg>
+        </div>
+      </div>
+      <div class="caption"><span>Detail 01-B</span><span>Waveguide</span></div>
+    </div>
+  </section>
+
+  <!-- Spread 2 -->
+  <section class="spread spread-2">
+    <div class="overlap-head parallax-item" data-speed="-50">
+      <h2><span class="serif">02.</span> Field<br>Synthesizer</h2>
+    </div>
+
+    <div class="parallax-item" style="grid-column: 2 / 7;" data-speed="-30">
+      <div class="plate plate-a">
+        <div class="plate-inner">
+          <svg viewBox="0 0 440 580" preserveAspectRatio="xMidYMid slice">
+            <rect width="440" height="580" fill="#141517"/>
+            <rect x="70" y="90" width="300" height="400" rx="14" fill="#d9d5cc" stroke="#8a857c" stroke-width="2"/>
+            <rect x="96" y="122" width="248" height="96" rx="6" fill="#111214"/>
+            <path d="M116 170 Q150 132 184 170 T252 170 T320 170" fill="none" stroke="#b84a27" stroke-width="3"/>
+            <circle cx="136" cy="276" r="24" fill="#262523"/>
+            <circle cx="220" cy="276" r="24" fill="#b84a27"/>
+            <circle cx="304" cy="276" r="24" fill="#262523"/>
+            <g fill="#1c1b1a">
+              <rect x="96" y="340" width="32" height="110" rx="4"/>
+              <rect x="139" y="340" width="32" height="110" rx="4"/>
+              <rect x="182" y="340" width="32" height="110" rx="4"/>
+              <rect x="225" y="340" width="32" height="110" rx="4"/>
+              <rect x="268" y="340" width="32" height="110" rx="4"/>
+              <rect x="311" y="340" width="32" height="110" rx="4"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+      <div class="caption"><span>OP-Zero Portable</span><span>Anodized Sand</span></div>
+    </div>
+
+    <div class="parallax-item" style="grid-column: 7 / 13;" data-speed="35">
+      <div class="plate plate-b">
+        <div class="plate-inner">
+          <svg viewBox="0 0 640 512" preserveAspectRatio="xMidYMid slice">
+            <rect width="640" height="512" fill="#191816"/>
+            <g stroke="#2d2b27" stroke-width="1">
+              <line x1="0" y1="128" x2="640" y2="128"/>
+              <line x1="0" y1="256" x2="640" y2="256"/>
+              <line x1="0" y1="384" x2="640" y2="384"/>
+              <line x1="160" y1="0" x2="160" y2="512"/>
+              <line x1="320" y1="0" x2="320" y2="512"/>
+              <line x1="480" y1="0" x2="480" y2="512"/>
+            </g>
+            <rect x="140" y="156" width="360" height="200" rx="18" fill="#24221f" stroke="#524d45" stroke-width="2"/>
+            <circle cx="240" cy="256" r="56" fill="#121110" stroke="#b84a27" stroke-width="2"/>
+            <circle cx="400" cy="256" r="56" fill="#121110" stroke="#8a857c" stroke-width="2"/>
+          </svg>
+        </div>
+      </div>
+      <div class="caption"><span>Dual-Encoder Architecture</span><span>Hall Effect</span></div>
+    </div>
+  </section>
+
+  <!-- Spread 3 -->
+  <section class="spread spread-3">
+    <div class="overlap-head parallax-item" data-speed="-40">
+      <h2><span class="serif">03.</span> Desk<br>Power Brick</h2>
+    </div>
+
+    <div class="parallax-item" style="grid-column: 1 / 10;" data-speed="20">
+      <div class="plate plate-a">
+        <div class="plate-inner">
+          <svg viewBox="0 0 900 560" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <linearGradient id="p3metal" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#4e4b45"/>
+                <stop offset="50%" stop-color="#22201d"/>
+                <stop offset="100%" stop-color="#0f0e0d"/>
+              </linearGradient>
+            </defs>
+            <rect width="900" height="560" fill="#121110"/>
+            <rect x="170" y="140" width="560" height="280" rx="22" fill="url(#p3metal)" stroke="#68635a" stroke-width="2"/>
+            <rect x="215" y="185" width="160" height="190" rx="10" fill="#0b0a09" stroke="#36332e"/>
+            <text x="295" y="275" text-anchor="middle" fill="#b84a27" font-size="44" font-weight="600">240W</text>
+            <text x="295" y="305" text-anchor="middle" fill="#6f6c64" font-size="12" letter-spacing="3">GAN MATRIX</text>
+            <g fill="#0c0b0a" stroke="#524d45" stroke-width="1.5">
+              <rect x="440" y="210" width="58" height="22" rx="11"/>
+              <rect x="520" y="210" width="58" height="22" rx="11"/>
+              <rect x="600" y="210" width="58" height="22" rx="11"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="caption-col parallax-item" data-speed="-25">
+      <div class="index-num">03</div>
+      <p class="editorial-copy">Machined thermal fins dissipate 240W GaN output silently without active fans—sculpted to anchor a studio desk.</p>
+      <div class="caption" style="margin-top:20px"><span>Edition of 500</span><span>Numbered</span></div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <span>ATELIER VØID — COPENHAGEN</span>
+  <span>All objects milled to ±0.02mm</span>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.min.js"></script>
+<script>
+(() => {
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  gsap.registerPlugin(ScrollTrigger);
+
+  if (reduceMotion) {
+    gsap.set('.plate-inner', { scale: 1 });
+    return;
+  }
+
+  const lenis = new Lenis({ lerp: 0.085, smoothWheel: true });
+  lenis.on('scroll', ScrollTrigger.update);
+  gsap.ticker.add((time) => lenis.raf(time * 1000));
+  gsap.ticker.lagSmoothing(0);
+
+  // Parallax speed differentials
+  gsap.utils.toArray('.parallax-item').forEach((el) => {
+    const speed = Number(el.dataset.speed || 0);
+    gsap.fromTo(el,
+      { y: -speed },
+      {
+        y: speed,
+        ease: 'none',
+        scrollTrigger: {
+          trigger: el,
+          start: 'top bottom',
+          end: 'bottom top',
+          scrub: true
+        }
+      }
+    );
+  });
+
+  // Subtle image scale-on-enter
+  gsap.utils.toArray('.plate-inner').forEach((inner) => {
+    gsap.to(inner, {
+      scale: 1,
+      duration: 1.2,
+      ease: 'power3.out',
+      scrollTrigger: {
+        trigger: inner,
+        start: 'top 88%',
+        once: true
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>

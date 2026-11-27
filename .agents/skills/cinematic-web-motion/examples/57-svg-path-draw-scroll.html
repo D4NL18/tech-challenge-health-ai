@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>57 · SVG Path Draw on Scroll</title>
+<!--
+PATTERN: SVG line drawing scrubbed on scroll with a moving marker.
+Motion: stroke-dashoffset is tied to scroll progress (GSAP ScrollTrigger scrub) while a dot rides the path via getPointAtLength.
+Accessibility: SVG is decorative (aria-hidden); content is plain text; reduced-motion shows the full path and parks the marker at the end.
+Adapting: Replace the path d attribute; adjust section height (.track) to change scroll length.
+-->
+<style>
+:root{--bg:#0e0e0c;--fg:#f1ede4;--acc:#ff5a36}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif}
+.gap{height:60vh;display:grid;place-items:center;font:500 .8rem ui-monospace,monospace;letter-spacing:.2em;text-transform:uppercase;color:var(--acc)}
+.track{height:400vh;position:relative}
+.stick{position:sticky;top:0;height:100vh;display:grid;place-items:center;padding:4vh 4vw}
+svg{width:min(90vw,520px);height:92vh;overflow:visible}
+.base{fill:none;stroke:#ffffff1c;stroke-width:6;stroke-linecap:round}
+.draw{fill:none;stroke:var(--acc);stroke-width:6;stroke-linecap:round}
+.dot{fill:#fff;stroke:var(--acc);stroke-width:4}
+.label{position:absolute;left:6vw;top:50%;font-size:clamp(1.4rem,3vw,2.4rem);font-weight:600;letter-spacing:-.03em;max-width:8em}
+</style>
+</head>
+<body>
+<div class="gap">Scroll ↓</div>
+<div class="track" id="track"><div class="stick">
+  <div class="label" id="label">0%</div>
+  <svg viewBox="0 0 400 800" aria-hidden="true" focusable="false">
+    <path id="base" class="base" d="M200 20 C 380 120, 380 220, 200 300 S 20 480, 200 560 S 380 700, 200 780"/>
+    <path id="draw" class="draw" d="M200 20 C 380 120, 380 220, 200 300 S 20 480, 200 560 S 380 700, 200 780"/>
+    <circle id="dot" class="dot" r="12" cx="200" cy="20"/>
+  </svg>
+</div></div>
+<div class="gap">Fin</div>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  var path=document.getElementById("draw"),dot=document.getElementById("dot"),label=document.getElementById("label");
+  var len=path.getTotalLength();
+  function setP(p){
+    path.style.strokeDashoffset=len*(1-p);
+    var pt=path.getPointAtLength(len*p);dot.setAttribute("cx",pt.x);dot.setAttribute("cy",pt.y);
+    label.textContent=Math.round(p*100)+"%";
+  }
+  path.style.strokeDasharray=len;
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches||!window.gsap){setP(1);return}
+  gsap.registerPlugin(ScrollTrigger);
+  setP(0);
+  ScrollTrigger.create({trigger:"#track",start:"top top",end:"bottom bottom",scrub:.6,onUpdate:function(s){setP(s.progress)}});
+})();
+</script>
+</body>
+</html>

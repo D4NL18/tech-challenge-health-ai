@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>60 · Infinite Drag Carousel</title>
+<!--
+PATTERN: Draggable infinite carousel with inertia.
+Motion: Pointer drag sets velocity; a rAF loop applies friction and wraps the x position modulo the track width so slides loop endlessly (cards are duplicated 3x).
+Accessibility: Arrow keys nudge the carousel (region is focusable); duplicates are aria-hidden; reduced-motion disables inertia and uses native horizontal scroll.
+Adapting: Edit SLIDES, CONFIG.friction (0.9-0.98) and CONFIG.auto (idle drift px/frame, 0 to disable).
+-->
+<style>
+:root{--bg:#0e0e0c;--fg:#f1ede4}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif;min-height:100vh;display:flex;flex-direction:column;justify-content:center;gap:2rem}
+h1{padding:0 6vw;font-size:clamp(1.6rem,4vw,3rem);letter-spacing:-.03em}
+.vp{overflow:hidden;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.vp:active{cursor:grabbing}
+.vp:focus-visible{outline:3px solid #ff5a36;outline-offset:-3px}
+.track{display:flex;gap:20px;width:max-content;will-change:transform;padding:0 10px}
+.s{width:clamp(220px,28vw,340px);aspect-ratio:3/4;border-radius:20px;padding:1.2rem;display:flex;align-items:flex-end;font-size:2rem;font-weight:600;letter-spacing:-.03em;background:linear-gradient(150deg,hsl(var(--h) 75% 55%),hsl(calc(var(--h) + 60) 70% 28%));color:#fff}
+@media (prefers-reduced-motion:reduce){.vp{overflow-x:auto;cursor:auto}}
+</style>
+</head>
+<body>
+<h1>Drag, flick, repeat.</h1>
+<div class="vp" id="vp" tabindex="0" role="region" aria-label="Carousel, use arrow keys or drag"><div class="track" id="track"></div></div>
+<script>
+(function(){
+  var CONFIG={friction:.95,auto:.4};
+  var SLIDES=["Aurora","Basalt","Cobalt","Dune","Ember","Fjord"];
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var track=document.getElementById("track"),vp=document.getElementById("vp");
+  var copies=reduce?1:3;
+  for(var c=0;c<copies;c++)SLIDES.forEach(function(n,i){
+    var d=document.createElement("div");d.className="s";d.style.setProperty("--h",i*60);d.textContent=n;
+    if(c>0)d.setAttribute("aria-hidden","true");track.appendChild(d);
+  });
+  if(reduce)return;
+  var x=0,v=0,drag=false,lastX=0,setW=0;
+  function measure(){setW=track.scrollWidth/3}
+  measure();addEventListener("resize",measure);
+  x=-setW;
+  vp.addEventListener("pointerdown",function(e){drag=true;lastX=e.clientX;v=0;vp.setPointerCapture(e.pointerId)});
+  vp.addEventListener("pointermove",function(e){if(!drag)return;var dx=e.clientX-lastX;lastX=e.clientX;x+=dx;v=dx});
+  function up(){drag=false}
+  vp.addEventListener("pointerup",up);vp.addEventListener("pointercancel",up);
+  vp.addEventListener("keydown",function(e){if(e.key==="ArrowRight")v=-24;if(e.key==="ArrowLeft")v=24});
+  vp.addEventListener("dragstart",function(e){e.preventDefault()});
+  function loop(){
+    if(!drag){x+=v;v*=CONFIG.friction;if(Math.abs(v)<CONFIG.auto)v=v<0||v===0?-CONFIG.auto:v}
+    // wrap into [-2*setW, -setW]
+    if(x>-setW+0)x-=setW;
+    if(x<-2*setW)x+=setW;
+    track.style.transform="translate3d("+x.toFixed(2)+"px,0,0)";
+    requestAnimationFrame(loop);
+  }
+  loop();
+})();
+</script>
+</body>
+</html>

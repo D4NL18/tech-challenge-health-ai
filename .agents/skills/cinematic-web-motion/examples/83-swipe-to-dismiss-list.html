@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>83 · Swipe to Dismiss List</title>
+<!--
+PATTERN: A list of newsroom pitches where each row can be swiped right to archive or left to
+  delete, with an undo toast after every dismissal.
+Motion: Pointer events drag the row on the X axis; the underlay label (text + glyph) appears on the
+  side being revealed. Past THRESHOLD the row flies out, then its height collapses so neighbours
+  slide up. Under THRESHOLD it springs back. Undo re-inserts the row at its old position.
+Accessibility: Every row also has real Archive / Delete buttons (keyboard + screen reader path).
+  The toast is a role="status" live region with a focusable Undo button; action is named in text,
+  never by colour alone. prefers-reduced-motion: no drag animation or collapse, instant changes.
+  Touch: touch-action:pan-y keeps vertical scroll while horizontal swipes are captured.
+Adapting: THRESHOLD, DURATION, UNDO_MS, EASE in CONFIG. Libraries: none.
+-->
+<style>
+:root{--paper:#f3ede1;--ink:#1d1a16;--rule:#cfc5b2;--rust:#a63a1c;--moss:#3f5b3a;--ease:cubic-bezier(.2,.7,.2,1);
+--serif:"Iowan Old Style","Palatino Linotype",Georgia,serif;--sans:"Avenir Next","Segoe UI","Helvetica Neue",sans-serif}
+*{box-sizing:border-box;margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);padding:9vh 6vw 20vh 12vw}
+h1{font:600 clamp(2.2rem,6vw,4.4rem)/.98 var(--serif);letter-spacing:-.03em;max-width:14ch}
+.lede{max-width:46ch;margin:1.2rem 0 2.4rem;line-height:1.55}
+ul{list-style:none;padding:0;max-width:640px;border-top:2px solid var(--ink)}
+li{position:relative;overflow:hidden;border-bottom:1px solid var(--rule);transition:height var(--d,.32s) var(--ease),opacity var(--d,.32s)}
+.under{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;padding:0 1.2rem;font-weight:700;font-size:.85rem;letter-spacing:.12em;text-transform:uppercase}
+.under span{opacity:0}
+li[data-dir=r] .a,li[data-dir=l] .d{opacity:1}
+li[data-dir=r]{background:var(--moss);color:#fff}
+li[data-dir=l]{background:var(--rust);color:#fff}
+.row{position:relative;background:var(--paper);color:var(--ink);display:flex;gap:1rem;align-items:center;justify-content:space-between;padding:1.1rem .4rem;touch-action:pan-y;cursor:grab;user-select:none}
+.row h2{font:600 1.15rem/1.2 var(--serif)}
+.row p{font-size:.85rem;margin-top:.25rem;color:#5a5348}
+.btns{display:flex;gap:.4rem;flex:none}
+button{font:600 .78rem var(--sans);padding:.5rem .7rem;border:1.5px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer;transition:background .2s var(--ease),color .2s}
+button:hover{background:var(--ink);color:var(--paper)}
+button:focus-visible{outline:3px solid var(--rust);outline-offset:2px}
+.toast{position:fixed;left:12vw;bottom:5vh;display:flex;gap:1rem;align-items:center;background:var(--ink);color:var(--paper);padding:.8rem 1rem;transform:translateY(calc(100% + 8vh));visibility:hidden;transition:transform .4s var(--ease),visibility 0s .4s;z-index:5}
+.toast.on{transform:none;visibility:visible;transition:transform .4s var(--ease),visibility 0s}
+.toast button{border-color:var(--paper);color:var(--paper)}
+.toast button:hover{background:var(--paper);color:var(--ink)}
+.toast button:focus-visible{outline-color:var(--paper)}
+.empty{display:none;padding:2rem 0;font:italic 1.2rem var(--serif)}
+@media (prefers-reduced-motion:reduce){li,.toast,button{transition:none!important}}
+</style>
+</head>
+<body>
+<h1>Tuesday pitch queue</h1>
+<p class="lede">Swipe a pitch right to archive it, left to delete it. Prefer the keyboard? Each row has its own buttons.</p>
+<ul id="list"></ul>
+<p class="empty" id="empty">Queue clear. New pitches land here at 9:00.</p>
+<div class="toast" id="toast" role="status" aria-live="polite"><span id="msg"></span><button type="button" id="undo">Undo</button></div>
+<script>
+(function(){
+  var CONFIG={THRESHOLD:96,DURATION:320,UNDO_MS:5000,EASE:"cubic-bezier(.2,.7,.2,1)"};
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var DATA=[["Harbour dredging: who pays?","Metro desk · Ines Duarte · 900 words"],["The last typewriter repairman","Features · Kofi Mensah · 1,400 words"],["Council budget, line by line","Data · Mara Voss · chart + 600 words"],["Night buses after the strike","Metro desk · Tomas Reyes · 700 words"],["Bakers and the flour shortage","Food · Ayesha Rahman · 1,100 words"]];
+  var list=document.getElementById("list"),toast=document.getElementById("toast"),msg=document.getElementById("msg"),empty=document.getElementById("empty");
+  var last=null,timer=0;
+  list.style.setProperty("--d",(reduce?0:CONFIG.DURATION)+"ms");
+  DATA.forEach(function(d){
+    var li=document.createElement("li");
+    li.innerHTML='<div class="under" aria-hidden="true"><span class="a">&#10003; Archive</span><span class="d">Delete &#10005;</span></div>'+
+      '<div class="row"><div><h2></h2><p></p></div><div class="btns"><button type="button" data-k="Archived">Archive</button><button type="button" data-k="Deleted">Delete</button></div></div>';
+    li.querySelector("h2").textContent=d[0];li.querySelector("p").textContent=d[1];
+    list.appendChild(li);bind(li);
+  });
+  function bind(li){
+    var row=li.querySelector(".row"),x0=0,dx=0,drag=false;
+    row.addEventListener("pointerdown",function(e){
+      if(e.target.closest("button")||reduce)return;
+      drag=true;x0=e.clientX;dx=0;row.style.transition="none";row.setPointerCapture(e.pointerId);
+    });
+    row.addEventListener("pointermove",function(e){
+      if(!drag)return;dx=e.clientX-x0;
+      row.style.transform="translateX("+dx+"px)";li.dataset.dir=dx>0?"r":"l";
+    });
+    function end(){
+      if(!drag)return;drag=false;
+      row.style.transition="transform "+CONFIG.DURATION+"ms "+CONFIG.EASE;
+      if(Math.abs(dx)>=CONFIG.THRESHOLD){
+        row.style.transform="translateX("+(dx>0?110:-110)+"%)";
+        setTimeout(function(){dismiss(li,dx>0?"Archived":"Deleted")},CONFIG.DURATION*.6);
+      }else{row.style.transform="";delete li.dataset.dir}
+    }
+    row.addEventListener("pointerup",end);row.addEventListener("pointercancel",end);
+    [].forEach.call(li.querySelectorAll("button"),function(b){
+      b.addEventListener("click",function(){li.dataset.dir=b.dataset.k==="Archived"?"r":"l";dismiss(li,b.dataset.k)});
+    });
+  }
+  function dismiss(li,kind){
+    var next=li.nextElementSibling,focusTarget=next||li.previousElementSibling;
+    last={li:li,next:next};
+    li.style.height=li.offsetHeight+"px";li.offsetHeight;
+    li.style.height="0px";li.style.opacity="0";
+    setTimeout(function(){
+      if(li.parentNode)list.removeChild(li);
+      empty.style.display=list.children.length?"none":"block";
+      if(focusTarget){var b=focusTarget.querySelector("button");if(b)b.focus()}
+    },reduce?0:CONFIG.DURATION);
+    msg.textContent=kind+": "+li.querySelector("h2").textContent;
+    toast.classList.add("on");clearTimeout(timer);
+    timer=setTimeout(function(){toast.classList.remove("on");last=null},CONFIG.UNDO_MS);
+  }
+  document.getElementById("undo").addEventListener("click",function(){
+    if(!last)return;var li=last.li;
+    list.insertBefore(li,last.next&&last.next.parentNode===list?last.next:null);
+    li.querySelector(".row").style.transform="";delete li.dataset.dir;
+    li.style.height="0px";li.style.opacity="0";li.offsetHeight;li.style.height=li.scrollHeight+"px";li.style.opacity="1";
+    setTimeout(function(){li.style.height=""},CONFIG.DURATION);
+    empty.style.display="none";toast.classList.remove("on");last=null;
+    li.querySelector("button").focus();
+  });
+})();
+</script>
+</body>
+</html>

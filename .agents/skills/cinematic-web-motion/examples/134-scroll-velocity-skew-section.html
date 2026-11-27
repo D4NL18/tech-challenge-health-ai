@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>134 · Scroll Velocity Skew Section</title>
+<!--
+PATTERN: Page content reacts to scroll speed: sections skew and stretch while you scroll fast and spring back to rest when you stop.
+Motion: scroll delta per frame is smoothed into a velocity value (lerp); skewY = clamp(v * K), scaleY = 1 + |v| * S on the section blocks, a larger skew on the giant headline; a damped decay returns everything to 0 on stop.
+Accessibility: Effect is capped (max 6 deg), disabled for prefers-reduced-motion, text never changes content; transforms only (no layout) so reading stays stable at rest.
+Adapting: Tune K (skew gain), S (stretch gain), MAX and DAMP in CONFIG; apply [data-skew] to any block.
+Libraries: none (vanilla JS).
+-->
+<style>
+:root{--paper:#e9e4d8;--ink:#14171a;--vermilion:#d6401f;--steel:#3c4b55;--lime:#c9d65a}
+*{box-sizing:border-box;margin:0}
+html{overflow-x:hidden}
+body{background:var(--paper);color:var(--ink);font:400 1.05rem/1.6 "Helvetica Neue",Arial,sans-serif;overflow-x:hidden}
+:focus-visible{outline:3px solid var(--vermilion);outline-offset:3px}
+.hd{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;justify-content:space-between;padding:1.1rem 5vw;font:600 .72rem/1 ui-monospace,Consolas,monospace;letter-spacing:.18em;text-transform:uppercase;mix-blend-mode:difference;color:#fff}
+.hd output{min-width:6ch;text-align:right}
+section{padding:14vh 6vw;display:grid;grid-template-columns:repeat(12,1fr);gap:1.5rem;will-change:transform;transform-origin:50% 50%}
+.s1{min-height:100vh;align-content:end;padding-top:20vh}
+.s1 h1{grid-column:1 / -1;font:400 clamp(4rem,17vw,17rem)/.82 Georgia,"Iowan Old Style",serif;letter-spacing:-.05em}
+.s1 h1 em{color:var(--vermilion);font-style:italic}
+.s1 p{grid-column:8 / span 5;margin-top:2.5rem}
+.s2{background:var(--ink);color:var(--paper)}
+.s2 h2{grid-column:1 / span 7;font:400 clamp(2.4rem,6.4vw,6.2rem)/.96 Georgia,serif;letter-spacing:-.035em}
+.s2 h2 em{font-style:italic;color:var(--lime)}
+.s2 .col{grid-column:9 / span 4;align-self:end}
+.s3{background:var(--vermilion);color:var(--paper)}
+.s3 .row{grid-column:1 / -1;display:grid;grid-template-columns:3rem 1fr auto;gap:1rem;padding:1.4rem 0;border-top:2px solid currentColor;align-items:baseline}
+.s3 .row:last-child{border-bottom:2px solid currentColor}
+.s3 .row b{font:400 clamp(1.6rem,3.6vw,3.2rem)/1 Georgia,serif}
+.s3 .row span{font:600 .72rem/1 ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase}
+.s3 h2{grid-column:1 / span 8;font:400 clamp(2rem,5vw,4.6rem)/1 Georgia,serif;letter-spacing:-.03em;margin-bottom:2rem}
+.s4{background:var(--steel);color:var(--paper);min-height:80vh;align-content:center}
+.s4 blockquote{grid-column:3 / span 9;font:italic 400 clamp(1.9rem,4.6vw,4.2rem)/1.08 Georgia,serif;letter-spacing:-.02em}
+.s4 cite{grid-column:3 / span 9;font:600 .72rem/1 ui-monospace,monospace;letter-spacing:.18em;text-transform:uppercase;font-style:normal}
+.s5{min-height:70vh;align-content:center}
+.s5 h2{grid-column:1 / span 9;font:400 clamp(2.4rem,7vw,6.6rem)/.95 Georgia,serif;letter-spacing:-.035em}
+.s5 a{color:inherit;grid-column:1 / span 6;margin-top:1.5rem;justify-self:start;padding:.9rem 1.4rem;border:2px solid var(--ink);text-decoration:none;font-weight:600;transition:background .2s,color .2s}
+.s5 a:hover{background:var(--ink);color:var(--paper)}
+@media (max-width:760px){
+  section{padding:11vh 7vw}
+  .s1 p,.s2 h2,.s2 .col,.s3 h2,.s4 blockquote,.s4 cite,.s5 h2,.s5 a{grid-column:1 / -1}
+  .s3 .row{grid-template-columns:2rem 1fr}.s3 .row span{grid-column:2}
+}
+@media (prefers-reduced-motion:reduce){section{transform:none!important}}
+</style>
+</head>
+<body>
+<div class="hd" aria-hidden="true"><span>Kessler Type Foundry</span><output id="vel">v 0.0</output></div>
+<main id="root">
+<section class="s1" data-skew="1.4">
+  <h1>Letters with <em>weight.</em></h1>
+  <p>Kessler Type Foundry draws, spaces and tests serif families for newspapers and long-form books. Each release takes between three and five years.</p>
+</section>
+<section class="s2" data-skew="1">
+  <h2>We cut <em>forty</em> sizes, not one.</h2>
+  <div class="col"><p>A headline face at 96 points and a caption face at 7 points are different drawings. Optical sizes get wider spacing, heavier hairlines and larger counters as the type shrinks.</p></div>
+</section>
+<section class="s3" data-skew=".9">
+  <h2>Families in the library</h2>
+  <div class="row"><span>01</span><b>Marlow Text</b><span>Book · 2019</span></div>
+  <div class="row"><span>02</span><b>Haldane Display</b><span>Headlines · 2021</span></div>
+  <div class="row"><span>03</span><b>Pinto Caption</b><span>Small sizes · 2022</span></div>
+  <div class="row"><span>04</span><b>Orrery Italic</b><span>Editorial · 2024</span></div>
+</section>
+<section class="s4" data-skew="1.2">
+  <blockquote>"We tested it on a 1930s press and a phone in the rain. It held up on both."</blockquote>
+  <cite>Ines Okafor · art director, The Evening Ledger</cite>
+</section>
+<section class="s5" data-skew=".8">
+  <h2>Try the full set for thirty days.</h2>
+  <a href="#root">Download trial fonts</a>
+</section>
+</main>
+<script>
+(function(){
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  var CONFIG={K:.55,S:.0035,MAX:6,SMOOTH:.18,DAMP:.12};
+  var secs=[].slice.call(document.querySelectorAll("[data-skew]")),out=document.getElementById("vel");
+  var last=scrollY,v=0,shown=0;
+  function tick(){
+    var y=scrollY,d=y-last;last=y;
+    v+=(d-v)*CONFIG.SMOOTH;          /* smooth raw delta */
+    if(Math.abs(d)<.1)v*=(1-CONFIG.DAMP); /* spring back when idle */
+    if(Math.abs(v)<.02)v=0;
+    var sk=Math.max(-CONFIG.MAX,Math.min(CONFIG.MAX,v*CONFIG.K));
+    var st=1+Math.min(.06,Math.abs(v)*CONFIG.S);
+    secs.forEach(function(s){
+      var k=parseFloat(s.dataset.skew);
+      s.style.transform=sk===0?"":"skewY("+(sk*k).toFixed(2)+"deg) scaleY("+(1+(st-1)*k).toFixed(4)+")";
+    });
+    var r=Math.round(v*10)/10;if(r!==shown){shown=r;out.textContent="v "+r.toFixed(1)}
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

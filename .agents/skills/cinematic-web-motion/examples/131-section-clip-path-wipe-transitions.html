@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>131 · Section Clip-Path Wipe Transitions</title>
+<!--
+PATTERN: Pinned stage where every chapter wipes over the previous one with a different clip-path shape (circle, bottom inset, diagonal polygon, ellipse, side inset).
+Motion: Scroll position maps to a 0-1 progress per chapter; the clip-path string is rebuilt each frame (rAF-throttled) and the text inside drifts a few pixels against the wipe.
+Accessibility: Without JS or with prefers-reduced-motion the chapters are plain stacked sections, fully readable; nav/skip link and :focus-visible rings kept; decorative numerals are aria-hidden.
+Adapting: Edit the SHAPES array (functions of p) to add shapes, change the chapters in the markup, or set --run (scroll length per wipe) in CSS.
+Libraries: none (vanilla JS).
+-->
+<style>
+:root{--salt:#f1ece0;--ink:#1d2321;--marsh:#2f4a3f;--clay:#b8573a;--sand:#d9c7a1;--dusk:#26323a;--run:110vh}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:auto}
+body{background:var(--salt);color:var(--ink);font:400 1.05rem/1.6 "Helvetica Neue",Arial,sans-serif}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--clay);outline-offset:3px}
+.skip{position:absolute;left:1rem;top:-4rem;background:var(--ink);color:var(--salt);padding:.6rem 1rem;z-index:99}
+.skip:focus{top:1rem}
+.bar{position:fixed;z-index:30;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:1.1rem 5vw;font:600 .72rem/1 ui-monospace,Consolas,monospace;letter-spacing:.18em;text-transform:uppercase;mix-blend-mode:difference;color:#fff;pointer-events:none}
+.track{position:relative}
+.js .track{height:calc(100vh + var(--run) * 4)}
+.stage{position:relative}
+.js .stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden}
+.ch{position:relative;display:grid;align-items:end;padding:14vh 6vw 10vh;min-height:100vh}
+.js .ch{position:absolute;inset:0;min-height:0}
+.ch h2{font:400 clamp(2.6rem,8.5vw,8.4rem)/.92 Georgia,"Iowan Old Style","Times New Roman",serif;letter-spacing:-.035em;max-width:11ch}
+.ch h2 em{font-style:italic;color:var(--clay)}
+.ch p{max-width:34ch;margin-top:1.6rem;font-size:1.05rem}
+.ch .num{position:absolute;top:12vh;right:6vw;font:italic 400 clamp(5rem,18vw,16rem)/.8 Georgia,serif;opacity:.14}
+.ch .meta{font:600 .72rem/1 ui-monospace,Consolas,monospace;letter-spacing:.18em;text-transform:uppercase;margin-bottom:1.2rem;opacity:.7}
+.c0{background:var(--salt)}
+.c1{background:var(--marsh);color:var(--salt)}
+.c1 h2 em{color:var(--sand)}
+.c2{background:var(--sand)}
+.c3{background:var(--dusk);color:var(--salt)}
+.c3 h2 em{color:var(--sand)}
+.c4{background:var(--clay);color:var(--salt)}
+.c4 h2 em{color:var(--ink)}
+.c4 a{display:inline-block;margin-top:1.6rem;padding:.9rem 1.4rem;border:2px solid currentColor;text-decoration:none;font-weight:600}
+.c4 a:hover{background:var(--salt);color:var(--clay)}
+.txt{will-change:transform}
+@media (max-width:640px){
+  .ch{padding:14vh 7vw 9vh}
+  .ch p{font-size:1rem}
+  .bar span:last-child{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .js .track{height:auto}
+  .js .stage{position:relative;height:auto;overflow:visible}
+  .js .ch{position:relative;inset:auto;min-height:100vh;clip-path:none!important}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#end">Skip to the last chapter</a>
+<div class="bar" aria-hidden="true"><span>Saltworks of the Guérande</span><span id="count">01 / 05</span></div>
+<main class="track" id="track">
+  <div class="stage" id="stage">
+    <section class="ch c0" aria-labelledby="h0">
+      <span class="num" aria-hidden="true">i</span>
+      <div class="txt"><div class="meta">Chapter one · March</div><h2 id="h0">Flat water, <em>patient</em> clay.</h2><p>The paludiers rake the clay basins clean before the first spring tide. Nothing is added; the marsh is only asked to hold still.</p></div>
+    </section>
+    <section class="ch c1" aria-labelledby="h1">
+      <span class="num" aria-hidden="true">ii</span>
+      <div class="txt"><div class="meta">Chapter two · May</div><h2 id="h1">Seven ponds, <em>one</em> slope.</h2><p>Seawater crosses a gradient of barely two centimetres per kilometre, warming and thickening as it travels toward the crystallising beds.</p></div>
+    </section>
+    <section class="ch c2" aria-labelledby="h2">
+      <span class="num" aria-hidden="true">iii</span>
+      <div class="txt"><div class="meta">Chapter three · July</div><h2 id="h2">The long <em>rake</em> at noon.</h2><p>Fleur de sel forms in the hour the wind drops. It is skimmed with a wooden lousse, never touched by metal, and carried off in shallow trays.</p></div>
+    </section>
+    <section class="ch c3" aria-labelledby="h3">
+      <span class="num" aria-hidden="true">iv</span>
+      <div class="txt"><div class="meta">Chapter four · September</div><h2 id="h3">Grey salt, <em>late</em> light.</h2><p>Coarse grey crystals settle on the clay floor and are drawn toward the mound in a single sweeping stroke, ten tonnes before dusk.</p></div>
+    </section>
+    <section class="ch c4" id="end" aria-labelledby="h4">
+      <span class="num" aria-hidden="true">v</span>
+      <div class="txt"><div class="meta">Chapter five · Winter</div><h2 id="h4">Rest, <em>then</em> repair.</h2><p>Dikes are re-packed by hand, ponds are flooded to protect the clay, and the cooperative opens its ledger for the coming season.</p><a href="#h0">Back to chapter one</a></div>
+    </section>
+  </div>
+</main>
+<script>
+(function(){
+  document.documentElement.classList.add("js");
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)");
+  var track=document.getElementById("track"),chs=[].slice.call(document.querySelectorAll(".ch")),count=document.getElementById("count");
+  var clamp=function(v){return Math.max(0,Math.min(1,v))};
+  var SHAPES=[
+    null,
+    function(p){return "circle("+(p*142)+"% at 50% 62%)"},
+    function(p){return "inset("+((1-p)*100)+"% 0 0 0)"},
+    function(p){var x=p*170-35;return "polygon(0 0,"+(x+35)+"% 0,"+x+"% 100%,0 100%)"},
+    function(p){return "inset(0 0 0 "+((1-p)*100)+"%)"}
+  ];
+  var raf=0;
+  function update(){
+    raf=0;
+    if(reduce.matches)return;
+    var r=track.getBoundingClientRect(),vh=innerHeight,run=vh*1.1;
+    var s=-r.top,cur=0;
+    chs.forEach(function(el,i){
+      if(i===0)return;
+      var p=clamp((s-(i-1)*run)/run);
+      el.style.clipPath=SHAPES[i](p);
+      el.style.visibility=p<=0?"hidden":"visible";
+      el.firstElementChild.nextElementSibling&&0;
+      var t=el.querySelector(".txt");if(t)t.style.transform="translate3d(0,"+((1-p)*36)+"px,0)";
+      if(p>.5)cur=i;
+    });
+    count.textContent="0"+(cur+1)+" / 05";
+  }
+  function req(){if(!raf)raf=requestAnimationFrame(update)}
+  addEventListener("scroll",req,{passive:true});addEventListener("resize",req);
+  reduce.addEventListener&&reduce.addEventListener("change",function(){chs.forEach(function(e){e.style.clipPath="";e.style.visibility=""});req()});
+  update();
+})();
+</script>
+</body>
+</html>

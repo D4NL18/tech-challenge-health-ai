@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>69 · Elastic String Line</title>
+<!--
+PATTERN: A horizontal SVG line behaves like a plucked string: it bends toward the cursor when
+  near and springs back with damped oscillation when the cursor leaves.
+Motion: One quadratic Bezier whose control point follows a spring simulation (stiffness,
+  damping). While hovering within RANGE px of the line, the target is the pointer's Y offset
+  (scaled); on leave the target returns to 0 and the spring overshoots, then settles.
+  Several strings stack in sections, each with its own state.
+Accessibility: Strings are decorative (aria-hidden) dividers; headings carry meaning.
+  prefers-reduced-motion: lines remain straight, no simulation runs.
+  Touch: pointermove works with finger drag.
+Adapting: STIFFNESS, DAMPING, RANGE, PULL in the CONFIG. Libraries: none (rAF spring).
+-->
+<style>
+:root{--bg:#f4f1ea;--fg:#15151a;--acc:#e8432d}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif}
+section{min-height:50vh;display:flex;flex-direction:column;justify-content:flex-end;padding:8vh 6vw 0}
+h2{font-size:clamp(2rem,6vw,5rem);letter-spacing:-.04em;line-height:1;margin-bottom:2vh}
+p{max-width:44ch;margin-bottom:4vh;line-height:1.5;opacity:.7}
+.string{position:relative;height:80px;margin:0 -6vw;touch-action:pan-y}
+.string svg{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible}
+.string path{fill:none;stroke:var(--fg);stroke-width:2;stroke-linecap:round}
+.string.hot path{stroke:var(--acc)}
+footer{padding:6vh 6vw;font:500 .75rem ui-monospace,monospace;letter-spacing:.2em;text-transform:uppercase;opacity:.5}
+</style>
+</head>
+<body>
+<section>
+  <h2>Pluck the line.</h2>
+  <p>Bring your cursor close and the string leans toward it. Let go and it rings back to rest.</p>
+  <div class="string" aria-hidden="true"><svg><path/></svg></div>
+</section>
+<section>
+  <h2>Tension and release.</h2>
+  <p>A damped spring drives the control point, so the overshoot feels physical rather than tweened.</p>
+  <div class="string" aria-hidden="true"><svg><path/></svg></div>
+</section>
+<section>
+  <h2>Every divider, alive.</h2>
+  <p>Each line keeps its own state, so neighbours never disturb one another.</p>
+  <div class="string" aria-hidden="true"><svg><path/></svg></div>
+</section>
+<footer>Move across the lines</footer>
+<script>
+(function(){
+  var CONFIG={STIFFNESS:.12,DAMPING:.88,RANGE:90,PULL:.9};
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var strings=[].map.call(document.querySelectorAll(".string"),function(el){
+    return {el:el,path:el.querySelector("path"),y:0,v:0,target:0,cx:0,w:0,mid:40,active:false};
+  });
+  function layout(){strings.forEach(function(s){s.w=s.el.clientWidth;s.mid=s.el.clientHeight/2;render(s)})}
+  function render(s){
+    s.path.setAttribute("d","M0,"+s.mid+" Q"+s.cx+","+(s.mid+s.y*2)+" "+s.w+","+s.mid);
+  }
+  if(reduce){layout();addEventListener("resize",layout);return}
+
+  function onMove(e){
+    strings.forEach(function(s){
+      var r=s.el.getBoundingClientRect(),cy=r.top+r.height/2,dy=e.clientY-cy;
+      if(Math.abs(dy)<CONFIG.RANGE){
+        s.active=true;s.cx=e.clientX-r.left;
+        s.target=dy*CONFIG.PULL;
+        s.el.classList.add("hot");
+      }else if(s.active){s.active=false;s.target=0;s.el.classList.remove("hot")}
+    });
+  }
+  addEventListener("pointermove",onMove,{passive:true});
+  document.addEventListener("pointerleave",function(){strings.forEach(function(s){s.active=false;s.target=0;s.el.classList.remove("hot")})});
+
+  (function loop(){
+    strings.forEach(function(s){
+      // damped spring: acceleration toward target, with velocity damping
+      s.v+=(s.target-s.y)*CONFIG.STIFFNESS;
+      s.v*=CONFIG.DAMPING;
+      s.y+=s.v;
+      if(!s.active&&s.target===0&&Math.abs(s.y)<.01&&Math.abs(s.v)<.01){s.y=0;s.v=0;s.cx=s.w/2}
+      if(!s.active&&!s.cx)s.cx=s.w/2;
+      render(s);
+    });
+    requestAnimationFrame(loop);
+  })();
+  addEventListener("resize",layout);
+  layout();strings.forEach(function(s){s.cx=s.w/2;render(s)});
+})();
+</script>
+</body>
+</html>

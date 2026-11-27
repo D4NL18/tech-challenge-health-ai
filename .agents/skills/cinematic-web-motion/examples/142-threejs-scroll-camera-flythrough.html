@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>142 · Three.js Scroll Camera Flythrough</title>
+<!--
+PATTERN: A procedural low-poly landscape (valley, pines, a small city at the end) is rendered fixed behind the
+  page. Scrolling moves the camera along a CatmullRom spline through the valley; chapters of copy sit over it.
+Motion: scroll progress (0..1) is smoothed (lerp) and used as t on the spline: camera = curve.getPoint(t),
+  look target = curve.getPoint(t + 0.025). Camera height follows the terrain height function so it never clips.
+  Fog colour doubles as the sky so the world fades into the page background.
+Accessibility: All copy is real HTML above the canvas. If Three.js fails to load (CDN blocked / offline) a
+  visible notice appears and the chapters remain readable on a flat warm background.
+  prefers-reduced-motion: the camera is placed at 5 fixed stops (snaps per chapter, no smoothing).
+Adapting: Edit CHAPTERS copy, the terrain function h(x,z), the PATH x(z) wobble, or the palette in CSS/JS.
+  Libraries: three@0.160 (ES module via jsDelivr, dynamic import with try/catch).
+-->
+<style>
+:root{--sand:#e9c9a0;--umber:#2a1d14;--cream:#f6ecda;--clay:#b4532a;--moss:#5d6b3a;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--sand)}
+body{font-family:var(--sans);color:var(--umber);line-height:1.55;overflow-x:hidden;background:var(--sand)}
+:focus-visible{outline:2px solid var(--clay);outline-offset:4px}
+#gl{position:fixed;inset:0;width:100vw;height:100vh;z-index:0;display:block}
+.notice{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:30;background:var(--umber);color:var(--cream);padding:10px 16px;font-size:.82rem;max-width:92vw;display:none}
+.nogl .notice{display:block}
+.bar{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;justify-content:space-between;padding:20px clamp(18px,4vw,48px);font-size:.75rem;letter-spacing:.18em;text-transform:uppercase}
+.bar b{font:italic 400 1.1rem var(--serif);letter-spacing:0;text-transform:none}
+.prog{position:fixed;left:0;top:0;height:3px;background:var(--clay);width:100%;transform-origin:left;transform:scaleX(0);z-index:25}
+main{position:relative;z-index:5}
+.ch{min-height:130vh;display:flex;align-items:center;padding:12vh clamp(18px,4vw,48px)}
+.ch:nth-child(even){justify-content:flex-end}
+.ch .box{max-width:min(460px,90vw);padding:28px 30px;background:rgba(246,236,218,.9);border-left:4px solid var(--clay)}
+.ch.big .box{background:none;border:0;padding:0;max-width:min(980px,94vw)}
+.ch .k{font:600 .7rem/1 var(--sans);letter-spacing:.22em;text-transform:uppercase;color:var(--clay);margin-bottom:14px}
+.ch h2{font:400 clamp(2rem,4.6vw,3.8rem)/1 var(--serif);letter-spacing:-.02em;margin-bottom:14px}
+.ch.big h1{font:400 clamp(3.2rem,11vw,10.5rem)/.88 var(--serif);letter-spacing:-.035em;color:var(--umber)}
+.ch.big h1 em{color:var(--clay)}
+.ch.big h2{background:rgba(246,236,218,.92);padding:18px 22px;display:inline-block}
+.ch.big p{margin-top:24px;max-width:36ch;font-size:1.05rem;background:rgba(246,236,218,.82);padding:10px 14px}
+.ch p{font-size:.98rem}
+.ch a.btn{display:inline-block;margin-top:20px;padding:14px 26px;background:var(--umber);color:var(--cream);text-decoration:none;font-size:.8rem;letter-spacing:.16em;text-transform:uppercase;transition:background .25s,transform .25s}
+.ch a.btn:hover{background:var(--clay);transform:translateY(-2px)}
+@media (max-width:700px){.ch{min-height:115vh}.ch .box{padding:20px}}
+@media (prefers-reduced-motion:reduce){.ch{min-height:100vh}}
+</style>
+</head>
+<body>
+<canvas id="gl" aria-hidden="true"></canvas>
+<div class="notice" role="status">The 3D scene could not load (the Three.js CDN is unreachable). The story below still reads in full.</div>
+<div class="prog" id="prog"></div>
+<div class="bar"><b>Vale Alto Trail</b><span id="stop">Km 0</span></div>
+<main>
+  <section class="ch big"><div><h1>Forty kilometres, <em>one valley.</em></h1><p>A guided traverse of the Vale Alto, from the grazing meadows to the old market town at the end of the line.</p></div></section>
+  <section class="ch"><div class="box"><p class="k">Km 8 · The meadows</p><h2>Start where the grass is still wet.</h2><p>Huts open at six. The first stretch is flat and soft, with two stream crossings and a dairy that sells warm cheese from a bench.</p></div></section>
+  <section class="ch"><div class="box"><p class="k">Km 17 · The pine ridge</p><h2>The path climbs, then lets you breathe.</h2><p>Four hundred metres of gain through spruce planted by the cooperative in 1962. Wind drops here; most walkers stop for lunch at the stone table.</p></div></section>
+  <section class="ch"><div class="box"><p class="k">Km 29 · The pass</p><h2>A saddle at 1,980 metres.</h2><p>Open ground, long views, and a weather station you may use to dry your socks. Descent follows the old mule route into the town.</p></div></section>
+  <section class="ch big"><div><h2 style="font-size:clamp(2.2rem,6vw,5rem)">Beds for 14 each night. <em style="color:var(--clay)">Book before April.</em></h2><a class="btn" href="#top">Reserve a departure</a></div></section>
+</main>
+<script type="module">
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+const prog=document.getElementById("prog"),stopEl=document.getElementById("stop");
+function sp(){const m=document.documentElement.scrollHeight-innerHeight;return m>0?Math.min(Math.max(scrollY/m,0),1):0}
+let THREE;
+try{THREE=await import("https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js");}
+catch(e){document.body.classList.add("nogl");}
+if(THREE){
+  const cv=document.getElementById("gl");
+  const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));
+  const FOG=0xe9c9a0;
+  const scene=new THREE.Scene();scene.background=new THREE.Color(FOG);scene.fog=new THREE.Fog(FOG,40,230);
+  const cam=new THREE.PerspectiveCamera(58,1,.5,400);
+  scene.add(new THREE.HemisphereLight(0xfff0d6,0x5a4630,1.05));
+  const sun=new THREE.DirectionalLight(0xffc684,1.7);sun.position.set(-60,60,-20);scene.add(sun);
+
+  function pathX(z){return Math.sin(z*.018)*34+Math.sin(z*.047)*10}
+  function h(x,z){
+    const d=Math.abs(x-pathX(z));
+    const base=Math.sin(x*.045)*9+Math.cos(z*.037)*8+Math.sin(x*.11+z*.07)*3.2+Math.sin(z*.09)*2;
+    const valley=Math.min(d/46,1);
+    const ridge=Math.pow(valley,1.6)*34;
+    const pass=Math.max(0,Math.exp(-Math.pow((z+300)/45,2)))*16;
+    return base*(.35+valley*.65)+ridge+pass*(1-valley)*.0;
+  }
+  // terrain
+  const W=420,L=520,SX=130,SZ=164;
+  const g=new THREE.PlaneGeometry(W,L,SX,SZ);g.rotateX(-Math.PI/2);
+  const pos=g.attributes.position,col=new Float32Array(pos.count*3);
+  const cLow=new THREE.Color(0x7a8a45),cMid=new THREE.Color(0xa88a54),cHigh=new THREE.Color(0xd9c3a0),cr=new THREE.Color();
+  for(let i=0;i<pos.count;i++){
+    const x=pos.getX(i),z=pos.getZ(i)-L/2+40,y=h(x,z);pos.setXYZ(i,x+(Math.sin(i*12.9)*.5),y,z+(Math.cos(i*7.3)*.5));
+    const t=Math.min(Math.max((y+4)/46,0),1);
+    cr.copy(cLow).lerp(cMid,Math.min(t*2,1)).lerp(cHigh,Math.max(t*2-1,0));
+    const j=(Math.sin(i*3.17)*.5+.5)*.07;col[i*3]=cr.r-j;col[i*3+1]=cr.g-j;col[i*3+2]=cr.b-j;
+  }
+  g.setAttribute("color",new THREE.BufferAttribute(col,3));g.computeVertexNormals();
+  scene.add(new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true,flatShading:true})));
+
+  // pines (instanced cones)
+  let seed=7;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
+  const pineGeo=new THREE.ConeGeometry(1.6,6,5);pineGeo.translate(0,3,0);
+  const pines=new THREE.InstancedMesh(pineGeo,new THREE.MeshLambertMaterial({color:0x3c4a26,flatShading:true}),900);
+  const m4=new THREE.Matrix4(),q=new THREE.Quaternion(),s=new THREE.Vector3(),p=new THREE.Vector3();
+  let n=0;
+  for(let tries=0;tries<4000&&n<900;tries++){
+    const z=-rnd()*340+30,x=pathX(z)+(rnd()-.5)*200;
+    if(Math.abs(x-pathX(z))<9)continue;
+    const y=h(x,z);if(y>22||y<-3)continue;
+    const sc=.7+rnd()*1.3;p.set(x,y-.2,z);s.set(sc,sc*(.9+rnd()*.5),sc);
+    m4.compose(p,q,s);pines.setMatrixAt(n++,m4);
+  }
+  pines.count=n;scene.add(pines);
+
+  // small city at the end of the trail
+  const cityZ=-352,cx=pathX(cityZ);
+  const bGeo=new THREE.BoxGeometry(1,1,1);bGeo.translate(0,.5,0);
+  const cityMat=[0xd9a76a,0xc7824a,0xe7d3ae,0x9c5a34].map(c=>new THREE.MeshLambertMaterial({color:c,flatShading:true}));
+  for(let i=0;i<46;i++){
+    const gx=(i%8)-3.5,gz=Math.floor(i/8)-3;
+    const x=cx+gx*7.5+(rnd()-.5)*2,z=cityZ-gz*8+(rnd()-.5)*2;
+    if(Math.abs(gx)<1)continue;
+    const hh=3+rnd()*9+(Math.abs(gx)<1.5?5:0),b=new THREE.Mesh(bGeo,cityMat[i%4]);
+    b.scale.set(4+rnd()*2.5,hh,4+rnd()*2.5);b.position.set(x,h(x,z)-.5,z);scene.add(b);
+    if(rnd()>.55){const r=new THREE.Mesh(new THREE.ConeGeometry(3,2.2,4),cityMat[3]);r.position.set(x,h(x,z)+hh-.2,z);r.rotation.y=Math.PI/4;scene.add(r);}
+  }
+  // path ribbon
+  const pp=[];for(let z=30;z>-360;z-=3){const x=pathX(z);pp.push(x-1.6,h(x-1.6,z)+.55,z,x+1.6,h(x+1.6,z)+.55,z);}
+  const rg=new THREE.BufferGeometry(),rv=new Float32Array(pp),idx=[];
+  for(let i=0;i<pp.length/6-1;i++){const a=i*2;idx.push(a,a+1,a+2,a+1,a+3,a+2);}
+  rg.setAttribute("position",new THREE.BufferAttribute(rv,3));rg.setIndex(idx);rg.computeVertexNormals();
+  scene.add(new THREE.Mesh(rg,new THREE.MeshBasicMaterial({color:0xd8bf94,side:THREE.DoubleSide})));
+
+  // spline
+  const pts=[];for(let z=20;z>-345;z-=24){const x=pathX(z);pts.push(new THREE.Vector3(x,h(x,z)+5.5,z));}
+  const curve=new THREE.CatmullRomCurve3(pts,false,"catmullrom",.5);
+  const STOPS=[0,.22,.45,.7,1],look=new THREE.Vector3(),tmp=new THREE.Vector3();
+  let cur=0;
+  function place(t){
+    curve.getPoint(Math.min(t,1),tmp);cam.position.copy(tmp);
+    curve.getPoint(Math.min(t+.03,1),look);look.y-=2.2;
+    cam.lookAt(look);cam.position.y+=Math.sin(t*40)*.25;
+  }
+  function resize(){const w=innerWidth,h2=innerHeight;renderer.setSize(w,h2,false);cam.aspect=w/h2;cam.fov=w<700?72:58;cam.updateProjectionMatrix();}
+  resize();addEventListener("resize",resize);
+  function tick(){
+    let tgt=sp();
+    if(reduce){tgt=STOPS.reduce((a,b)=>Math.abs(b-tgt)<Math.abs(a-tgt)?b:a);cur=tgt;}
+    else cur+=(tgt-cur)*.07;
+    place(cur*.9);
+    prog.style.transform="scaleX("+cur.toFixed(4)+")";
+    stopEl.textContent="Km "+Math.round(cur*40);
+    renderer.render(scene,cam);
+    requestAnimationFrame(tick);
+  }
+  tick();
+} else {
+  addEventListener("scroll",()=>{const t=sp();prog.style.transform="scaleX("+t+")";stopEl.textContent="Km "+Math.round(t*40)},{passive:true});
+}
+</script>
+</body>
+</html>

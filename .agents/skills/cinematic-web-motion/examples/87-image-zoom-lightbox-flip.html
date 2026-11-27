@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>87 · Image Zoom Lightbox FLIP</title>
+<!--
+PATTERN: A contact sheet of six plates. Clicking a thumbnail grows it into a lightbox; closing
+  shrinks it back to the exact thumbnail it came from.
+Motion: FLIP. The lightbox figure is laid out at its final size, then animated from the thumbnail's
+  rect (translate + scale) to identity with element.animate(); close plays the reverse toward the
+  current thumbnail (even after arrow navigation). The scrim fades in parallel.
+Accessibility: role="dialog" aria-modal with label; Esc closes, Left/Right arrows navigate, Tab is
+  trapped between Prev / Next / Close; page behind gets aria-hidden; focus returns to the opener.
+  Images are procedural SVG with role="img" and text alt. Counter text "3 of 6" is visible.
+  prefers-reduced-motion: no zoom, only an instant swap.
+Adapting: DURATION, EASE, PLATES in CONFIG. Libraries: none.
+-->
+<style>
+:root{--paper:#f1ebdd;--ink:#1c1915;--rust:#a63a1c;--ease:cubic-bezier(.2,.7,.2,1);
+--serif:"Iowan Old Style","Palatino Linotype",Georgia,serif;--sans:"Avenir Next","Segoe UI","Helvetica Neue",sans-serif}
+*{box-sizing:border-box;margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans)}
+main{padding:9vh 6vw 12vh 11vw}
+h1{font:600 clamp(2.2rem,6vw,4.4rem)/1 var(--serif);letter-spacing:-.03em}
+.sub{margin:1rem 0 2.5rem;max-width:44ch;line-height:1.5}
+.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:1rem;max-width:900px}
+.grid button{padding:0;border:0;background:none;cursor:zoom-in;display:block;aspect-ratio:4/3}
+.grid button:nth-child(1){grid-column:span 3;grid-row:span 2;aspect-ratio:auto}
+.grid button:nth-child(2),.grid button:nth-child(3){grid-column:span 3}
+.grid button:nth-child(n+4){grid-column:span 2}
+.grid button:hover svg{transform:scale(1.03)}
+.grid button:focus-visible{outline:3px solid var(--rust);outline-offset:3px}
+svg{display:block;width:100%;height:100%;transition:transform .5s var(--ease)}
+#lb{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center}
+#lb.on{display:flex}
+.scrim{position:absolute;inset:0;background:#1c1915f5}
+figure{position:relative;width:min(86vw,calc(76vh*1.3333));aspect-ratio:4/3;transform-origin:0 0}
+figure svg{width:100%;height:100%}
+.bar{position:absolute;left:0;right:0;bottom:3vh;display:flex;gap:.6rem;justify-content:center;align-items:center;color:var(--paper);font-size:.9rem}
+.bar button{font:600 .85rem var(--sans);padding:.55rem .9rem;border:2px solid var(--paper);background:none;color:var(--paper);cursor:pointer}
+.bar button:hover{background:var(--paper);color:var(--ink)}
+.bar button:focus-visible{outline:3px solid var(--paper);outline-offset:3px}
+.cap{position:absolute;top:3vh;left:0;right:0;text-align:center;color:var(--paper);font:italic 1.1rem var(--serif)}
+@media (prefers-reduced-motion:reduce){svg{transition:none}}
+</style>
+</head>
+<body>
+<main id="pg">
+  <h1>Plates from the dock survey</h1>
+  <p class="sub">Six field drawings from the 1984 harbour survey. Select one to inspect it full size.</p>
+  <div class="grid" id="grid"></div>
+</main>
+<div id="lb" role="dialog" aria-modal="true" aria-label="Plate viewer">
+  <div class="scrim"></div>
+  <p class="cap" id="cap"></p>
+  <figure id="fig"></figure>
+  <div class="bar">
+    <button type="button" id="pv" aria-label="Previous plate">&larr; Prev</button>
+    <span id="ct"></span>
+    <button type="button" id="nx" aria-label="Next plate">Next &rarr;</button>
+    <button type="button" id="cl" aria-label="Close viewer">Close &#10005;</button>
+  </div>
+</div>
+<script>
+(function(){
+  var CONFIG={DURATION:480,EASE:"cubic-bezier(.2,.7,.2,1)",PLATES:[
+    ["Quay 4 at low tide","#d9c7a3","#1c1915","#a63a1c"],["Crane gantry, elevation","#c9d2bd","#2a3a2a","#a63a1c"],
+    ["Mooring bollards","#e3c9a8","#3a2418","#2f5a50"],["Pilot boat at dusk","#c7b79c","#1c1915","#b9791f"],
+    ["Silt survey grid","#d6d0bd","#33402f","#a63a1c"],["Warehouse 9, north wall","#ddc3b0","#40251a","#2f5a50"]]};
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var grid=document.getElementById("grid"),lb=document.getElementById("lb"),fig=document.getElementById("fig"),pg=document.getElementById("pg"),
+      cap=document.getElementById("cap"),ct=document.getElementById("ct"),scrim=lb.querySelector(".scrim"),
+      cur=0,thumbs=[],busy=false;
+  function art(i){
+    var p=CONFIG.PLATES[i],k=i+1;
+    return '<svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" role="img" aria-label="'+p[0]+'"><rect width="400" height="300" fill="'+p[1]+'"/>'+
+      '<circle cx="'+(60+k*45)+'" cy="'+(70+(k%3)*20)+'" r="'+(26+k*3)+'" fill="'+p[3]+'"/>'+
+      '<path d="M0 220 Q100 '+(170+k*8)+' 200 210 T400 190 V300 H0Z" fill="'+p[2]+'"/>'+
+      '<path d="M'+(30*k)+' 300 V'+(120+k*6)+' h14 V300" fill="'+p[3]+'" opacity=".8"/>'+
+      '<path d="M0 250 H400" stroke="'+p[1]+'" stroke-width="3" stroke-dasharray="'+(6+k*2)+' 9"/></svg>';
+  }
+  CONFIG.PLATES.forEach(function(p,i){
+    var b=document.createElement("button");b.type="button";b.setAttribute("aria-label","Open plate: "+p[0]);
+    b.innerHTML=art(i);b.addEventListener("click",function(){open(i)});grid.appendChild(b);thumbs.push(b);
+  });
+  function delta(from,to){return{x:from.left-to.left,y:from.top-to.top,s:from.width/to.width}}
+  function show(i){cur=i;fig.innerHTML=art(i);cap.textContent=CONFIG.PLATES[i][0];ct.textContent=(i+1)+" of "+CONFIG.PLATES.length}
+  function open(i){
+    show(i);lb.classList.add("on");pg.setAttribute("aria-hidden","true");
+    document.getElementById("cl").focus();
+    if(reduce)return;
+    var d=delta(thumbs[i].getBoundingClientRect(),fig.getBoundingClientRect());
+    fig.animate([{transform:"translate("+d.x+"px,"+d.y+"px) scale("+d.s+")"},{transform:"none"}],{duration:CONFIG.DURATION,easing:CONFIG.EASE});
+    scrim.animate([{opacity:0},{opacity:1}],{duration:CONFIG.DURATION,easing:CONFIG.EASE});
+  }
+  function close(){
+    if(busy)return;
+    function done(){fig.getAnimations().concat(scrim.getAnimations()).forEach(function(a){a.cancel()});lb.classList.remove("on");pg.removeAttribute("aria-hidden");busy=false;thumbs[cur].focus()}
+    if(reduce)return done();
+    busy=true;
+    var d=delta(thumbs[cur].getBoundingClientRect(),fig.getBoundingClientRect());
+    fig.animate([{transform:"none"},{transform:"translate("+d.x+"px,"+d.y+"px) scale("+d.s+")"}],{duration:CONFIG.DURATION,easing:CONFIG.EASE,fill:"forwards"});
+    scrim.animate([{opacity:1},{opacity:0}],{duration:CONFIG.DURATION,fill:"forwards"}).onfinish=done;
+  }
+  function step(n){
+    cur=(cur+n+CONFIG.PLATES.length)%CONFIG.PLATES.length;show(cur);
+    if(!reduce)fig.animate([{opacity:0,transform:"translateX("+(n*24)+"px)"},{opacity:1,transform:"none"}],{duration:300,easing:CONFIG.EASE});
+  }
+  document.getElementById("cl").addEventListener("click",close);
+  document.getElementById("pv").addEventListener("click",function(){step(-1)});
+  document.getElementById("nx").addEventListener("click",function(){step(1)});
+  scrim.addEventListener("click",close);
+  document.addEventListener("keydown",function(e){
+    if(!lb.classList.contains("on"))return;
+    if(e.key==="Escape")close();
+    else if(e.key==="ArrowRight")step(1);
+    else if(e.key==="ArrowLeft")step(-1);
+    else if(e.key==="Tab"){
+      var f=lb.querySelectorAll("button"),a=f[0],z=f[f.length-1];
+      if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus()}
+      else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus()}
+    }
+  });
+})();
+</script>
+</body>
+</html>

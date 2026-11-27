@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>110 · Horizontal Scroll Showcase Section</title>
+<!--
+PATTERN: Pinned horizontal product showcase. Vertical scroll is converted into horizontal travel of a panel strip; inside each panel the lamp artwork and the oversized index numeral drift at different speeds (nested parallax).
+Motion: GSAP ScrollTrigger pins .hs and scrubs x from 0 to -(track width - viewport); onUpdate measures each panel against the viewport centre and writes translateX on .lamp (-14%) and .idx (+22%) to create depth; progress bar and counter follow.
+Accessibility: Panels are articles in DOM order; without GSAP or with prefers-reduced-motion the strip becomes a native horizontally scrollable, scroll-snapped row (keyboard focusable, tabindex=0 with label); :focus-visible styled.
+Adapting: Add/remove .panel elements; per-panel colours via --bg/--ink/--lamp custom properties; parallax strength in CONFIG.
+Libraries: gsap 3.12.5 + ScrollTrigger (jsdelivr CDN). Concept demo: "Oficina Lume" is a fictional lamp workshop.
+-->
+<style>
+:root{--paper:#f1e9db;--ink:#241c18;--mute:#5f5248;--rust:#b4502b;
+--serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Segoe UI","Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.55;overflow-x:hidden}
+a{color:inherit}a:focus-visible,.strip:focus-visible{outline:3px solid var(--rust);outline-offset:4px}
+.top{display:flex;justify-content:space-between;padding:1.4rem 6vw;font-size:.78rem;letter-spacing:.2em;text-transform:uppercase}
+.top b{font:400 1.3rem var(--serif);text-transform:none;letter-spacing:.01em}
+.lead{padding:10vh 6vw 8vh;display:grid;grid-template-columns:8fr 4fr;gap:5vw;align-items:end;min-height:75vh}
+.lead h1{font:400 clamp(2.8rem,8.4vw,7.4rem)/.92 var(--serif);letter-spacing:-.035em}
+.lead h1 em{color:var(--rust)}
+.lead p{max-width:22rem;color:var(--mute)}
+.hs{position:relative;overflow:hidden;background:var(--ink)}
+.strip{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:0}
+.panel{flex:0 0 min(78vw,1100px);min-height:100vh;position:relative;display:grid;grid-template-columns:1.1fr .9fr;align-items:center;gap:2vw;padding:12vh 4vw 10vh;background:var(--bg);color:var(--ink);overflow:hidden;scroll-snap-align:start;border-right:1px solid #241c1822}
+.panel.intro{flex-basis:min(60vw,760px);background:var(--ink);color:var(--paper);grid-template-columns:1fr;align-content:center}
+.panel.intro h2{font:400 clamp(2rem,4.6vw,4.2rem)/1 var(--serif);letter-spacing:-.02em}
+.panel.intro p{margin-top:1.2rem;max-width:24rem;color:#d8cdb9}
+.panel.intro small{display:block;margin-top:2rem;font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:#e59a74}
+.art{position:relative;height:min(62vh,520px)}
+.idx{position:absolute;left:-2%;top:-6%;font:400 clamp(9rem,24vw,20rem)/.8 var(--serif);letter-spacing:-.06em;color:var(--ink);opacity:.12}
+.lamp{position:absolute;inset:0}
+.lamp::before{content:"";position:absolute;left:50%;top:6%;width:62%;aspect-ratio:1;transform:translateX(-50%);background:var(--lamp);box-shadow:0 0 90px 10px var(--glow)}
+.lamp::after{content:"";position:absolute;left:50%;top:48%;bottom:0;width:6px;transform:translateX(-50%);background:var(--ink)}
+.l1::before{border-radius:50% 50% 8% 8%}
+.l2::before{border-radius:50%}
+.l3::before{clip-path:polygon(22% 0,78% 0,100% 100%,0 100%);aspect-ratio:1.1}
+.l4::before{border-radius:6%;width:44%;aspect-ratio:.7}
+.l5::before{border-radius:50% 50% 50% 50%/70% 70% 30% 30%;width:70%;aspect-ratio:1.3}
+.info h3{font:400 clamp(1.8rem,3.2vw,3rem)/1 var(--serif);letter-spacing:-.02em;margin-bottom:.6rem}
+.info p{max-width:21rem;margin-bottom:1.2rem}
+.info ul{list-style:none;border-top:1px solid currentColor;max-width:21rem}
+.info li{display:flex;justify-content:space-between;padding:.55rem 0;border-bottom:1px solid currentColor;font-size:.9rem}
+.price{display:block;margin-top:1.2rem;font:400 1.7rem var(--serif)}
+.p1{--bg:#d98b5f;--lamp:#fff0d2;--glow:#ffe0a8aa}.p2{--bg:#aebb9a;--lamp:#fbf3dc;--glow:#fff1c8aa}
+.p3{--bg:#e3c27a;--lamp:#fff6e2;--glow:#ffe9b8aa}.p4{--bg:#e6dcc8;--lamp:#2b221d;--glow:#2b221d33}
+.p5{--bg:#c9674a;--lamp:#ffeac8;--glow:#ffd7a0aa}
+.bar{display:none}
+.after{padding:14vh 6vw;display:grid;gap:1.2rem;min-height:60vh;align-content:center}
+.after h2{font:400 clamp(2rem,5vw,4.4rem)/1 var(--serif);max-width:14em}
+.after a{justify-self:start;border-bottom:2px solid var(--rust);text-decoration:none;padding-bottom:.2rem}
+.disc{font-size:.72rem;padding:1rem 6vw;background:var(--ink);color:var(--paper)}
+/* animated mode: strip becomes a pinned track */
+.anim .strip{overflow:visible;width:max-content;scroll-snap-type:none;height:100vh}
+.anim .panel{min-height:100vh;height:100vh}
+.anim .bar{display:flex;position:absolute;left:4vw;right:4vw;bottom:4vh;gap:1rem;align-items:center;z-index:3;color:var(--ink);font-size:.75rem;letter-spacing:.18em;text-transform:uppercase}
+.bar i{flex:1;height:2px;background:#241c1833;display:block;position:relative}
+.bar i b{position:absolute;inset:0;background:var(--ink);transform-origin:left;transform:scaleX(0)}
+@media (max-width:760px){
+ .lead{grid-template-columns:1fr;gap:1.5rem}
+ .panel{flex-basis:88vw;grid-template-columns:1fr;gap:0;padding:11vh 6vw 9vh;align-content:center}
+ .panel.intro{flex-basis:84vw}
+ .art{height:36vh}
+ .idx{font-size:9rem}
+ .info p{margin-bottom:.8rem;font-size:.92rem}.info li{padding:.4rem 0}.price{margin-top:.6rem}
+}
+</style>
+</head>
+<body>
+<div class="top"><b>Oficina Lume</b><span>Luminárias de bancada · Belo Horizonte</span></div>
+<header class="lead"><h1>Cinco luminárias, <em>uma por vez</em>, feitas à mão em Minas.</h1><p>Soprada, torneada ou dobrada em latão. Role para percorrer a coleção de inverno.</p></header>
+<section class="hs" id="hs" aria-label="Coleção de luminárias">
+ <div class="strip" id="strip" tabindex="0" aria-label="Coleção de luminárias, role na horizontal">
+  <article class="panel intro"><div><h2>Coleção Inverno 2026</h2><p>Cinco peças em edição de 60 unidades cada, numeradas na base. Todas usam lâmpada de 2.200 K, a cor de vela.</p><small>Role para o lado</small></div></article>
+  <article class="panel p1"><div class="art"><div class="idx" aria-hidden="true">01</div><div class="lamp l1" role="img" aria-label="Luminária Cúpula, abajur em forma de domo"></div></div><div class="info"><h3>Cúpula</h3><p>Vidro soprado leitoso sobre haste de latão escovado. Acende com dimmer no fio.</p><ul><li>Altura <span>38 cm</span></li><li>Vidro <span>soprado, 3 mm</span></li></ul><span class="price">R$ 890</span></div></article>
+  <article class="panel p2"><div class="art"><div class="idx" aria-hidden="true">02</div><div class="lamp l2" role="img" aria-label="Luminária Pomo, esfera de vidro"></div></div><div class="info"><h3>Pomo</h3><p>Esfera de 24 cm que parece flutuar sobre uma base de pedra-sabão de Ouro Preto.</p><ul><li>Altura <span>34 cm</span></li><li>Base <span>pedra-sabão</span></li></ul><span class="price">R$ 1.150</span></div></article>
+  <article class="panel p3"><div class="art"><div class="idx" aria-hidden="true">03</div><div class="lamp l3" role="img" aria-label="Luminária Trapézio, abajur de tecido em forma de trapézio"></div></div><div class="info"><h3>Trapézio</h3><p>Cúpula de linho cru sobre estrutura de latão dobrado. Luz difusa para leitura.</p><ul><li>Altura <span>46 cm</span></li><li>Tecido <span>linho cru</span></li></ul><span class="price">R$ 740</span></div></article>
+  <article class="panel p4"><div class="art"><div class="idx" aria-hidden="true">04</div><div class="lamp l4" role="img" aria-label="Luminária Prumo, cilindro escuro vertical"></div></div><div class="info"><h3>Prumo</h3><p>Cilindro de cerâmica preta fosca com fresta vertical que projeta uma faixa de luz na parede.</p><ul><li>Altura <span>42 cm</span></li><li>Cerâmica <span>queima 1.240 °C</span></li></ul><span class="price">R$ 980</span></div></article>
+  <article class="panel p5"><div class="art"><div class="idx" aria-hidden="true">05</div><div class="lamp l5" role="img" aria-label="Luminária Arco, abajur em formato de meia-lua"></div></div><div class="info"><h3>Arco</h3><p>Meia-lua de papel de arroz sobre arco de ferro. A mais leve da coleção, com 1,2 kg.</p><ul><li>Altura <span>52 cm</span></li><li>Peso <span>1,2 kg</span></li></ul><span class="price">R$ 690</span></div></article>
+ </div>
+ <div class="bar" aria-hidden="true"><span id="cnt">00 / 05</span><i><b id="fill"></b></i><span>Coleção</span></div>
+</section>
+<section class="after"><h2>Produção sob encomenda, entrega em 5 semanas.</h2><a href="#">Reservar uma peça</a></section>
+<p class="disc">Demo conceitual: Oficina Lume é uma marca fictícia; produtos e preços são ilustrativos.</p>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  var CONFIG={lamp:-.14,idx:.22};
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches||!window.gsap||!window.ScrollTrigger)return;
+  gsap.registerPlugin(ScrollTrigger);
+  document.documentElement.classList.add("anim");
+  var strip=document.getElementById("strip"),panels=gsap.utils.toArray(".panel"),cnt=document.getElementById("cnt"),fill=document.getElementById("fill");
+  strip.removeAttribute("tabindex");
+  function dist(){return strip.scrollWidth-innerWidth}
+  function parallax(){
+    var vw=innerWidth;
+    panels.forEach(function(p){
+      var r=p.getBoundingClientRect(),off=(r.left+r.width/2-vw/2)/vw;
+      var l=p.querySelector(".lamp"),i=p.querySelector(".idx");
+      if(l)l.style.transform="translateX("+(off*CONFIG.lamp*100)+"%)";
+      if(i)i.style.transform="translateX("+(off*CONFIG.idx*100)+"%)";
+    });
+  }
+  gsap.to(strip,{x:function(){return -dist()},ease:"none",scrollTrigger:{trigger:"#hs",start:"top top",end:function(){return "+="+dist()},pin:true,scrub:.6,anticipatePin:1,invalidateOnRefresh:true,
+    onUpdate:function(s){fill.style.transform="scaleX("+s.progress+")";cnt.textContent="0"+Math.min(5,Math.round(s.progress*5))+" / 05";parallax()}}});
+  parallax();
+})();
+</script>
+</body>
+</html>

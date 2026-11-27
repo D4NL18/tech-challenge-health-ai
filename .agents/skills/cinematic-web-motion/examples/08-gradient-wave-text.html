@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>08 · Gradient Wave Text</title>
+<!--
+EFFECT: A giant headline whose letters ride a sine wave (GSAP yoyo stagger from:"center"/"start")
+while a continuously shifting gradient is painted across the text via background-clip:text.
+Pointer proximity amplifies the wave locally. A second smaller line uses a skew/rotate wave.
+HOW TO ADAPT:
+  - Change text in [data-wave]; letters are split by script (spaces preserved).
+  - Gradient colours: --g1..--g4 CSS vars. Gradient speed: .grad animation duration.
+  - Wave amplitude/period: CONFIG.amp, CONFIG.each.
+  - Gradient is applied per-letter with background-size/position tied to the letter's offset so
+    it reads as ONE continuous gradient across the word.
+REDUCED MOTION: wave disabled, gradient animation stopped (static gradient).
+-->
+<style>
+:root{--g1:#ff5a36;--g2:#ffc857;--g3:#5ee7df;--g4:#b490ff}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:#0b0b10;color:#fff;font-family:"Helvetica Neue",Arial,sans-serif;display:grid;place-items:center;overflow:hidden}
+main{text-align:center;padding:2rem}
+.kicker{font:500 .75rem/1 ui-monospace,monospace;letter-spacing:.25em;text-transform:uppercase;color:#777;margin-bottom:3rem}
+h1{font-size:clamp(3.5rem,13vw,12rem);font-weight:700;letter-spacing:-.05em;line-height:1}
+h2{font-size:clamp(1.4rem,3.5vw,3rem);font-weight:400;margin-top:3rem;letter-spacing:-.02em}
+.ch{display:inline-block;will-change:transform;
+  background-image:linear-gradient(90deg,var(--g1),var(--g2),var(--g3),var(--g4),var(--g1),var(--g2),var(--g3));
+  background-size:var(--w,100vw) 100%;background-position:calc(var(--x,0px)*-1 + var(--shift,0px)) 0;
+  -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+.sp{display:inline-block;width:.28em}
+</style>
+</head>
+<body>
+<main>
+  <div class="kicker">Gradient · Wave</div>
+  <h1 data-wave="Ride the wave"></h1>
+  <h2 data-wave="smooth, fluid, alive" data-mode="tilt"></h2>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script>
+(function(){
+  var CONFIG={amp:.14,each:.07,dur:1.3};
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var groups=[].slice.call(document.querySelectorAll("[data-wave]")).map(function(el){
+    var txt=el.dataset.wave;el.setAttribute("aria-label",txt);el.textContent="";
+    var chars=[];
+    txt.split("").forEach(function(c){
+      var s=document.createElement("span");s.setAttribute("aria-hidden","true");
+      if(c===" "){s.className="sp"}else{s.className="ch";s.textContent=c;chars.push(s)}
+      el.appendChild(s);
+    });
+    return {el:el,chars:chars,tilt:el.dataset.mode==="tilt"};
+  });
+
+  function layout(){
+    groups.forEach(function(g){
+      var box=g.el.getBoundingClientRect();
+      g.chars.forEach(function(c){
+        var r=c.getBoundingClientRect();
+        c.style.setProperty("--x",(r.left-box.left)+"px");
+        c.style.setProperty("--w",Math.max(box.width,200)*1.6+"px");
+      });
+    });
+  }
+  (document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(layout);
+  addEventListener("resize",layout);
+
+  if(reduce)return;
+
+  groups.forEach(function(g){
+    var fs=parseFloat(getComputedStyle(g.el).fontSize);
+    if(g.tilt){
+      gsap.fromTo(g.chars,{rotation:-8,skewX:-10,y:fs*.1},{rotation:8,skewX:10,y:-fs*.1,duration:CONFIG.dur,ease:"sine.inOut",repeat:-1,yoyo:true,stagger:{each:CONFIG.each,from:"start"}});
+    } else {
+      g.tw=gsap.fromTo(g.chars,{y:fs*CONFIG.amp},{y:-fs*CONFIG.amp,duration:CONFIG.dur,ease:"sine.inOut",repeat:-1,yoyo:true,stagger:{each:CONFIG.each,from:"start"}});
+    }
+  });
+
+  // Continuous gradient drift
+  var shift={v:0};
+  gsap.to(shift,{v:1,duration:8,ease:"none",repeat:-1,onUpdate:function(){
+    groups.forEach(function(g){
+      var w=parseFloat(g.chars[0].style.getPropertyValue("--w"))||800;
+      var px=(shift.v*w*4/6)+"px"; // one gradient period = 4/6 of width (repeat tiles)
+      g.chars.forEach(function(c){c.style.setProperty("--shift",px)});
+    });
+  }});
+  // background tile must repeat seamlessly
+  document.querySelectorAll(".ch").forEach(function(c){c.style.backgroundRepeat="repeat-x"});
+
+  // Pointer proximity: nearby letters lift & scale
+  var main=groups[0];
+  addEventListener("pointermove",function(e){
+    main.chars.forEach(function(c){
+      var r=c.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+      var d=Math.hypot(e.clientX-cx,e.clientY-cy),k=Math.max(0,1-d/260);
+      gsap.to(c,{scale:1+k*.35,duration:.5,ease:"power3.out",overwrite:"auto",
+        // overwrite only scale-affecting tweens: use quickTo-like isolated property
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

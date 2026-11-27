@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>104 · Parallax Depth Landing</title>
+<!--
+PATTERN: Full landing with five depth layers (sky, far ridge, giant type, mid ridge, near ridge) that travel at different speeds, so the headline sits between mountains; a second "altitude" section reuses data-speed drift on cards and numerals.
+Motion: GSAP ScrollTrigger scrub on yPercent per layer (+34, +24, +14, +4, -10 over the hero); .drift elements get y = data-speed * 100px across their own travel. Ridges are generated at runtime from seeded noise (no assets).
+Accessibility: Decorative layers are aria-hidden; the headline is a real h1; with prefers-reduced-motion or no GSAP everything stays static and readable; :focus-visible styled.
+Adapting: Edit LAYERS speeds in CONFIG, ridge colours in CSS vars, or add .drift elements with data-speed (negative = faster than scroll).
+Libraries: gsap 3.12.5 + ScrollTrigger (jsdelivr CDN). Concept demo: "Cima Alta" is a fictional alpine refuge.
+-->
+<style>
+:root{--sky1:#f6dcb8;--sky2:#e9a98a;--far:#b98e86;--mid:#7b5b62;--near:#3a2b33;--tree:#1d171c;--cream:#fff1dc;--rust:#c4492a;--ink:#2a1f24;--bg:#f4e8d6;
+--serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Segoe UI","Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;overflow-x:hidden}
+a:focus-visible{outline:3px solid var(--rust);outline-offset:4px}
+.nav{position:absolute;z-index:10;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:1.4rem 6vw;color:var(--ink);font-size:.78rem;letter-spacing:.2em;text-transform:uppercase}
+.nav b{font:400 1.3rem var(--serif);text-transform:none;letter-spacing:.01em}
+.hero{position:relative;height:110vh;overflow:hidden;background:linear-gradient(var(--sky1),var(--sky2) 70%)}
+.layer{position:absolute;left:0;right:0;bottom:0;height:100%;will-change:transform}
+.l-near{bottom:-14vh;height:calc(100% + 14vh)}
+.layer svg{position:absolute;left:0;bottom:0;width:100%;display:block}
+.l-sky .sun{position:absolute;left:64%;top:22%;width:min(22vw,190px);aspect-ratio:1;border-radius:50%;background:#fff6dc;box-shadow:0 0 0 24px #fff6dc40,0 0 0 60px #fff6dc22}
+.l-far svg{height:52%}.l-mid svg{height:44%}.l-near svg{height:34%}
+.l-far path{fill:var(--far)}.l-mid path{fill:var(--mid)}.l-near path{fill:var(--near)}
+.l-type{display:grid;align-content:center;padding:0 5vw 22vh}
+.l-type h1{font:400 clamp(4.2rem,19vw,19rem)/.8 var(--serif);letter-spacing:-.05em;color:var(--cream);margin-top:6vh}
+.l-type h1 span{display:block}.l-type h1 span:last-child{margin-left:12vw;color:var(--rust)}
+.l-type .tag{position:absolute;left:5vw;bottom:12vh;font-size:.8rem;letter-spacing:.2em;text-transform:uppercase;color:var(--cream)}
+.l-near .pines{position:absolute;inset:auto 0 0 0;height:26%;background:var(--tree);clip-path:polygon(0 100%,0 52%,3% 30%,5% 55%,8% 18%,11% 56%,14% 36%,17% 60%,100% 60%,100% 100%)}
+.intro{padding:14vh 6vw;display:grid;grid-template-columns:4fr 7fr;gap:6vw;align-items:start}
+.intro h2{font:400 clamp(2rem,4.6vw,4.2rem)/1.02 var(--serif);letter-spacing:-.02em}
+.intro h2 em{color:var(--rust)}
+.intro p{max-width:34rem;margin-bottom:1.2rem}
+.alt{position:relative;min-height:170vh;padding:10vh 6vw;overflow:hidden;background:var(--ink);color:var(--cream)}
+.alt .big{font:400 clamp(6rem,30vw,28rem)/.8 var(--serif);letter-spacing:-.06em;color:#f1d7b0;opacity:.14;position:absolute;left:-2vw;top:8vh;white-space:nowrap}
+.alt .big.b2{top:auto;bottom:6vh;left:auto;right:-2vw;color:var(--rust);opacity:.35}
+.alt h2{position:relative;font:400 clamp(2rem,5vw,4.6rem)/1 var(--serif);max-width:11em;margin-bottom:12vh}
+.cards{position:relative;display:grid;grid-template-columns:repeat(12,1fr);gap:2rem}
+.card{background:var(--cream);color:var(--ink);padding:1.6rem;border-left:6px solid var(--rust)}
+.card h3{font:400 1.7rem var(--serif);margin-bottom:.4rem}
+.card small{display:block;font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:#6b3b2c;margin-bottom:.6rem}
+.card:nth-child(1){grid-column:1/6}.card:nth-child(2){grid-column:7/12;margin-top:22vh}.card:nth-child(3){grid-column:3/8;margin-top:6vh}
+.cta{padding:14vh 6vw;display:grid;gap:1.2rem;min-height:60vh;align-content:center}
+.cta h2{font:400 clamp(2rem,5.4vw,4.8rem)/1 var(--serif);max-width:13em}
+.cta a{justify-self:start;border-bottom:2px solid var(--rust);text-decoration:none;color:var(--ink);padding-bottom:.2rem}
+.disc{font-size:.72rem;padding:1rem 6vw;background:var(--ink);color:var(--cream);opacity:.9}
+@media (max-width:760px){
+ .intro{grid-template-columns:1fr;gap:1.5rem}
+ .cards{display:flex;flex-direction:column}.card:nth-child(n){margin-top:0}
+ .l-type{padding-bottom:30vh}.l-type h1 span:last-child{margin-left:6vw}
+ .alt{min-height:auto;padding-bottom:16vh}
+}
+</style>
+</head>
+<body>
+<header class="hero" id="hero">
+ <div class="nav"><b>Cima Alta</b><span>Rifúgio · Dolomitas</span></div>
+ <div class="layer l-sky" data-d="34" aria-hidden="true"><div class="sun"></div></div>
+ <div class="layer l-far" data-d="24" aria-hidden="true"><svg id="r1" viewBox="0 0 1440 400" preserveAspectRatio="none"><path d=""/></svg></div>
+ <div class="layer l-type" data-d="14"><h1><span>Cima</span><span>Alta</span></h1><p class="tag">2.847 m · aberto de junho a outubro</p></div>
+ <div class="layer l-mid" data-d="4" aria-hidden="true"><svg id="r2" viewBox="0 0 1440 400" preserveAspectRatio="none"><path d=""/></svg></div>
+ <div class="layer l-near" data-d="-10" aria-hidden="true"><svg id="r3" viewBox="0 0 1440 400" preserveAspectRatio="none"><path d=""/></svg><div class="pines"></div></div>
+</header>
+<section class="intro">
+ <h2>Uma cama quente no ponto onde a trilha <em>termina</em>.</h2>
+ <div>
+  <p>O refúgio Cima Alta fica sobre uma crista de dolomita, a quatro horas de caminhada do último estacionamento. São 34 leitos em quartos de seis, lareira a lenha e polenta servida às 19h30.</p>
+  <p>Subimos o gás e a farinha de helicóptero uma vez por temporada. Todo o resto sobe nas costas de Marta, Elio e Teo.</p>
+ </div>
+</section>
+<section class="alt">
+ <div class="big drift" data-speed="-1.4" aria-hidden="true">2847</div>
+ <div class="big b2 drift" data-speed="1.6" aria-hidden="true">m</div>
+ <h2>Três coisas que você só entende lá em cima.</h2>
+ <div class="cards">
+  <article class="card drift" data-speed="-.5"><small>Às 5h50</small><h3>A crista fica rosa</h3><p>O sol atinge o paredão leste antes de tocar o vale. Dura onze minutos e ninguém fala.</p></article>
+  <article class="card drift" data-speed="1.2"><small>Às 15h00</small><h3>A névoa sobe</h3><p>Vinda do lago, ela cobre a trilha em quarenta minutos. Por isso descemos cedo.</p></article>
+  <article class="card drift" data-speed=".4"><small>Às 22h00</small><h3>Silêncio de pedra</h3><p>Sem sinal de celular e sem gerador à noite. A única luz é a lareira.</p></article>
+ </div>
+</section>
+<section class="cta"><h2>Reservas para a temporada 2027 abrem em 15 de janeiro.</h2><a href="#hero">Ver datas disponíveis</a></section>
+<p class="disc">Demo conceitual: Cima Alta é uma marca fictícia criada apenas para ilustrar o padrão.</p>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  /* seeded ridge generator, independent of GSAP */
+  function rnd(seed){var s=seed;return function(){s=(s*16807)%2147483647;return s/2147483647}}
+  function ridge(id,seed,amp,steps){
+    var r=rnd(seed),pts=[],y=.5;
+    for(var i=0;i<=steps;i++){y+= (r()-.5)*amp; y=Math.max(.12,Math.min(.85,y)); pts.push([i/steps*1440,y*400])}
+    var d="M0 400 L"+pts.map(function(p){return p[0].toFixed(0)+" "+p[1].toFixed(0)}).join(" L")+" L1440 400Z";
+    document.querySelector("#"+id+" path").setAttribute("d",d);
+  }
+  ridge("r1",7,.34,26);ridge("r2",21,.42,32);ridge("r3",99,.3,40);
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches||!window.gsap||!window.ScrollTrigger)return;
+  gsap.registerPlugin(ScrollTrigger);
+  var CONFIG={drift:100};
+  gsap.utils.toArray("#hero .layer").forEach(function(l){
+    gsap.to(l,{yPercent:+l.dataset.d,ease:"none",scrollTrigger:{trigger:"#hero",start:"top top",end:"bottom top",scrub:true}});
+  });
+  gsap.utils.toArray(".drift").forEach(function(el){
+    var sp=parseFloat(el.dataset.speed)||0;
+    gsap.fromTo(el,{y:-sp*CONFIG.drift},{y:sp*CONFIG.drift,ease:"none",scrollTrigger:{trigger:el.closest("section"),start:"top bottom",end:"bottom top",scrub:true}});
+  });
+})();
+</script>
+</body>
+</html>

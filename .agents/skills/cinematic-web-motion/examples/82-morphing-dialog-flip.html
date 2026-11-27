@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>82 · Morphing Dialog FLIP</title>
+<!--
+PATTERN: A card expands into a modal dialog as one shared element (Motion Primitives style
+  morphing dialog) using FLIP: measure First, apply Last, Invert with a transform, Play to identity.
+Motion: The dialog panel starts at the card's rect (translate + scale from getBoundingClientRect
+  deltas) and animates to centre in DUR ms with cubic-bezier(.2,.7,.2,1); closing reverses it to
+  the card. A scrim fades in/out; dialog body content fades after the morph.
+Accessibility: role="dialog" aria-modal, labelled by its title; focus moves in, Tab/Shift+Tab are
+  trapped, Esc and scrim click close, focus returns to the originating card. Close button has
+  aria-label. prefers-reduced-motion: opens/closes with a plain fade, no transform morph.
+Adapting: DUR in the CONFIG; card content is cloned in the dialog template. Libraries: none (Web Animations API).
+-->
+<style>
+:root{--paper:#f0e9db;--ink:#1c1a17;--mute:#574f44;--acc:#a8401d;--line:#cdc2ae;--e:cubic-bezier(.2,.7,.2,1)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--paper);color:var(--ink);font:16px/1.55 "Helvetica Neue",Arial,sans-serif;padding:9vh 6vw}
+h1{font:600 clamp(2rem,5vw,3.6rem)/1.05 Georgia,"Iowan Old Style",serif;letter-spacing:-.02em;margin:0 0 2.5rem 4vw;max-width:14ch}
+.grid{display:grid;grid-template-columns:1.4fr 1fr;grid-auto-rows:auto;gap:1.2rem;margin-left:4vw;max-width:900px}
+.card{text-align:left;font:inherit;color:inherit;background:#f8f3e8;border:1px solid var(--ink);padding:1.4rem;cursor:pointer;transition:transform .3s var(--e),box-shadow .3s var(--e)}
+.card:nth-child(1){grid-row:span 2}
+.card:hover{transform:translateY(-4px);box-shadow:6px 6px 0 var(--ink)}
+.card:focus-visible,.x:focus-visible,.go:focus-visible{outline:3px solid var(--acc);outline-offset:3px}
+.k{font:700 .7rem ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--acc)}
+.card h2,.dlg h2{font:600 1.5rem/1.15 Georgia,serif;margin:.5rem 0}
+.card p{color:var(--mute);font-size:.95rem}
+.scrim{position:fixed;inset:0;background:rgba(28,26,23,.55);opacity:0;pointer-events:none;transition:opacity .35s var(--e)}
+.scrim.on{opacity:1;pointer-events:auto}
+.dlg{position:fixed;left:50%;top:50%;width:min(520px,92vw);margin:0;transform:translate(-50%,-50%);background:#f8f3e8;border:1px solid var(--ink);padding:2rem;display:none;z-index:2}
+.dlg.on{display:block}
+.dlg .body{opacity:0;transition:opacity .3s var(--e)}
+.dlg.show .body{opacity:1}
+.dlg p{color:#2f2b26;margin-bottom:1.2rem}
+.x{position:absolute;top:.7rem;right:.7rem;width:36px;height:36px;border:1px solid var(--ink);background:none;font-size:1.2rem;cursor:pointer;color:var(--ink)}
+.go{border:0;background:var(--ink);color:var(--paper);padding:.7rem 1.1rem;font:600 .95rem "Helvetica Neue",sans-serif;cursor:pointer}
+@media(max-width:640px){.grid{grid-template-columns:1fr;margin-left:0}.card:nth-child(1){grid-row:auto}}
+@media (prefers-reduced-motion:reduce){.card,.scrim,.dlg .body{transition:none}.card:hover{transform:none}}
+</style>
+</head>
+<body>
+<h1>Open orders at the bakery.</h1>
+<div class="grid" id="grid">
+  <button class="card" data-t="Wedding, 120 guests" data-b="Three-tier rye and cardamom cake, delivery Saturday 11:00 to Quinta da Aveleda. Deposit paid; final tasting is Thursday at 16:00."><span class="k">Saturday</span><h2>Wedding, 120 guests</h2><p>Three-tier rye and cardamom cake, delivery 11:00.</p></button>
+  <button class="card" data-t="Café Aliança, weekly" data-b="Forty sourdough loaves and twenty pastéis every Friday before 07:00. Invoice closes the last day of the month."><span class="k">Friday</span><h2>Café Aliança, weekly</h2><p>40 loaves, 20 pastéis before 07:00.</p></button>
+  <button class="card" data-t="School fair tray" data-b="Sixty gluten-free oat biscuits, nut-free kitchen only. Pickup Tuesday 15:30 at the side door."><span class="k">Tuesday</span><h2>School fair tray</h2><p>60 gluten-free oat biscuits, nut-free.</p></button>
+</div>
+<div class="scrim" id="scrim"></div>
+<div class="dlg" id="dlg" role="dialog" aria-modal="true" aria-labelledby="dt">
+  <button class="x" id="x" aria-label="Close order details">&times;</button>
+  <div class="body"><h2 id="dt"></h2><p id="db"></p><button class="go" id="go">Mark as confirmed</button></div>
+</div>
+<script>
+(function(){
+  var CONFIG={DUR:480};
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches,EASE="cubic-bezier(.2,.7,.2,1)";
+  var dlg=document.getElementById("dlg"),scrim=document.getElementById("scrim"),origin=null;
+  function delta(from,to){
+    return {x:from.left-to.left+(from.width-to.width)/2,y:from.top-to.top+(from.height-to.height)/2,sx:from.width/to.width,sy:from.height/to.height};
+  }
+  function play(d,reverse){
+    var a="translate(-50%,-50%) translate("+d.x+"px,"+d.y+"px) scale("+d.sx+","+d.sy+")",b="translate(-50%,-50%)";
+    return dlg.animate({transform:reverse?[b,a]:[a,b]},{duration:CONFIG.DUR,easing:EASE,fill:"both"});
+  }
+  function open(card){
+    origin=card;
+    document.getElementById("dt").textContent=card.getAttribute("data-t");
+    document.getElementById("db").textContent=card.getAttribute("data-b");
+    var first=card.getBoundingClientRect();
+    dlg.classList.add("on");scrim.classList.add("on");card.style.visibility="hidden";
+    var last=dlg.getBoundingClientRect();
+    if(!reduce){var a=play(delta(first,last),false);a.onfinish=function(){a.cancel();dlg.classList.add("show")}}
+    else dlg.classList.add("show");
+    document.getElementById("x").focus();
+  }
+  function close(){
+    if(!origin)return;
+    var card=origin;origin=null;
+    scrim.classList.remove("on");dlg.classList.remove("show");
+    function done(){dlg.classList.remove("on");card.style.visibility="";card.focus()}
+    if(reduce){done();return}
+    var d=delta(card.getBoundingClientRect(),dlg.getBoundingClientRect());
+    play(d,true).onfinish=done;
+  }
+  [].forEach.call(document.querySelectorAll(".card"),function(c){c.addEventListener("click",function(){open(c)})});
+  document.getElementById("x").addEventListener("click",close);
+  scrim.addEventListener("click",close);
+  document.getElementById("go").addEventListener("click",function(){this.textContent="✓ Confirmed"});
+  document.addEventListener("keydown",function(e){
+    if(!origin)return;
+    if(e.key==="Escape"){close();return}
+    if(e.key!=="Tab")return;
+    var f=dlg.querySelectorAll("button"),first=f[0],last=f[f.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}
+  });
+})();
+</script>
+</body>
+</html>

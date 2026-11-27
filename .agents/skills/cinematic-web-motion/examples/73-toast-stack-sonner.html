@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>73 · Toast Stack (Sonner)</title>
+<!--
+PATTERN: Toasts stack like a deck: newest in front, older ones scaled down and tucked behind.
+  Hovering the stack fans them out to full size (ref: Sonner by Emil Kowalski).
+Motion: Each toast gets --i (0 = newest). Collapsed: translateY(i*10px) scale(1-i*.05), only 3 visible.
+  Hover/focus on the region: translateY(i*(height+gap)) scale(1). New toasts enter from below with
+  opacity. Auto-dismiss timer pauses while hovered or focused. cubic-bezier(.2,.7,.2,1).
+Accessibility: Region is role=region with aria-live=polite; each toast has a text prefix
+  ("Saved", "Failed") and glyph, not colour only. Dismiss buttons have aria-label. Escape dismisses newest.
+  prefers-reduced-motion: no transitions, still stacks.
+Adapting: MAX, DELAY, GAP in CONFIG. Libraries: none.
+-->
+<style>
+:root{--bg:#ece6d8;--fg:#1f1b16;--mut:#5a5246;--card:#fbf8f0;--ok:#2d5a3d;--err:#a3321c;--line:#cbc1ac;--ease:cubic-bezier(.2,.7,.2,1)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:"Segoe UI",Helvetica,sans-serif;min-height:100vh;padding:12vh 7vw;max-width:60rem}
+h1{font-family:Georgia,"Iowan Old Style",serif;font-weight:400;font-size:clamp(2.2rem,5vw,3.8rem);line-height:1;letter-spacing:-.03em;margin-bottom:1rem}
+p{color:var(--mut);line-height:1.55;max-width:44ch;margin-bottom:1.6rem}
+.row{display:flex;gap:.6rem;flex-wrap:wrap}
+.row button{font:inherit;cursor:pointer;padding:.65rem 1rem;border:1px solid var(--fg);background:var(--fg);color:var(--bg);border-radius:3px;transition:transform .25s var(--ease)}
+.row button.alt{background:transparent;color:var(--fg)}
+.row button:hover{transform:translateY(-2px)}
+:focus-visible{outline:3px solid #b5421f;outline-offset:2px}
+#reg{position:fixed;right:1.5rem;bottom:1.5rem;width:min(22rem,calc(100vw - 3rem));height:4.5rem}
+.t{position:absolute;left:0;right:0;bottom:0;display:flex;gap:.7rem;align-items:flex-start;padding:.85rem .9rem;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--ok);border-radius:4px;box-shadow:0 8px 24px rgba(31,27,22,.18);transform-origin:50% 100%;transform:translateY(calc(var(--i)*-10px)) scale(calc(1 - var(--i)*.05));opacity:calc(1 - var(--i)*.0);z-index:calc(100 - var(--i));transition:transform .4s var(--ease),opacity .3s var(--ease)}
+.t.err{border-left-color:var(--err)}
+.t.in{opacity:0;transform:translateY(24px)}
+.t[data-hide]{opacity:0;pointer-events:none}
+#reg:hover .t,#reg:focus-within .t{transform:translateY(calc(var(--i)*-1*(var(--h) + var(--gap))))}
+.t b{display:block;font-size:.95rem}.t span{font-size:.85rem;color:var(--mut)}
+.g{font-weight:700;font-size:1.1rem;line-height:1.2}
+.x{margin-left:auto;background:none;border:0;cursor:pointer;font-size:1.1rem;color:var(--mut);padding:.1rem .35rem;border-radius:3px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<h1>Quiet confirmations, not a wall of banners.</h1>
+<p>Trigger a few events from the print queue. Hover the corner stack to read every message.</p>
+<div class="row">
+  <button type="button" data-k="ok">Save proof</button>
+  <button type="button" data-k="err" class="alt">Send to press</button>
+  <button type="button" data-k="ok" class="alt">Export PDF</button>
+</div>
+<div id="reg" role="region" aria-label="Notifications" aria-live="polite"></div>
+<script>
+(function(){
+  var CONFIG={MAX:3,DELAY:4500,GAP:8};
+  var MSG={ok:[["Saved","Proof v4 stored in Autumn Catalogue."],["Exported","catalogue-autumn.pdf is 4.2 MB."]],err:[["Failed","Press queue rejected the file: missing bleed."]]};
+  var reg=document.getElementById("reg"),n=0,list=[],hover=false;
+  function layout(){
+    var h=list.length?list[list.length-1].offsetHeight:72;
+    reg.style.setProperty("--h",h+"px");reg.style.setProperty("--gap",CONFIG.GAP+"px");
+    list.slice().reverse().forEach(function(t,i){
+      t.style.setProperty("--i",i);
+      if(i>=CONFIG.MAX)t.setAttribute("data-hide","");else t.removeAttribute("data-hide");
+    });
+  }
+  function kill(t){
+    clearTimeout(t._tm);list=list.filter(function(x){return x!==t});
+    t.classList.add("in");setTimeout(function(){t.remove()},300);layout();
+  }
+  function arm(t){clearTimeout(t._tm);t._tm=setTimeout(function(){if(hover)arm(t);else kill(t)},CONFIG.DELAY)}
+  function add(k){
+    var m=MSG[k][n++%MSG[k].length],t=document.createElement("div");
+    t.className="t in"+(k==="err"?" err":"");
+    t.innerHTML='<span class="g" aria-hidden="true">'+(k==="err"?"!":"✓")+'</span><div><b>'+m[0]+'</b><span>'+m[1]+'</span></div><button class="x" type="button" aria-label="Dismiss notification">×</button>';
+    t.querySelector(".x").addEventListener("click",function(){kill(t)});
+    reg.appendChild(t);list.push(t);layout();
+    requestAnimationFrame(function(){requestAnimationFrame(function(){t.classList.remove("in")})});
+    arm(t);
+  }
+  [].forEach.call(document.querySelectorAll("[data-k]"),function(b){b.addEventListener("click",function(){add(b.getAttribute("data-k"))})});
+  reg.addEventListener("mouseenter",function(){hover=true});
+  reg.addEventListener("mouseleave",function(){hover=false});
+  reg.addEventListener("focusin",function(){hover=true});
+  reg.addEventListener("focusout",function(){hover=false});
+  document.addEventListener("keydown",function(e){if(e.key==="Escape"&&list.length)kill(list[list.length-1])});
+})();
+</script>
+</body>
+</html>

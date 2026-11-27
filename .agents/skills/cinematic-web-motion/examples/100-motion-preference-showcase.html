@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>100 · Motion Preference Showcase</title>
+<!--
+PATTERN: A live "Reduce motion" switch that swaps every animation on the page for a calm
+  cross-fade, demonstrating prefers-reduced-motion as a design mode instead of "animations off".
+Motion: Default mode shows a slide-in, a marquee, a bouncing badge and a hover lift. Calm mode
+  (html[data-motion=calm]) replaces travel with opacity-only fades and stops the loops. The
+  initial state reads matchMedia("(prefers-reduced-motion: reduce)"); the OS change event is
+  followed live until the user flips the switch. Nothing is persisted (no localStorage).
+Accessibility: The switch is a real <button role="switch" aria-checked>. State is stated in text
+  ("Calm mode on"), not colour alone. Marquee has a pause button; calm mode stops it.
+  :focus-visible rings. Same media query is mirrored in CSS so no-JS users still get calm motion.
+Adapting: CONFIG.MODE_ATTR and the calm overrides in the CSS block. Libraries: none.
+-->
+<style>
+:root{--paper:#f3eee2;--ink:#1d1a16;--moss:#31503f;--clay:#b2492c;--sand:#e2d8c2;--ease:cubic-bezier(.2,.7,.2,1)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--paper);color:var(--ink);font:1rem/1.6 "Helvetica Neue",Arial,sans-serif;padding:6vh 6vw 10vh}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:2rem;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:1.5rem}
+h1{font:700 clamp(2rem,5.5vw,4rem)/1 Georgia,"Times New Roman",serif;letter-spacing:-.03em;max-width:13ch}
+.sw{display:inline-flex;align-items:center;gap:.8rem;background:none;border:2px solid var(--ink);border-radius:999px;padding:.4rem 1rem .4rem .4rem;font:600 .9rem "Helvetica Neue",Arial,sans-serif;color:var(--ink);cursor:pointer}
+.sw:focus-visible{outline:3px solid var(--clay);outline-offset:3px}
+.knob{width:2.4rem;height:1.4rem;border-radius:999px;background:var(--sand);border:2px solid var(--ink);position:relative;transition:background .3s var(--ease)}
+.knob::after{content:"";position:absolute;top:1px;left:1px;width:1rem;height:1rem;border-radius:50%;background:var(--ink);transition:transform .3s var(--ease)}
+.sw[aria-checked=true] .knob{background:var(--moss)}
+.sw[aria-checked=true] .knob::after{transform:translateX(1rem)}
+.status{font:600 .75rem ui-monospace,monospace;letter-spacing:.12em;text-transform:uppercase;margin-top:.6rem}
+.grid{display:grid;grid-template-columns:1.4fr 1fr;gap:3rem;margin-top:3rem}
+@media(max-width:700px){.grid{grid-template-columns:1fr}}
+.card{border:2px solid var(--ink);padding:1.2rem;background:#fbf8f0;animation:slide .9s var(--ease) both;transition:transform .35s var(--ease),box-shadow .35s var(--ease)}
+.card:nth-child(2){animation-delay:.15s;margin-left:2rem}
+.card:hover{transform:translate(-4px,-4px);box-shadow:6px 6px 0 var(--ink)}
+.card h2{font:700 1.4rem Georgia,serif}
+.badge{display:inline-block;background:var(--clay);color:#fff;font:700 .75rem ui-monospace,monospace;padding:.2rem .6rem;border-radius:3px;margin-top:.8rem;animation:bob 1.4s var(--ease) infinite alternate}
+.marq{overflow:hidden;border:2px solid var(--ink);margin-top:3rem;white-space:nowrap}
+.marq div{display:inline-block;padding:.6rem 0;animation:run 18s linear infinite}
+.marq span{padding:0 2rem;font:700 1.1rem Georgia,serif}
+.pause{margin-top:.8rem;font:600 .85rem "Helvetica Neue",Arial,sans-serif;background:var(--ink);color:var(--paper);border:0;padding:.5rem .9rem;border-radius:3px;cursor:pointer}
+.pause:focus-visible{outline:3px solid var(--clay);outline-offset:3px}
+.paused .marq div{animation-play-state:paused}
+aside p{margin-bottom:1rem;max-width:36ch}
+@keyframes slide{from{opacity:0;transform:translateX(-60px)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes bob{to{transform:translateY(-8px)}}
+@keyframes run{to{transform:translateX(-50%)}}
+/* Calm mode: same content, no travel, no loops */
+html[data-motion=calm] .card{animation:fade .6s var(--ease) both}
+html[data-motion=calm] .card:hover{transform:none;box-shadow:none;background:var(--sand)}
+html[data-motion=calm] .badge{animation:none}
+html[data-motion=calm] .marq div{animation:none;transform:none;display:block;overflow:hidden;text-overflow:ellipsis}
+html[data-motion=calm] .knob,html[data-motion=calm] .knob::after{transition:none}
+@media (prefers-reduced-motion:reduce){
+  html:not([data-motion=full]) .card{animation:fade .6s var(--ease) both}
+  html:not([data-motion=full]) .card:hover{transform:none;box-shadow:none;background:var(--sand)}
+  html:not([data-motion=full]) .badge,html:not([data-motion=full]) .marq div{animation:none}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Harbour ferry timetable</h1>
+  <div>
+    <button class="sw" id="sw" type="button" role="switch" aria-checked="false"><span class="knob" aria-hidden="true"></span>Reduce motion</button>
+    <p class="status" id="status" role="status">Full motion</p>
+  </div>
+</header>
+<div class="grid">
+  <div>
+    <article class="card"><h2>07:40 Pier 3 to Northhaven</h2><p>Fourteen minutes crossing, bicycles allowed on the lower deck.</p><span class="badge">Delayed 6 min</span></article>
+    <article class="card"><h2>08:15 Pier 3 to Southgate</h2><p>Runs weekdays only. Last boarding five minutes before departure.</p></article>
+  </div>
+  <aside>
+    <p>Flip the switch and every effect on this page changes. Slides become fades, the badge stops bobbing, the ticker stops.</p>
+    <p>The page also follows your operating system setting and does not remember your choice after reload.</p>
+  </aside>
+</div>
+<div class="marq" aria-label="Service notices"><div><span>Bridge works close Pier 5 on Sundays</span><span>Contactless fares only after 20:00</span><span>Bridge works close Pier 5 on Sundays</span><span>Contactless fares only after 20:00</span></div></div>
+<button class="pause" id="pause" type="button" aria-pressed="false">Pause ticker</button>
+<script>
+(function(){
+  var CONFIG={MODE_ATTR:"data-motion"};
+  var mq=matchMedia("(prefers-reduced-motion: reduce)");
+  var root=document.documentElement,sw=document.getElementById("sw"),st=document.getElementById("status");
+  var pause=document.getElementById("pause"),touched=false;
+  function apply(calm){
+    root.setAttribute(CONFIG.MODE_ATTR,calm?"calm":"full");
+    sw.setAttribute("aria-checked",calm);
+    st.textContent=calm?"Calm mode on: fades only":"Full motion";
+  }
+  apply(mq.matches);
+  var onChange=function(e){if(!touched)apply(e.matches)};
+  if(mq.addEventListener)mq.addEventListener("change",onChange);else mq.addListener(onChange);
+  sw.addEventListener("click",function(){touched=true;apply(sw.getAttribute("aria-checked")!=="true")});
+  pause.addEventListener("click",function(){
+    var on=pause.getAttribute("aria-pressed")!=="true";
+    pause.setAttribute("aria-pressed",on);document.body.classList.toggle("paused",on);
+    pause.textContent=on?"Resume ticker":"Pause ticker";
+  });
+})();
+</script>
+</body>
+</html>

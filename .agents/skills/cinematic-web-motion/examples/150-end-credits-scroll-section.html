@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>150 · End Credits Scroll Section</title>
+<!--
+PATTERN: A cinematic end-credits roll bound to scroll. Credits climb up a tilted plane (perspective), fade into
+  the dark through top and bottom masks, the tilt relaxes to flat as the last card arrives, and the roll ends on
+  a call to action that stays on screen.
+Motion: a tall track (700vh) holds a sticky stage. Scroll progress p drives translateY of the roll from just
+  below the viewport to the point where the CTA block is centred; rotateX goes from 52deg to 0deg over the last
+  35 percent (eased); scale grows slightly; a faint film-grain stripe and a vignette stay fixed. Text near the top
+  mask fades out through mask-image (no JS per line).
+Accessibility: Credits are a real <dl>/<ul> in reading order, not an image. The CTA is a focusable link; a "Skip
+  credits" link jumps to it. prefers-reduced-motion: no sticky/tilt; credits are a normal, flat, readable column.
+Adapting: Edit CREDITS data, TILT_START, and the track height (credits length). Colours are CSS variables.
+  Libraries: none.
+-->
+<style>
+:root{--black:#0b0a09;--paper:#e9e0cc;--gold:#d9a441;--ember:#c4512d;--dim:#9a917e;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--black)}
+body{background:var(--black);color:var(--paper);font-family:var(--sans);line-height:1.5;overflow-x:hidden}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
+.skip{position:fixed;z-index:30;top:16px;right:clamp(18px,4vw,48px);font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;text-decoration:none;color:var(--dim);border-bottom:1px solid var(--dim);padding-bottom:3px}
+.skip:hover{color:var(--paper)}
+.film{position:fixed;z-index:30;top:16px;left:clamp(18px,4vw,48px);font:italic 400 1.15rem var(--serif)}
+.cold{min-height:100vh;display:grid;grid-template-columns:repeat(12,1fr);gap:0 16px;padding:0 clamp(18px,4vw,48px) 9vh;align-items:end}
+.cold h1{grid-column:1/11;font:400 clamp(3rem,10vw,9.6rem)/.88 var(--serif);letter-spacing:-.035em}
+.cold h1 em{color:var(--gold)}
+.cold p{grid-column:1/7;margin-top:30px;color:#cdc4af;max-width:42ch}
+.cold .k{grid-column:1/8;font:600 .72rem/1 var(--sans);letter-spacing:.24em;text-transform:uppercase;color:var(--ember);margin-bottom:24px}
+.track{position:relative;height:720vh}
+.stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;perspective:900px;perspective-origin:50% 30%;
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 16%,#000 78%,transparent 100%);mask-image:linear-gradient(to bottom,transparent 0,#000 16%,#000 78%,transparent 100%)}
+.stage.flat{-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 10%,#000 100%);mask-image:linear-gradient(to bottom,transparent 0,#000 10%,#000 100%)}
+.tilt{position:absolute;inset:0;transform-origin:50% 100%;will-change:transform}
+.roll{position:absolute;left:50%;top:0;width:min(780px,92vw);margin-left:calc(min(780px,92vw) / -2);will-change:transform;text-align:center;padding:0 0 12vh}
+.roll h2{font:400 clamp(1.6rem,3.6vw,2.8rem)/1.1 var(--serif);color:var(--gold);letter-spacing:-.01em;margin:15vh 0 28px}
+.roll h2:first-child{margin-top:0}
+.role{font:600 .72rem/1 var(--sans);letter-spacing:.26em;text-transform:uppercase;color:var(--dim);margin-top:22px}
+.name{font:400 clamp(1.6rem,3.6vw,2.8rem)/1.25 var(--serif)}
+.roll .small{font-size:.9rem;color:var(--dim);max-width:46ch;margin:26px auto 0}
+.big-name{font:400 clamp(2.6rem,7vw,5.6rem)/.95 var(--serif);letter-spacing:-.03em;margin-top:8px}
+.cta{margin-top:20vh;padding-top:10vh;border-top:1px solid rgba(233,224,204,.25)}
+.cta .q{font:italic 400 clamp(1.8rem,4.4vw,3.4rem)/1.1 var(--serif)}
+.cta a.btn{display:inline-block;margin-top:34px;padding:17px 32px;background:var(--gold);color:var(--black);text-decoration:none;font-size:.8rem;letter-spacing:.18em;text-transform:uppercase;font-weight:600;transition:background .25s,transform .25s}
+.cta a.btn:hover{background:var(--paper);transform:translateY(-3px)}
+.cta small{display:block;margin-top:18px;color:var(--dim);font-size:.8rem}
+.vig{position:fixed;inset:0;pointer-events:none;z-index:5;background:radial-gradient(ellipse at 50% 40%,transparent 50%,rgba(0,0,0,.55) 100%)}
+.prog{position:fixed;z-index:30;right:clamp(18px,4vw,48px);bottom:20px;width:120px;height:2px;background:rgba(233,224,204,.2)}
+.prog i{display:block;height:100%;background:var(--gold);transform-origin:left;transform:scaleX(0)}
+@media (max-width:720px){
+  .cold h1,.cold p,.cold .k{grid-column:1/13}.stage{perspective:520px}.prog{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .track{height:auto}.stage{position:static;height:auto;perspective:none;-webkit-mask-image:none;mask-image:none;overflow:visible}
+  .tilt{position:static;transform:none!important}.roll{position:static;margin:0 auto;transform:none!important;padding:12vh 0}.vig,.prog{display:none}.skip{position:static;display:block;text-align:right;padding:16px}
+}
+</style>
+</head>
+<body>
+<span class="film" aria-hidden="true">Salt Road</span>
+<a class="skip" href="#join">Skip credits</a>
+<div class="vig" aria-hidden="true"></div>
+<div class="prog" aria-hidden="true"><i id="pbar"></i></div>
+
+<section class="cold" aria-labelledby="t">
+  <p class="k">A documentary · 94 minutes · Portugal, 2026</p>
+  <h1 id="t">The last salt pans of <em>Rio Maior.</em></h1>
+  <p>Four years filming the families who still harvest salt by hand from a spring older than the kingdom. Here are the people who made it.</p>
+</section>
+
+<section class="track" id="track" aria-label="End credits">
+  <div class="stage" id="stage">
+    <div class="tilt" id="tilt"><div class="roll" id="roll">
+      <h2>Directed by</h2>
+      <div class="big-name">Helena Marques Duarte</div>
+      <h2>Featuring</h2>
+      <p class="name">Armindo Carvalho</p><p class="role">Master salt-raker</p>
+      <p class="name" style="margin-top:22px">Teresa Gouveia</p><p class="role">Pan owner, third generation</p>
+      <p class="name" style="margin-top:22px">Joaquim Prates</p><p class="role">Wooden-tool maker</p>
+      <p class="name" style="margin-top:22px">The children of the Escola Primária</p><p class="role">Rio Maior, 2022 to 2025</p>
+      <h2>Cinematography</h2>
+      <p class="name">Rui Antunes</p><p class="role">Director of photography</p>
+      <p class="name" style="margin-top:22px">Beatriz Salgado</p><p class="role">Drone &amp; underwater unit</p>
+      <h2>Edited by</h2>
+      <p class="name">Mafalda Rebelo</p>
+      <h2>Music</h2>
+      <p class="name">Quarteto da Serra</p><p class="role">Original score</p>
+      <p class="name" style="margin-top:22px">Coro Feminino de Alcobaça</p><p class="role">Field recordings</p>
+      <h2>Produced by</h2>
+      <p class="name">Casa do Sal Filmes</p>
+      <p class="small">Filmed with the support of the Municipality of Rio Maior, the Cooperativa dos Salineiros and 412 backers who believed in a film about salt.</p>
+      <p class="small">No pans were harmed in the making of this film. One camera was lost to a very high tide and has been mourned.</p>
+      <div class="cta" id="join">
+        <p class="q">The film is touring cinemas until March.</p>
+        <a class="btn" href="#join">Find a screening near you</a>
+        <small>Or book the director for your festival, school or cooperative.</small>
+      </div>
+    </div></div>
+  </div>
+</section>
+
+<script>
+(function(){
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var track=document.getElementById("track"),stage=document.getElementById("stage"),roll=document.getElementById("roll"),tiltEl=document.getElementById("tilt"),pbar=document.getElementById("pbar");
+  var TILT_START=44,ticking=false,H,RH,cta=document.getElementById("join");
+  var startY,endY;
+  function measure(){
+    H=stage.clientHeight;RH=roll.offsetHeight;
+    // y positions are for transform translateY on an element whose top is at 0
+    startY=H*.9;
+    endY=H*.5-(cta.offsetTop+cta.offsetHeight*.5)+ 0;
+  }
+  function ease(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2}
+  function frame(){
+    ticking=false;
+    var r=track.getBoundingClientRect(),p=Math.min(Math.max(-r.top/Math.max(r.height-innerHeight,1),0),1);
+    var y=startY+(endY-startY)*p;
+    var tp=Math.min(Math.max((p-.62)/.35,0),1),tilt=TILT_START*(1-ease(tp)),sc=1;
+    roll.style.transform="translate3d(0,"+y.toFixed(1)+"px,0)";
+    tiltEl.style.transform="rotateX("+tilt.toFixed(2)+"deg)";
+    stage.classList.toggle("flat",tp>.98);
+    pbar.style.transform="scaleX("+p.toFixed(3)+")";
+  }
+  function req(){if(!ticking){ticking=true;requestAnimationFrame(frame)}}
+  if(reduce)return;
+  measure();addEventListener("resize",function(){measure();req()});addEventListener("load",function(){measure();req()});
+  addEventListener("scroll",req,{passive:true});
+  document.querySelector(".skip").addEventListener("click",function(e){e.preventDefault();var r=track.getBoundingClientRect();scrollTo({top:scrollY+r.bottom-innerHeight,behavior:"smooth"});cta.querySelector("a").focus({preventScroll:true})});
+  frame();
+})();
+</script>
+</body>
+</html>

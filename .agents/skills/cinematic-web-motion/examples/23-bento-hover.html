@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>23 · Bento Grid Hover</title>
+<!--
+  EFFECT: A bento grid of mixed-size tiles. On scroll into view, tiles stagger in (fade + rise + scale) and numeric
+  stats count up. On hover each tile lifts, tilts toward the cursor (3D), shows a cursor-following glow, and its
+  artwork scales.
+
+  HOW TO ADAPT:
+  - Tile sizes via classes .w2 / .h2 (grid-column / grid-row span). Grid is 4 columns on desktop, 2 on tablet, 1 on mobile.
+  - Count-up: <span data-count="1280" data-suffix="+">0</span>.
+  - Tilt strength: TILT (deg). Set 0 to disable.
+  - Reduced motion: final values shown immediately, no hover tilt, no entrance.
+-->
+<style>
+  :root { --bg:#09090c; --card:#14141a; --fg:#f3f2ee; --mut:#8c8b96; --acc:#7c5cff; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--fg); font-family:"Helvetica Neue",Arial,sans-serif; padding:8vh 5vw; -webkit-font-smoothing:antialiased; }
+  .head { max-width:1200px; margin:0 auto 4rem; }
+  .head small { color:var(--acc); letter-spacing:.25em; font-size:.75rem; }
+  .head h1 { font-weight:300; font-size:clamp(2.2rem,6vw,4.5rem); letter-spacing:-.03em; line-height:1.05; margin-top:1rem; max-width:14ch; }
+  .grid { max-width:1200px; margin:0 auto; display:grid; grid-template-columns:repeat(4,1fr); grid-auto-rows:minmax(180px,22vw); gap:16px; perspective:1200px; }
+  .tile { position:relative; overflow:hidden; border-radius:22px; background:var(--card); padding:1.6rem; display:flex; flex-direction:column; justify-content:flex-end; border:1px solid #ffffff12; transform-style:preserve-3d; will-change:transform; }
+  .tile.w2 { grid-column:span 2; } .tile.h2 { grid-row:span 2; }
+  .tile::before { content:""; position:absolute; inset:0; background:radial-gradient(400px circle at var(--mx,50%) var(--my,50%),#ffffff1c,transparent 60%); opacity:0; transition:opacity .3s; pointer-events:none; z-index:3; }
+  .tile:hover::before { opacity:1; }
+  .art { position:absolute; inset:0; transition:transform .8s cubic-bezier(.2,.8,.2,1); }
+  .tile:hover .art { transform:scale(1.08); }
+  .tile > *:not(.art) { position:relative; z-index:2; }
+  .tile h3 { font-weight:400; font-size:1.15rem; }
+  .tile p { color:#d0cfd8; font-size:.9rem; margin-top:.3rem; opacity:.8; }
+  .big { font-size:clamp(2.6rem,6vw,5rem); font-weight:200; letter-spacing:-.04em; line-height:1; }
+  .t1 .art{background:radial-gradient(circle at 80% 10%,#7c5cff,transparent 55%),linear-gradient(160deg,#1c1740,#0b0a18)}
+  .t2 .art{background:linear-gradient(135deg,#ff7a59,#c2306b)}
+  .t3 .art{background:linear-gradient(200deg,#1d2b64,#0f1226)}
+  .t4 .art{background:radial-gradient(circle at 20% 80%,#1fd1a1,transparent 60%),#0d1a17}
+  .t5 .art{background:conic-gradient(from 120deg at 70% 30%,#222,#555,#222)}
+  .t6 .art{background:linear-gradient(160deg,#f7d26b,#d9822b)} .t6{color:#201505} .t6 p{color:#3a2a10}
+  .t7 .art{background:linear-gradient(120deg,#3a1c71,#d76d77 60%,#ffaf7b)}
+  .ring { position:absolute; right:-30px; top:-30px; width:180px; height:180px; border-radius:50%; border:28px solid #ffffff22; z-index:1 !important; }
+  @media (max-width:900px){ .grid{grid-template-columns:repeat(2,1fr);grid-auto-rows:minmax(180px,38vw)} }
+  @media (max-width:560px){ .grid{grid-template-columns:1fr;grid-auto-rows:minmax(180px,60vw)} .tile.w2{grid-column:span 1} }
+</style>
+</head>
+<body>
+<div class="head"><small>BENTO / 2025</small><h1>Everything at a glance.</h1></div>
+<div class="grid" id="grid">
+  <div class="tile t1 w2 h2"><div class="art"></div><div class="ring"></div><span class="big"><span data-count="12840" data-suffix="+">12840+</span></span><h3>Active creators</h3><p>Shipping motion-rich sites every single week.</p></div>
+  <div class="tile t2"><div class="art"></div><span class="big"><span data-count="98" data-suffix="%">98%</span></span><h3>Satisfaction</h3></div>
+  <div class="tile t3"><div class="art"></div><span class="big"><span data-count="60" data-suffix="fps">60fps</span></span><h3>Silky by default</h3></div>
+  <div class="tile t4 w2"><div class="art"></div><h3>Built for scroll</h3><p>Pinned sections, reveals and parallax with a few lines of GSAP.</p></div>
+  <div class="tile t5"><div class="art"></div><span class="big"><span data-count="240" data-suffix="ms">240ms</span></span><h3>Avg. interaction</h3></div>
+  <div class="tile t6"><div class="art"></div><span class="big"><span data-count="4.9" data-decimals="1">4.9</span></span><h3>Average rating</h3></div>
+  <div class="tile t7 w2"><div class="art"></div><h3>Ship faster</h3><p>Copy a component, change the gradients, publish.</p></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script>
+(function(){
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches || !window.gsap) return;
+  gsap.registerPlugin(ScrollTrigger);
+  var lenis = new Lenis();
+  lenis.on("scroll", ScrollTrigger.update);
+  gsap.ticker.add(function(t){ lenis.raf(t*1000); });
+  gsap.ticker.lagSmoothing(0);
+
+  var TILT = 8, tiles = gsap.utils.toArray(".tile");
+
+  // entrance
+  gsap.set(tiles, { opacity:0, y:60, scale:.94 });
+  ScrollTrigger.batch(tiles, {
+    start:"top 90%", once:true,
+    onEnter:function(b){ gsap.to(b, { opacity:1, y:0, scale:1, duration:1, ease:"power3.out", stagger:.1, overwrite:"auto" }); }
+  });
+
+  // count-up
+  gsap.utils.toArray("[data-count]").forEach(function(el){
+    var end = parseFloat(el.dataset.count), dec = parseInt(el.dataset.decimals||0,10), suf = el.dataset.suffix||"";
+    var o = { v:0 };
+    el.textContent = (0).toFixed(dec) + suf;
+    gsap.to(o, { v:end, duration:2, ease:"power2.out",
+      scrollTrigger:{ trigger:el, start:"top 90%", once:true },
+      onUpdate:function(){ el.textContent = (dec ? o.v.toFixed(dec) : Math.round(o.v).toLocaleString("en-US")) + suf; } });
+  });
+
+  // hover tilt (fine pointers only)
+  if (matchMedia("(hover:hover) and (pointer:fine)").matches && TILT) {
+    tiles.forEach(function(t){
+      var rx = gsap.quickTo(t,"rotationX",{duration:.5,ease:"power3.out"}), ry = gsap.quickTo(t,"rotationY",{duration:.5,ease:"power3.out"});
+      var sc = gsap.quickTo(t,"scale",{duration:.5,ease:"power3.out"});
+      t.addEventListener("pointermove", function(e){
+        var r = t.getBoundingClientRect(), x = (e.clientX-r.left)/r.width, y = (e.clientY-r.top)/r.height;
+        t.style.setProperty("--mx", x*100+"%"); t.style.setProperty("--my", y*100+"%");
+        ry((x-.5)*TILT*2); rx(-(y-.5)*TILT*2); sc(1.02);
+      });
+      t.addEventListener("pointerleave", function(){ rx(0); ry(0); sc(1); });
+    });
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>10 Â· Custom Cursor + Trail</title>
+<!--
+EFFECT: Replaces the pointer on fine-pointer devices with:
+  - a small dot that tracks exactly,
+  - a larger ring follower (gsap.quickTo, eased lag) using mix-blend-mode:difference,
+  - a trail of 10 fading dots following with progressively more lag,
+  - hover states: links grow the ring and show a label (data-cursor="text"), media cards
+    turn the ring into a filled "View" disc, and pressing shrinks the ring.
+HOW TO ADAPT:
+  - Add data-cursor="Label" to any element to show a label; data-cursor-size="120" to resize.
+  - TRAIL = number of trail dots; each follows with duration .15 + i*.04.
+  - Colours: ring is white + difference blend so it inverts whatever is beneath.
+REDUCED MOTION / TOUCH: custom cursor is not created (native cursor kept) when
+  prefers-reduced-motion or (pointer:coarse).
+-->
+<style>
+*{box-sizing:border-box;margin:0}
+body{background:#efe9dd;color:#151513;font-family:"Helvetica Neue",Arial,sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+header{display:flex;justify-content:space-between;padding:2rem 5vw;font-size:.9rem}
+header a,.links a{color:inherit;text-decoration:none;position:relative}
+.hero{padding:10vh 5vw 6vh}
+h1{font-size:clamp(3rem,11vw,10rem);letter-spacing:-.05em;line-height:.92;font-weight:600}
+.links{display:flex;gap:2.5rem;padding:2rem 5vw;font-size:1.4rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;padding:2rem 5vw 10vh}
+.card{aspect-ratio:4/5;border-radius:6px;display:flex;align-items:flex-end;padding:1.2rem;color:#fff;font-size:1.1rem}
+.c1{background:linear-gradient(160deg,#ff5a36,#7a1f0c)}.c2{background:linear-gradient(160deg,#2f6bff,#0b1f5c)}.c3{background:linear-gradient(160deg,#18b58a,#06382b)}
+.has-cursor,.has-cursor *{cursor:none!important}
+.cur{position:fixed;left:0;top:0;pointer-events:none;z-index:9999;border-radius:50%}
+.dot{width:8px;height:8px;background:#fff;mix-blend-mode:difference}
+.ring{width:40px;height:40px;border:1.5px solid #fff;mix-blend-mode:difference;display:grid;place-items:center}
+.ring span{font:600 .7rem/1 sans-serif;color:#000;opacity:0;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.ring.filled{background:#fff;border-color:#fff}
+.ring.filled span{opacity:1}
+.tr{width:10px;height:10px;background:#fff;mix-blend-mode:difference}
+</style>
+</head>
+<body>
+<header><a href="#">StudioÂ®</a><a href="#">Index</a></header>
+<div class="hero"><h1>Follow<br>the light.</h1></div>
+<div class="links">
+  <a href="#" data-cursor="">Work</a><a href="#" data-cursor="">About</a><a href="#" data-cursor="">Journal</a><a href="#" data-cursor="">Contact</a>
+</div>
+<div class="grid">
+  <div class="card c1" data-cursor="View" data-cursor-size="96">Project One</div>
+  <div class="card c2" data-cursor="Drag" data-cursor-size="96">Project Two</div>
+  <div class="card c3" data-cursor="Play" data-cursor-size="96">Project Three</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script>
+(function(){
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var fine=matchMedia("(pointer:fine)").matches;
+  if(reduce||!fine)return;
+  var TRAIL=10;
+  document.documentElement.classList.add("has-cursor");
+  function mk(cls){var d=document.createElement("div");d.className="cur "+cls;document.body.appendChild(d);return d}
+  var trail=[];for(var i=0;i<TRAIL;i++){var t=mk("tr");gsap.set(t,{opacity:0,scale:1-i/TRAIL*.8});trail.push(t)}
+  var ring=mk("ring");var label=document.createElement("span");ring.appendChild(label);
+  var dot=mk("dot");
+  gsap.set([dot,ring],{xPercent:-50,yPercent:-50,x:-100,y:-100});
+  trail.forEach(function(t){gsap.set(t,{xPercent:-50,yPercent:-50,x:-100,y:-100})});
+
+  var dx=gsap.quickTo(dot,"x",{duration:.05,ease:"none"}),dy=gsap.quickTo(dot,"y",{duration:.05,ease:"none"});
+  var rx=gsap.quickTo(ring,"x",{duration:.45,ease:"power3.out"}),ry=gsap.quickTo(ring,"y",{duration:.45,ease:"power3.out"});
+  var tx=trail.map(function(t,i){return gsap.quickTo(t,"x",{duration:.15+i*.04,ease:"power3.out"})});
+  var ty=trail.map(function(t,i){return gsap.quickTo(t,"y",{duration:.15+i*.04,ease:"power3.out"})});
+  var shown=false;function all(){return [dot,ring].concat(trail)}
+  addEventListener("pointermove",function(e){
+    if(!shown){shown=true;gsap.set(all(),{x:e.clientX,y:e.clientY});gsap.to([dot,ring],{opacity:1,duration:.3});gsap.to(trail,{opacity:.5,duration:.3,stagger:.02})}
+    dx(e.clientX);dy(e.clientY);rx(e.clientX);ry(e.clientY);
+    for(var i=0;i<TRAIL;i++){tx[i](e.clientX);ty[i](e.clientY)}
+  });
+  document.addEventListener("pointerleave",function(){gsap.to(all(),{opacity:0,duration:.2});shown=false});
+
+  function enter(el){
+    var txt=el.dataset.cursor,size=+el.dataset.cursorSize;
+    if(txt){label.textContent=txt;ring.classList.add("filled");gsap.to(ring,{width:size||90,height:size||90,duration:.4,ease:"power3.out"});gsap.to(dot,{scale:0,duration:.2})}
+    else{gsap.to(ring,{width:size||76,height:size||76,duration:.4,ease:"power3.out"});gsap.to(dot,{scale:0,duration:.2})}
+  }
+  function leave(){ring.classList.remove("filled");gsap.to(ring,{width:40,height:40,duration:.4,ease:"power3.out"});gsap.to(dot,{scale:1,duration:.2})}
+  document.querySelectorAll("a,button,[data-cursor]").forEach(function(el){
+    el.addEventListener("pointerenter",function(){enter(el)});
+    el.addEventListener("pointerleave",leave);
+  });
+  addEventListener("pointerdown",function(){gsap.to(ring,{scale:.8,duration:.15})});
+  addEventListener("pointerup",function(){gsap.to(ring,{scale:1,duration:.4,ease:"back.out(3)"})});
+})();
+</script>
+</body>
+</html>
+

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>124 · Case Study Horizontal Cards</title>
+<!--
+PATTERN: Portfolio section for an architecture office. Vertical scrolling is converted into a
+  horizontal track of case-study cards (pinned stage); each card's illustration moves slower than
+  its frame (parallax) and a progress rule + counter tracks position.
+Motion: ScrollTrigger pins .stage and scrubs the track's x by (scrollWidth - viewport). Each image
+  uses a nested ScrollTrigger with containerAnimation to shift xPercent -12 to +12 while its card
+  crosses the viewport. Procedural SVG "elevations" are the images (no external assets).
+Accessibility: Cards are <article>s in DOM order with real headings and links. prefers-reduced-motion
+  or CDN failure: the stage is a native horizontally scrollable, scroll-snapping row (keyboard
+  reachable, tabindex on the scroller) with no pinning. :focus-visible on links.
+Adapting: Add/remove .card elements; sizes are set with --w. Replace the SVG with <img loading="lazy">.
+Libraries: GSAP + ScrollTrigger (CDN, optional).
+-->
+<style>
+:root{--stone:#e8e4dc;--ink:#1d1f1c;--brick:#9c3d24;--moss:#4d5b45;--sky:#c9d3d0;--sun:#e0b25a;--concrete:#b9b5ab;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--stone);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a:focus-visible,.stage:focus-visible{outline:3px solid var(--brick);outline-offset:3px}
+.head{padding:clamp(3rem,10vh,7rem) clamp(1.2rem,6vw,6rem) 6vh;display:grid;grid-template-columns:1.3fr 1fr;gap:2rem;align-items:end}
+.head h1{font-family:var(--serif);font-weight:400;font-size:clamp(2.6rem,7.6vw,7.4rem);line-height:.92;letter-spacing:-.03em}
+.head p{line-height:1.55;max-width:34ch;justify-self:end}
+.stage{background:var(--ink);color:var(--stone);overflow-x:auto;scroll-snap-type:x mandatory;position:relative}
+.on .stage{overflow:hidden;scroll-snap-type:none}
+.track{display:flex;gap:clamp(1rem,3vw,3rem);padding:clamp(1.5rem,6vh,4rem) clamp(1.2rem,6vw,6rem);width:max-content;align-items:center;height:100vh;min-height:36rem}
+.card{flex:none;width:var(--w,min(62vw,56rem));scroll-snap-align:start;display:grid;gap:1.1rem}
+.card:nth-child(even){align-self:flex-start;margin-top:9vh}
+.card:nth-child(odd){margin-top:5vh}
+.frame{position:relative;overflow:hidden;width:100%;height:var(--h,44vh);background:var(--bg)}
+.frame svg{position:absolute;inset:0 -14% 0 -14%;width:128%;height:100%;display:block}
+.meta{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;opacity:.85}
+.card h2{font-family:var(--serif);font-weight:400;font-size:clamp(1.6rem,3vw,2.8rem);letter-spacing:-.02em;line-height:1}
+.card p{max-width:46ch;line-height:1.55;opacity:.9}
+.card a{justify-self:start;color:var(--sun);font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;text-underline-offset:.4em}
+.card a:hover{text-decoration-thickness:2px}
+.c1{--w:min(66vw,58rem);--h:46vh;--bg:#c9d3d0}.c2{--w:min(44vw,36rem);--h:46vh;--bg:#e0b25a}.c3{--w:min(60vw,52rem);--h:40vh;--bg:#9c3d24}.c4{--w:min(46vw,38rem);--h:44vh;--bg:#4d5b45}.c5{--w:min(66vw,58rem);--h:36vh;--bg:#b9b5ab}
+.bar{position:absolute;left:clamp(1.2rem,6vw,6rem);right:clamp(1.2rem,6vw,6rem);top:1.2rem;display:none;justify-content:space-between;align-items:center;gap:1rem;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;z-index:3}
+.on .bar{display:flex}
+.rule{flex:1;height:1px;background:#e8e4dc55;position:relative}.rule i{position:absolute;inset:0;background:var(--sun);transform-origin:0 50%;transform:scaleX(0);height:2px;top:-.5px}
+.outro{padding:12vh clamp(1.2rem,6vw,6rem);font-family:var(--serif);font-size:clamp(1.6rem,3.4vw,3rem);max-width:24ch;line-height:1.1}
+@media(max-width:760px){
+  .head{grid-template-columns:1fr}.head p{justify-self:start}
+  .card{--w:84vw!important;--h:40vh!important}
+  .card:nth-child(even){margin-top:0}
+  .track{align-items:center}
+}
+</style>
+</head>
+<body>
+<section class="head"><h1>Five buildings, told sideways.</h1><p>Marlowe Reyes Architects has drawn schools, a ferry terminal and one very patient chapel conversion since 2009. Scroll to walk along the wall.</p></section>
+
+<section class="stage" id="stage" tabindex="0" aria-label="Case studies, scroll horizontally">
+  <div class="bar" aria-hidden="true"><span>Selected work</span><div class="rule"><i id="prog"></i></div><span id="count">01 / 05</span></div>
+  <div class="track" id="track">
+
+    <article class="card c1">
+      <div class="frame"><svg class="img" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <rect width="800" height="600" fill="#c9d3d0"/><rect y="430" width="800" height="170" fill="#8e9a8c"/>
+        <rect x="120" y="230" width="470" height="200" fill="#e8e4dc"/><rect x="120" y="230" width="470" height="14" fill="#1d1f1c"/>
+        <g fill="#1d1f1c" opacity=".8"><rect x="150" y="270" width="40" height="160"/><rect x="230" y="270" width="40" height="160"/><rect x="310" y="270" width="40" height="160"/><rect x="390" y="270" width="40" height="160"/><rect x="470" y="270" width="40" height="160"/></g>
+        <path d="M590 430V170l120 60v200z" fill="#9c3d24"/><circle cx="660" cy="110" r="38" fill="#e0b25a"/></svg></div>
+      <div class="meta"><span>Primary school</span><span>Dunbar, 2023</span></div>
+      <h2>Saltire Road Primary</h2>
+      <p>420 pupils, one corridor, no dead ends. Classrooms face south and share a drawing wall that doubles as a fire break.</p>
+      <a href="#top">Read the case study</a>
+    </article>
+
+    <article class="card c2">
+      <div class="frame"><svg class="img" viewBox="0 0 600 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <rect width="600" height="800" fill="#e0b25a"/><circle cx="420" cy="200" r="120" fill="#9c3d24" opacity=".9"/>
+        <rect x="150" y="320" width="300" height="400" fill="#1d1f1c"/><g fill="#e8e4dc"><rect x="180" y="350" width="60" height="90"/><rect x="270" y="350" width="60" height="90"/><rect x="360" y="350" width="60" height="90"/><rect x="180" y="480" width="60" height="90"/><rect x="270" y="480" width="60" height="90"/><rect x="360" y="480" width="60" height="90"/><rect x="270" y="620" width="60" height="100"/></g></svg></div>
+      <div class="meta"><span>Housing</span><span>Leith, 2021</span></div>
+      <h2>Tannery Row, 38 homes</h2>
+      <p>Brick from the demolished mill went back into the party walls.</p>
+      <a href="#top">Read the case study</a>
+    </article>
+
+    <article class="card c3">
+      <div class="frame"><svg class="img" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <rect width="800" height="500" fill="#9c3d24"/><path d="M0 360 Q200 300 400 350 T800 330V500H0z" fill="#1d1f1c" opacity=".55"/>
+        <path d="M110 330V190l290-90 290 90v140z" fill="#e8e4dc"/><path d="M110 190l290-90 290 90" fill="none" stroke="#1d1f1c" stroke-width="8"/>
+        <g fill="#9c3d24"><path d="M190 330v-80a30 30 0 0 1 60 0v80z"/><path d="M370 330v-80a30 30 0 0 1 60 0v80z"/><path d="M550 330v-80a30 30 0 0 1 60 0v80z"/></g></svg></div>
+      <div class="meta"><span>Ferry terminal</span><span>Oban, 2019</span></div>
+      <h2>Kerrera Slip Terminal</h2>
+      <p>A waiting room that faces the weather instead of hiding from it, with a roof pitched to carry gulls away from the ticket hall.</p>
+      <a href="#top">Read the case study</a>
+    </article>
+
+    <article class="card c4">
+      <div class="frame"><svg class="img" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <rect width="600" height="600" fill="#4d5b45"/><g fill="none" stroke="#e8e4dc" stroke-width="3"><path d="M100 520V220l100-100 100 100v300z"/><path d="M300 520V300l100-80 100 80v220z"/><path d="M60 520h480"/></g>
+        <circle cx="440" cy="120" r="46" fill="#e0b25a"/><g fill="#e8e4dc" opacity=".8"><rect x="160" y="300" width="80" height="120"/><rect x="360" y="360" width="80" height="100"/></g></svg></div>
+      <div class="meta"><span>Conversion</span><span>Perth, 2017</span></div>
+      <h2>St Columba's Chapel</h2>
+      <p>Now a twelve-seat dining room, with the pews reused as tables.</p>
+      <a href="#top">Read the case study</a>
+    </article>
+
+    <article class="card c5">
+      <div class="frame"><svg class="img" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <rect width="800" height="400" fill="#b9b5ab"/><g fill="#1d1f1c"><rect x="60" y="150" width="680" height="30"/><rect x="100" y="180" width="14" height="150"/><rect x="260" y="180" width="14" height="150"/><rect x="420" y="180" width="14" height="150"/><rect x="580" y="180" width="14" height="150"/><rect x="700" y="180" width="14" height="150"/></g>
+        <rect x="0" y="330" width="800" height="70" fill="#8d897f"/><circle cx="150" cy="80" r="30" fill="#e0b25a"/><path d="M60 150l340-80 340 80z" fill="#9c3d24"/></svg></div>
+      <div class="meta"><span>Public realm</span><span>Stirling, 2024</span></div>
+      <h2>Bridgend Market Hall</h2>
+      <p>Seventy metres of timber portal frames with no walls: traders close up with sliding shutters at six.</p>
+      <a href="#top">Read the case study</a>
+    </article>
+
+  </div>
+</section>
+<section class="outro">New commissions start with a site visit and a cup of tea.</section>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || !window.gsap || !window.ScrollTrigger) return;
+  gsap.registerPlugin(ScrollTrigger);
+  var stage = document.getElementById('stage'), track = document.getElementById('track');
+  document.documentElement.classList.add('on');
+  var dist = function(){ return Math.max(0, track.scrollWidth - stage.clientWidth); };
+  var cards = gsap.utils.toArray('.card'), prog = document.getElementById('prog'), count = document.getElementById('count');
+  var move = gsap.to(track, {x: function(){ return -dist(); }, ease: 'none',
+    scrollTrigger: {trigger: stage, start: 'top top', end: function(){ return '+=' + dist(); }, pin: true, scrub: .6, anticipatePin: 1, invalidateOnRefresh: true,
+      onUpdate: function(self){
+        prog.style.transform = 'scaleX(' + self.progress + ')';
+        var n = Math.min(cards.length, Math.floor(self.progress * cards.length * .999) + 1);
+        count.textContent = '0' + n + ' / 0' + cards.length;
+      }}});
+  cards.forEach(function(c){
+    gsap.fromTo(c.querySelector('.img'), {xPercent: -6}, {xPercent: 6, ease: 'none',
+      scrollTrigger: {trigger: c, containerAnimation: move, start: 'left right', end: 'right left', scrub: true}});
+  });
+  addEventListener('load', function(){ ScrollTrigger.refresh(); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>143 · Footer Giant Type Reveal</title>
+<!--
+PATTERN: Closing sequence of a page: a short CTA band, then the main content slides away like a curtain to reveal
+  a fixed footer whose giant wordmark rises letter by letter. Includes a link marquee and a back-to-top button.
+Motion: The footer is position:fixed at the bottom behind the content (content has margin-bottom = footer height).
+  Reveal progress r = how much of the footer is uncovered (0..1) is derived from scrollY. Each letter translates
+  from 110% to 0 with its own offset window of r (stagger by progress, not by time, so it scrubs both ways).
+  Marquee is a CSS keyframe loop that pauses on hover/focus.
+Accessibility: Wordmark is one aria-label'd heading; letters are aria-hidden spans. Back-to-top is a real button
+  with text. prefers-reduced-motion: footer becomes a normal static block, letters visible, marquee still.
+Adapting: Edit WORD, footer links, and --foot-h. Letters use overflow:hidden masks so they rise from a baseline.
+  Libraries: none.
+-->
+<style>
+:root{--paper:#efe7d6;--ink:#1d1a15;--moss:#26352a;--moss-2:#33473a;--ochre:#d49a3d;--rust:#b24a27;--foot-h:100vh;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--moss)}
+body{font-family:var(--sans);color:var(--ink);line-height:1.55;overflow-x:hidden;background:var(--moss)}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--rust);outline-offset:4px}
+footer :focus-visible{outline-color:var(--ochre)}
+.page{position:relative;z-index:2;background:var(--paper);margin-bottom:var(--foot-h);box-shadow:0 30px 60px rgba(0,0,0,.35)}
+.nav{display:flex;justify-content:space-between;padding:22px clamp(18px,4vw,48px);font-size:.78rem;letter-spacing:.16em;text-transform:uppercase}
+.nav b{font:italic 400 1.2rem var(--serif);letter-spacing:0;text-transform:none}
+.hero{padding:8vh clamp(18px,4vw,48px) 12vh;display:grid;grid-template-columns:repeat(12,1fr);gap:0 16px}
+.hero h1{grid-column:1/11;font:400 clamp(3rem,9.5vw,9rem)/.9 var(--serif);letter-spacing:-.03em}
+.hero h1 em{color:var(--rust)}
+.hero p{grid-column:6/12;margin-top:34px;max-width:42ch;font-size:1.08rem}
+.facts{display:grid;grid-template-columns:2fr 1fr 1.4fr;border-top:1px solid var(--ink);margin:0 clamp(18px,4vw,48px)}
+.facts div{padding:28px 20px 36px 0}
+.facts div+div{padding-left:20px;border-left:1px solid rgba(29,26,21,.25)}
+.facts strong{display:block;font:400 clamp(2.2rem,4vw,3.4rem)/1 var(--serif);color:var(--moss)}
+.facts span{font-size:.9rem;color:#4a443a}
+.cta{margin-top:12vh;padding:14vh clamp(18px,4vw,48px);background:var(--ochre);display:grid;grid-template-columns:repeat(12,1fr);gap:24px 16px;align-items:end}
+.cta h2{grid-column:1/9;font:400 clamp(2.4rem,6.6vw,6rem)/.95 var(--serif);letter-spacing:-.025em}
+.cta .side{grid-column:9/13;display:grid;gap:18px}
+.btn{display:inline-block;padding:16px 28px;background:var(--ink);color:var(--paper);text-decoration:none;font-size:.8rem;letter-spacing:.16em;text-transform:uppercase;transition:background .25s,transform .25s;border:0;cursor:pointer;font-family:inherit}
+.btn:hover{background:var(--rust);transform:translateX(4px)}
+/* footer */
+footer{position:fixed;left:0;right:0;bottom:0;height:var(--foot-h);z-index:1;background:var(--moss);color:var(--paper);display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+.f-top{display:grid;grid-template-columns:repeat(12,1fr);gap:0 16px;padding:clamp(28px,6vh,60px) clamp(18px,4vw,48px) 0}
+.f-top p{grid-column:1/6;font:400 clamp(1.3rem,2.4vw,2rem)/1.2 var(--serif);max-width:20ch}
+.f-top nav{grid-column:8/13;display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;align-content:start}
+.f-top nav a{font-size:.85rem;text-decoration:none;padding:3px 0;border-bottom:1px solid transparent;width:max-content;color:#d9d1bd}
+.f-top nav a:hover{border-color:var(--ochre);color:var(--paper)}
+.mq{border-block:1px solid rgba(239,231,214,.25);overflow:hidden;white-space:nowrap;padding:12px 0;margin-top:3vh}
+.mq-track{display:inline-flex;gap:0;animation:mq 28s linear infinite}
+.mq:hover .mq-track,.mq:focus-within .mq-track{animation-play-state:paused}
+.mq a{font:italic 400 clamp(1.1rem,2vw,1.6rem) var(--serif);text-decoration:none;padding:0 28px;position:relative;color:var(--paper)}
+.mq a::after{content:"";position:absolute;right:-3px;top:50%;width:6px;height:6px;background:var(--ochre);transform:translateY(-50%) rotate(45deg)}
+.mq a:hover{color:var(--ochre)}
+@keyframes mq{to{transform:translateX(-50%)}}
+.word{font:400 15.4vw/.86 var(--serif);letter-spacing:-.045em;display:flex;justify-content:center;padding:0 0 1vw;user-select:none}
+.word span{display:block;overflow:hidden;padding-top:.02em}
+.word i{display:block;font-style:normal;transform:translateY(calc((1 - var(--r,0)) * 112%));will-change:transform}
+.word span:nth-child(even) i{color:var(--ochre)}
+.f-bot{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:0 clamp(18px,4vw,48px) 20px;font-size:.78rem;color:#cfc7b2}
+.up{background:none;border:1px solid rgba(239,231,214,.5);color:var(--paper);padding:10px 16px;font:600 .74rem var(--sans);letter-spacing:.14em;text-transform:uppercase;cursor:pointer;transition:background .25s,color .25s}
+.up:hover{background:var(--ochre);color:var(--ink);border-color:var(--ochre)}
+@media (max-width:720px){
+  :root{--foot-h:100svh}
+  .hero h1,.hero p{grid-column:1/13}.facts{grid-template-columns:1fr}.facts div+div{padding-left:0;border-left:0;border-top:1px solid rgba(29,26,21,.25)}
+  .cta h2,.cta .side{grid-column:1/13}
+  .f-top p,.f-top nav{grid-column:1/13}.f-top nav{margin-top:20px}
+  .word{font-size:15.6vw}
+  .f-bot{flex-direction:column;align-items:flex-start}
+}
+@media (prefers-reduced-motion:reduce){
+  footer{position:static;height:auto;gap:24px}.page{margin-bottom:0}
+  .word i{transform:none}.mq-track{animation:none}.mq{overflow-x:auto}
+}
+</style>
+</head>
+<body>
+<div class="page" id="top">
+  <div class="nav"><b>Tessitura</b><span>Weaving studio, Porto</span></div>
+  <section class="hero">
+    <h1>Cloth made slowly, for rooms that <em>last.</em></h1>
+    <p>Six looms, four weavers, one dye garden. We make wool and linen blankets in editions of forty and keep the warp threads from every one.</p>
+  </section>
+  <div class="facts">
+    <div><strong>40</strong><span>blankets per edition, numbered by hand</span></div>
+    <div><strong>11 days</strong><span>from first warp to finished edge</span></div>
+    <div><strong>Madder, weld, indigo</strong><span>grown and dyed in the courtyard</span></div>
+  </div>
+  <section class="cta" aria-labelledby="cta-h">
+    <h2 id="cta-h">The spring edition opens on 3 March.</h2>
+    <div class="side"><p>Twelve blankets are held for people on the list. Join it and we will write once, the week before.</p><a class="btn" href="#top">Join the list</a></div>
+  </section>
+</div>
+
+<footer id="foot">
+  <div class="f-top">
+    <p>Slow cloth, written down thread by thread.</p>
+    <nav aria-label="Footer">
+      <a href="#top">Editions</a><a href="#top">Dye garden</a><a href="#top">Visit the studio</a><a href="#top">Care guide</a><a href="#top">Journal</a><a href="#top">Contact</a>
+    </nav>
+  </div>
+  <div class="mq" aria-label="Studio links">
+    <div class="mq-track" id="mq"></div>
+  </div>
+  <h2 class="word" id="word" aria-label="Tessitura"></h2>
+  <div class="f-bot"><span>Rua das Flores 41, Porto · hello@tessitura.example</span><button class="up" id="up" type="button">Back to top</button></div>
+</footer>
+
+<script>
+(function(){
+  var WORD="TESSITURA",word=document.getElementById("word"),foot=document.getElementById("foot");
+  word.innerHTML=WORD.split("").map(function(c){return '<span aria-hidden="true"><i>'+c+'</i></span>'}).join("");
+  var letters=[].slice.call(word.querySelectorAll("i"));
+  var links=["Spring edition","Dye garden diary","Warp archive","Studio visits","Mending service","Wholesale","Press kit"];
+  var html=links.map(function(l){return '<a href="#top">'+l+'</a>'}).join("");
+  document.getElementById("mq").innerHTML=html+html.replace(/<a /g,'<a tabindex="-1" aria-hidden="true" ');
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  document.getElementById("up").addEventListener("click",function(){scrollTo({top:0,behavior:reduce?"auto":"smooth"})});
+  if(reduce){letters.forEach(function(l){l.style.setProperty("--r",1)});return;}
+  var ticking=false;
+  function frame(){
+    ticking=false;
+    var fh=foot.offsetHeight,max=document.documentElement.scrollHeight-innerHeight;
+    var r=Math.min(Math.max((scrollY-(max-fh))/fh,0),1);
+    var n=letters.length;
+    letters.forEach(function(l,i){
+      var a=i/(n+3),b=a+4/(n+3);
+      var t=Math.min(Math.max((r-a*.85)/(b*.85-a*.85+.0001),0),1);
+      t=1-Math.pow(1-t,3);
+      l.style.setProperty("--r",t.toFixed(3));
+    });
+  }
+  function req(){if(!ticking){ticking=true;requestAnimationFrame(frame)}}
+  addEventListener("scroll",req,{passive:true});addEventListener("resize",req);frame();
+})();
+</script>
+</body>
+</html>

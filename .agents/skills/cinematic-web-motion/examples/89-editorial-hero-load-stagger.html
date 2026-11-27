@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>89 · Editorial Hero Load Stagger</title>
+<!--
+PATTERN: Page-load hero for a magazine issue: headline lines rise out of overflow masks, the cover
+  image opens with a clip-path reveal, and the meta row fades in with a stagger.
+Motion: One GSAP timeline, ease cubic-bezier(.2,.7,.2,1) (CustomEase-free: expo.out approximates it).
+  Lines: yPercent 110 -> 0 inside overflow:hidden wrappers. Image: inset(0 0 100% 0) -> inset(0).
+  Meta: opacity + y 12px, staggered. Content is visible by default (no-JS / CDN failure safe).
+Accessibility: Real h1 text; line wrappers are spans, no aria tricks needed. Focus ring on links.
+  prefers-reduced-motion: timeline is never built, everything shows instantly.
+Adapting: DURATION, STAGGER, DELAY in the CONFIG. Libraries: GSAP 3 via CDN.
+-->
+<style>
+:root{--paper:#efe8da;--ink:#1d1a16;--rust:#a8401f;--mute:#5b5448;--ease:cubic-bezier(.2,.7,.2,1)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--paper);color:var(--ink);font:400 1rem/1.55 "Helvetica Neue",Arial,sans-serif;min-height:100vh}
+a{color:inherit}
+a:focus-visible{outline:3px solid var(--rust);outline-offset:4px}
+header{display:flex;justify-content:space-between;padding:1.5rem 6vw;font-size:.8rem;letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid var(--ink)}
+.hero{display:grid;grid-template-columns:7fr 4fr;gap:5vw;padding:6vh 6vw 8vh;align-items:end}
+h1{font:400 clamp(2.6rem,8.5vw,7.5rem)/.95 Georgia,"Times New Roman",serif;letter-spacing:-.03em}
+.ln{display:block;overflow:hidden;padding-bottom:.08em}
+.ln span{display:block}
+h1 em{color:var(--rust)}
+.cover{aspect-ratio:3/4;background:linear-gradient(160deg,var(--rust),#3b2a1c 70%);position:relative;margin-top:4vh}
+.cover::after{content:"Salt flats, Atacama, 06:12";position:absolute;left:.8rem;bottom:.8rem;color:var(--paper);font-size:.75rem;letter-spacing:.1em;text-transform:uppercase}
+.meta{grid-column:1/-1;display:flex;gap:3rem;flex-wrap:wrap;border-top:1px solid var(--ink);padding-top:1rem;font-size:.9rem}
+.meta p{max-width:30ch;color:var(--mute)}
+.meta b{display:block;color:var(--ink);font-weight:600}
+@media(max-width:720px){.hero{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><span>Meridian Quarterly</span><span>Issue 14 · Winter</span></header>
+<main class="hero">
+  <h1 aria-label="The last quiet salt road in Chile">
+    <span class="ln"><span>The last quiet</span></span>
+    <span class="ln"><span>salt road <em>in Chile</em></span></span>
+  </h1>
+  <div class="cover" role="img" aria-label="Cover photograph: salt flats at dawn"></div>
+  <div class="meta">
+    <p><b>Words</b>Marta Olivares</p>
+    <p><b>Photographs</b>Tomás Reyes</p>
+    <p><b>Reading time</b>14 minutes</p>
+    <p><a href="#story">Start reading</a></p>
+  </div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script>
+(function(){
+  var CONFIG={DURATION:1.1,STAGGER:.12,DELAY:.15};
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(reduce||!window.gsap)return;
+  var lines=document.querySelectorAll(".ln span"),
+      cover=document.querySelector(".cover"),
+      meta=document.querySelectorAll(".meta p");
+  gsap.set(lines,{yPercent:110});
+  gsap.set(cover,{clipPath:"inset(0 0 100% 0)"});
+  gsap.set(meta,{opacity:0,y:12});
+  gsap.timeline({delay:CONFIG.DELAY,defaults:{ease:"expo.out",duration:CONFIG.DURATION}})
+    .to(lines,{yPercent:0,stagger:CONFIG.STAGGER})
+    .to(cover,{clipPath:"inset(0 0 0% 0)",duration:CONFIG.DURATION*1.2},"-=.8")
+    .to(meta,{opacity:1,y:0,stagger:CONFIG.STAGGER*.6,duration:.7},"-=.6");
+})();
+</script>
+</body>
+</html>

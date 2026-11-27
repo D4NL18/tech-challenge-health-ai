@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>43 — Product Feature Orbit</title>
+<!--
+  EFFECT: Central hero spatial audio orb ("ORBITAL // ZERO") surrounded by an orbiting ring
+  of 5 interactive feature nodes. Clicking, hovering, or scrolling rotates the ring smoothly
+  so the active node locks into the spotlight position (with counter-rotation keeping node badges
+  upright), updates the central product's reactive aura, and transitions the spotlighted copy.
+  ADAPT: Edit `FEATURES` (code, title, metric, desc, color) to add/remove nodes (angles auto-
+  distribute across 360deg); adjust `RING_RADIUS` or swap `#orbSvg` for your hero product.
+  Reduced motion: Snaps ring rotation and copy updates immediately without continuous spin.
+-->
+<style>
+  :root {
+    --bg: #07090d;
+    --surface: #0f131b;
+    --border: rgba(255,255,255,0.1);
+    --text: #f3f6fa;
+    --muted: #8b95a8;
+    --accent: #38bdf8;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .topbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 30;
+    padding: 22px clamp(20px, 4vw, 56px);
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+  .section-stage {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    align-items: center;
+    gap: clamp(24px, 4vw, 64px);
+    padding: 96px clamp(20px, 5vw, 72px) 64px;
+    max-width: 1380px;
+    margin: 0 auto;
+  }
+
+  .orbit-viewport {
+    position: relative;
+    width: min(86vw, 520px);
+    height: min(86vw, 520px);
+    margin: 0 auto;
+    display: grid;
+    place-items: center;
+  }
+  .orbit-track {
+    position: absolute;
+    inset: 42px;
+    border-radius: 50%;
+    border: 1px dashed rgba(255,255,255,0.14);
+    pointer-events: none;
+  }
+  .orbit-ring {
+    position: absolute;
+    inset: 42px;
+    border-radius: 50%;
+    will-change: transform;
+  }
+  .node {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 60px;
+    height: 60px;
+    margin: -30px 0 0 -30px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: rgba(15,19,27,0.92);
+    backdrop-filter: blur(10px);
+    color: var(--text);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
+  }
+  .node:hover { border-color: rgba(255,255,255,0.4); }
+  .node.active {
+    background: var(--accent);
+    color: #05070a;
+    border-color: var(--accent);
+    box-shadow: 0 0 26px rgba(56,189,248,0.45);
+  }
+  .node-label {
+    display: block;
+    will-change: transform;
+  }
+
+  .center-product {
+    position: relative;
+    z-index: 2;
+    width: 44%;
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+  }
+  .center-glow {
+    position: absolute;
+    inset: -24%;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--accent) 0%, transparent 66%);
+    opacity: 0.22;
+    filter: blur(28px);
+    transition: background 0.4s;
+  }
+  #orbSvg {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 24px 36px rgba(0,0,0,0.65));
+  }
+
+  /* Spotlight Copy Panel */
+  .spotlight {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .kicker {
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .spotlight h1 {
+    margin: 0;
+    font-size: clamp(2.2rem, 4.4vw, 3.8rem);
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    line-height: 1.04;
+  }
+  .metric-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.03);
+    font-size: 12px;
+    color: var(--text);
+    width: fit-content;
+  }
+  .spotlight p {
+    margin: 0;
+    font-size: 15.5px;
+    line-height: 1.65;
+    color: var(--muted);
+    max-width: 44ch;
+  }
+  .feature-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 8px;
+  }
+  .ftab {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .ftab.active {
+    background: rgba(255,255,255,0.08);
+    color: var(--text);
+    border-color: rgba(255,255,255,0.3);
+  }
+
+  @media (max-width: 900px) {
+    .section-stage { grid-template-columns: 1fr; text-align: center; }
+    .spotlight { align-items: center; }
+    .feature-tabs { justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <span>ORBITAL // ZERO</span>
+  <span>360° Spatial Architecture</span>
+</header>
+
+<section class="section-stage" id="orbitSection">
+  <div class="orbit-viewport">
+    <div class="orbit-track"></div>
+    <div class="orbit-ring" id="orbitRing"></div>
+
+    <div class="center-product">
+      <div class="center-glow" id="centerGlow"></div>
+      <svg id="orbSvg" viewBox="0 0 220 220" aria-label="Orbital Zero Spatial Speaker">
+        <defs>
+          <radialGradient id="sphereGrad" cx="38%" cy="32%" r="65%">
+            <stop offset="0%" stop-color="#475569"/>
+            <stop offset="45%" stop-color="#1e293b"/>
+            <stop offset="100%" stop-color="#090d14"/>
+          </radialGradient>
+        </defs>
+        <circle cx="110" cy="110" r="88" fill="url(#sphereGrad)" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>
+        <ellipse cx="110" cy="110" rx="88" ry="22" fill="none" id="orbEquator" stroke="#38bdf8" stroke-width="2" stroke-opacity="0.7"/>
+        <circle cx="110" cy="110" r="24" fill="#07090d" stroke="rgba(255,255,255,0.12)"/>
+        <circle cx="110" cy="110" r="6" id="orbCore" fill="#38bdf8"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="spotlight">
+    <div class="kicker" id="spCode">01 // SPATIAL ARRAY</div>
+    <h1 id="spTitle">7-Driver Beamforming</h1>
+    <div class="metric-chip" id="spMetric">360° Wavefield Synthesis</div>
+    <p id="spDesc">Seven neodymium transducers fire in phase-aligned unison, sculpting a room-filling sweet spot that adapts to wall reflections in real time.</p>
+    <div class="feature-tabs" id="featureTabs"></div>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(() => {
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  gsap.registerPlugin(ScrollTrigger);
+
+  const FEATURES = [
+    { code: '01 // SPATIAL ARRAY', label: '01', title: '7-Driver Beamforming', metric: '360° Wavefield Synthesis', desc: 'Seven neodymium transducers fire in phase-aligned unison, sculpting a room-filling sweet spot that adapts to wall reflections in real time.', color: '#38bdf8' },
+    { code: '02 // ADAPTIVE EQ', label: '02', title: 'Room-Aware DSP', metric: '48kHz / 24-bit Calibration', desc: 'Dual boundary microphones sample room acoustics 200 times per second to eliminate standing-wave boom.', color: '#a78bfa' },
+    { code: '03 // ZERO LATENCY', label: '03', title: 'Ultra-Wideband Link', metric: '< 4ms Wireless Sync', desc: 'Lossless multi-room stereo pairing over dedicated 5.8GHz UWB with sample-accurate clock lock.', color: '#34d399' },
+    { code: '04 // ACOUSTIC GLASS', label: '04', title: 'Damped Alloy Shell', metric: 'Zero Resonance Chassis', desc: 'Spun aluminum and acoustic borosilicate core engineered to eliminate cabinet coloration at reference volume.', color: '#f59e0b' },
+    { code: '05 // RESERVE', label: '05', title: '36-Hour Battery', metric: 'USB-C PD 45W Fast Charge', desc: 'High-density Li-ion array tucked inside the base ring delivers a full weekend of untethered playback.', color: '#fb7185' }
+  ];
+
+  const orbitRing = document.getElementById('orbitRing');
+  const featureTabs = document.getElementById('featureTabs');
+  const spCode = document.getElementById('spCode');
+  const spTitle = document.getElementById('spTitle');
+  const spMetric = document.getElementById('spMetric');
+  const spDesc = document.getElementById('spDesc');
+  const orbEquator = document.getElementById('orbEquator');
+  const orbCore = document.getElementById('orbCore');
+
+  let activeIdx = 0;
+  const stepDeg = 360 / FEATURES.length;
+  const nodes = [];
+  const tabs = [];
+
+  function layoutNodes() {
+    const r = orbitRing.clientWidth / 2;
+    FEATURES.forEach((_, i) => {
+      const rad = ((i * stepDeg) - 90) * (Math.PI / 180);
+      const x = Math.cos(rad) * r;
+      const y = Math.sin(rad) * r;
+      nodes[i].style.transform = `translate(${x}px, ${y}px)`;
+    });
+  }
+
+  FEATURES.forEach((f, idx) => {
+    const node = document.createElement('button');
+    node.type = 'button';
+    node.className = 'node' + (idx === 0 ? ' active' : '');
+    node.setAttribute('aria-label', f.title);
+    node.innerHTML = `<span class="node-label">${f.label}</span>`;
+    node.addEventListener('click', () => activateFeature(idx));
+    node.addEventListener('mouseenter', () => activateFeature(idx));
+    orbitRing.appendChild(node);
+    nodes.push(node);
+
+    const tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = 'ftab' + (idx === 0 ? ' active' : '');
+    tab.textContent = f.title;
+    tab.addEventListener('click', () => activateFeature(idx));
+    featureTabs.appendChild(tab);
+    tabs.push(tab);
+  });
+
+  layoutNodes();
+  window.addEventListener('resize', layoutNodes);
+
+  function activateFeature(idx) {
+    if (idx === activeIdx) return;
+    activeIdx = idx;
+    const f = FEATURES[idx];
+    const targetRot = -idx * stepDeg;
+    const dur = reduceMotion ? 0 : 0.75;
+
+    nodes.forEach((n, i) => n.classList.toggle('active', i === idx));
+    tabs.forEach((t, i) => t.classList.toggle('active', i === idx));
+
+    gsap.to(orbitRing, { rotation: targetRot, duration: dur, ease: 'power3.out' });
+    gsap.to('.node-label', { rotation: -targetRot, duration: dur, ease: 'power3.out' });
+
+    document.documentElement.style.setProperty('--accent', f.color);
+    gsap.to(orbEquator, { attr: { stroke: f.color }, duration: dur * 0.6 });
+    gsap.to(orbCore, { attr: { fill: f.color }, duration: dur * 0.6 });
+
+    if (!reduceMotion) {
+      gsap.fromTo([spCode, spTitle, spMetric, spDesc],
+        { y: 10, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.35, stagger: 0.04, ease: 'power2.out', overwrite: 'auto' }
+      );
+    }
+    spCode.textContent = f.code;
+    spTitle.textContent = f.title;
+    spMetric.textContent = f.metric;
+    spDesc.textContent = f.desc;
+  }
+
+  // Optional scroll-driven step progression when user scrolls past the stage
+  if (!reduceMotion) {
+    ScrollTrigger.create({
+      trigger: '#orbitSection',
+      start: 'top top',
+      end: '+=1200',
+      pin: true,
+      onUpdate: (self) => {
+        const idx = Math.min(FEATURES.length - 1, Math.floor(self.progress * FEATURES.length));
+        activateFeature(idx);
+      }
+    });
+  }
+})();
+</script>
+</body>
+</html>

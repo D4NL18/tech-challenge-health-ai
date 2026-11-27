@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>108 · Giant Type Marquee Scroll Hero</title>
+<!--
+PATTERN: Festival hero made of four giant headline lines. Each line is an endless marquee whose position is a function of scrollY (alternating directions) and whose skew follows the scroll velocity, like a poster being pulled.
+Motion: rAF loop reads scrollY; x = (scrollY * speed * dir) wrapped modulo one text unit (copies are cloned until they fill 2x the viewport); skewX = -velocity * 0.05 smoothed with lerp and clamped to +-9deg; a sticky stage keeps the lines on screen for 220vh of scroll.
+Accessibility: The h1 text is real and read once (clones are aria-hidden); with prefers-reduced-motion or no JS the lines are static wrapped text, no skew; :focus-visible styled.
+Adapting: Edit the four .line elements (data-dir 1/-1, data-speed) and the .u text; CONFIG.maxSkew limits the lean.
+Libraries: none (vanilla JS). Concept demo: "Curta Costa" is a fictional short-film festival.
+-->
+<style>
+:root{--bg:#151311;--ink:#f1e8d4;--ember:#e8532c;--sea:#8fb3a6;--mute:#b9ae98;
+--serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Segoe UI","Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;overflow-x:hidden}
+a{color:inherit}a:focus-visible{outline:3px solid var(--ember);outline-offset:4px}
+.top{position:absolute;z-index:3;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:1.4rem 6vw;font-size:.78rem;letter-spacing:.2em;text-transform:uppercase}
+.top b{font:400 1.3rem var(--serif);text-transform:none;letter-spacing:.01em}
+.track{height:100vh;position:relative}
+.stage{position:relative;height:100vh;overflow:hidden;display:flex;flex-direction:column;justify-content:center;padding:0}
+.line{display:flex;white-space:nowrap;width:max-content;will-change:transform;font:700 clamp(4rem,13vw,13rem)/.9 var(--serif);text-transform:uppercase;letter-spacing:-.04em}
+.line .u{padding-right:.35em}
+.line.o{color:transparent;-webkit-text-stroke:2px var(--ink)}
+.line.e{color:var(--ember)}
+.line.s{color:var(--sea)}
+.meta{position:absolute;left:6vw;right:6vw;bottom:4vh;display:flex;justify-content:space-between;gap:1rem;font-size:.78rem;letter-spacing:.2em;text-transform:uppercase;color:var(--mute)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.prog{padding:16vh 6vw;display:grid;grid-template-columns:4fr 7fr;gap:6vw;align-items:start;border-top:1px solid #f1e8d433}
+.prog h2{font:400 clamp(2rem,4.6vw,4.2rem)/1.02 var(--serif);letter-spacing:-.02em}
+.prog h2 em{color:var(--ember)}
+.prog ol{list-style:none;border-top:2px solid var(--ink)}
+.prog li{display:grid;grid-template-columns:5.5rem 1fr auto;gap:1rem;padding:1.3rem 0;border-bottom:1px solid #f1e8d433;align-items:baseline}
+.prog li b{font:400 1.6rem var(--serif);color:var(--ember)}
+.prog li h3{font:400 1.5rem/1.1 var(--serif)}
+.prog li p{color:var(--mute);font-size:.95rem;margin-top:.2rem}
+.prog li span{font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:var(--sea)}
+.band{padding:10vh 0;border-top:1px solid #f1e8d433;overflow:hidden;min-height:70vh;display:flex;flex-direction:column;justify-content:center}
+.band .line{font-size:clamp(3.4rem,12vw,12rem)}
+.end{padding:12vh 6vw;display:grid;gap:1.2rem;min-height:50vh;align-content:center}
+.end h2{font:400 clamp(2rem,5vw,4.4rem)/1 var(--serif);max-width:14em}
+.end a{justify-self:start;border-bottom:2px solid var(--ember);text-decoration:none;padding-bottom:.2rem}
+.disc{font-size:.72rem;padding:1rem 6vw;color:var(--mute)}
+.mq .track{height:320vh}
+.mq .stage{position:sticky;top:0}
+/* static fallback: lines wrap as normal headline text */
+html:not(.mq) .line{width:auto;white-space:normal;flex-wrap:wrap;padding:0 6vw}
+html:not(.mq) .stage{height:auto;min-height:100vh;padding:14vh 0 12vh}
+@media (max-width:760px){.line{font-size:21vw}.band .line{font-size:16vw}.prog{grid-template-columns:1fr;gap:2rem}.prog li{grid-template-columns:4.2rem 1fr}.prog li span{grid-column:2}.line.o{-webkit-text-stroke:1.5px var(--ink)}}
+</style>
+</head>
+<body>
+<section class="track" id="track">
+ <div class="top"><b>Curta Costa</b><span>Sines · 8 a 15 de agosto</span></div>
+ <div class="stage" id="stage">
+  <h1 class="sr">Curta Costa, festival de curtas-metragens no mar de Sines</h1>
+  <div class="line" data-dir="-1" data-speed="1" aria-hidden="true"><span class="u">Curtas</span></div>
+  <div class="line o" data-dir="1" data-speed="1.3" aria-hidden="true"><span class="u">de cinema</span></div>
+  <div class="line e" data-dir="-1" data-speed="1.6" aria-hidden="true"><span class="u">à beira-mar</span></div>
+  <div class="line s" data-dir="1" data-speed=".8" aria-hidden="true"><span class="u">Sines 2026</span></div>
+  <div class="meta"><span>Role para puxar o cartaz</span><span>112 filmes · 31 países</span></div>
+ </div>
+</section>
+<section class="prog">
+ <h2>Oito noites de tela <em>ao ar livre</em>, sem cadeira reservada.</h2>
+ <ol>
+  <li><b>08.08</b><div><h3>Abertura: curtas portugueses</h3><p>Seis filmes de até 14 minutos, com os realizadores na areia.</p></div><span>Praia Vasco da Gama</span></li>
+  <li><b>10.08</b><div><h3>Animação do Atlântico Sul</h3><p>De Cabo Verde, Angola e Brasil. Legendas em português e inglês.</p></div><span>Castelo de Sines</span></li>
+  <li><b>12.08</b><div><h3>Noite documentário</h3><p>Pesca artesanal, sal e portos. Debate com mestres de embarcação.</p></div><span>Porto de Pesca</span></li>
+  <li><b>15.08</b><div><h3>Encerramento e prêmio do público</h3><p>Votação por moeda de madeira, uma por pessoa.</p></div><span>Praça do Município</span></li>
+ </ol>
+</section>
+<section class="band" id="band" aria-hidden="true">
+ <div class="line o" data-dir="-1" data-speed="1.1"><span class="u">Entrada livre ·</span></div>
+ <div class="line" data-dir="1" data-speed="1.4"><span class="u">Traga um casaco ·</span></div>
+</section>
+<section class="end"><h2>Inscrição de filmes aberta até 30 de maio.</h2><a href="#">Ler o regulamento</a></section>
+<p class="disc">Demo conceitual: Curta Costa é um festival fictício criado apenas para ilustrar o padrão.</p>
+<script>
+(function(){
+  var CONFIG={maxSkew:9,skewGain:.05};
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  document.documentElement.classList.add("mq");
+  var lines=[].slice.call(document.querySelectorAll(".line")).map(function(el){
+    var u=el.querySelector(".u"),state={el:el,dir:+el.dataset.dir,speed:+el.dataset.speed,unit:0,u:u};
+    return state;
+  });
+  function build(){
+    lines.forEach(function(L){
+      [].slice.call(L.el.querySelectorAll(".clone")).forEach(function(c){c.remove()});
+      L.unit=L.u.getBoundingClientRect().width;
+      var n=Math.ceil(innerWidth*2/L.unit)+1;
+      for(var i=0;i<n;i++){var c=L.u.cloneNode(true);c.className="u clone";c.setAttribute("aria-hidden","true");L.el.appendChild(c)}
+    });
+  }
+  build();addEventListener("resize",build);
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(build);
+  var last=scrollY,v=0,skew=0;
+  function loop(){
+    var y=scrollY,dv=y-last;last=y;v+=(dv-v)*.2;
+    var target=Math.max(-CONFIG.maxSkew,Math.min(CONFIG.maxSkew,-v*CONFIG.skewGain*3));
+    skew+=(target-skew)*.2;
+    lines.forEach(function(L){
+      var m=((y*L.speed*L.dir%L.unit)+L.unit)%L.unit;
+      var x=L.dir>0?m-L.unit:-m;
+      /* offset start so lines are staggered even at scrollY=0 */
+      L.el.style.transform="translate3d("+x+"px,0,0) skewX("+skew*L.dir*-1+"deg)";
+    });
+    requestAnimationFrame(loop);
+  }
+  loop();
+})();
+</script>
+</body>
+</html>

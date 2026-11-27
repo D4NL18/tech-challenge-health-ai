@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>112 · Hero Diagonal Split Reveal</title>
+<!--
+  PATTERN: Hero partido em diagonal. O mesmo conteúdo existe em duas camadas, cada uma recortada por clip-path
+           (acima / abaixo de uma linha inclinada). A manchete atravessa a diagonal e muda de cor ao cruzá-la.
+           Ao carregar, as metades deslizam de fora para se encontrarem; ao rolar, afastam-se em direções
+           opostas e revelam a seção seguinte que já estava pinada por baixo.
+  Motion: progress de scroll (0..1) numa seção de 260vh com stage sticky. translate3d nas duas metades (somente
+          transform, sem layout). Entrada de load: lerp temporal 0..1 somado ao deslocamento de scroll.
+  Accessibility: a camada B é clone aria-hidden/inert; a camada de baixo (revelada) é DOM real e ordenado.
+          prefers-reduced-motion: sem entrada nem separação por scroll; as metades ficam coladas e a seção
+          seguinte aparece em fluxo normal. :focus-visible nos links.
+  Adapting: ângulo da diagonal em --y-left / --y-right (porcentagem de altura); distância de abertura em
+          TRAVEL; cores por camada em .half--a/.half--b; troque o conteúdo de #heroContent (o JS o clona).
+  Libraries: nenhuma (JS puro). Sem CDN, sem dependência.
+-->
+<style>
+  :root{
+    --cream:#f1e7d3; --ink:#1a2420; --copper:#b4532a; --copper-d:#8a3b1c; --verd:#2f5d52; --verd-d:#183a33; --sand:#d9c7a4;
+    --y-left:78%; --y-right:36%;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:"Gill Sans","Trebuchet MS","Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--cream);color:var(--ink);font-family:var(--sans);overflow-x:hidden}
+  a{color:inherit}
+  a:focus-visible,button:focus-visible{outline:3px solid var(--cream);outline-offset:4px;box-shadow:0 0 0 6px var(--ink)}
+
+  .runway{position:relative;height:260vh}
+  .stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--verd-d)}
+
+  /* camada revelada */
+  .under{position:absolute;inset:0;display:grid;grid-template-columns:5fr 7fr;gap:clamp(1.2rem,4vw,4rem);align-items:end;
+    padding:clamp(1.2rem,4vw,3.5rem);background:var(--verd-d);color:var(--cream)}
+  .under h2{font-family:var(--serif);font-weight:400;font-size:clamp(2rem,5vw,4.6rem);line-height:1;margin:0;letter-spacing:-.02em}
+  .under h2 em{color:var(--sand)}
+  .under ol{list-style:none;margin:0;padding:0;border-top:1px solid rgba(241,231,211,.35)}
+  .under li{display:grid;grid-template-columns:3rem 1fr auto;gap:1rem;padding:1rem 0;border-bottom:1px solid rgba(241,231,211,.35);align-items:baseline}
+  .under li b{font-family:var(--serif);font-weight:400;font-size:1.3rem}
+  .under li span{font-size:.9rem;color:var(--sand)}
+  .under li i{font-style:normal;font-family:var(--serif);font-size:1.1rem}
+  .under .tag{grid-column:1/-1;font-size:.75rem;letter-spacing:.18em;text-transform:uppercase;color:var(--sand);align-self:start}
+
+  /* metades */
+  .half{position:absolute;inset:0;will-change:transform}
+  .half--a{background:var(--cream);color:var(--ink);clip-path:polygon(0 0,100% 0,100% var(--y-right),0 var(--y-left))}
+  .half--b{background:var(--copper);color:var(--cream);clip-path:polygon(0 var(--y-left),100% var(--y-right),100% 100%,0 100%)}
+  .content{position:absolute;inset:0;padding:clamp(1.2rem,4vw,3.5rem);display:flex;flex-direction:column;justify-content:space-between}
+  .nav{display:flex;justify-content:space-between;font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;position:relative;z-index:2}
+  .nav b{font-family:var(--serif);font-size:1.2rem;letter-spacing:0;text-transform:none}
+  .head{position:absolute;left:clamp(1.2rem,4vw,3.5rem);right:clamp(1.2rem,4vw,3.5rem);top:50%;transform:translateY(-52%)}
+  .head h1{font-family:var(--serif);font-weight:700;margin:0;font-size:clamp(3rem,10.4vw,10rem);line-height:.9;letter-spacing:-.035em}
+  .head h1 span{display:block}
+  .head h1 span:nth-child(2){padding-left:clamp(1rem,12vw,12rem)}
+  .foot{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;position:relative;z-index:2}
+  .foot p{margin:0;max-width:24rem;font-size:1rem;line-height:1.5}
+  .foot a{font-size:.8rem;letter-spacing:.16em;text-transform:uppercase;text-decoration:none;border-bottom:2px solid currentColor;padding-bottom:.2rem}
+
+  .js .half--a,.js .half--b{transform:translate3d(var(--tx,0),var(--ty,0),0)}
+
+  .after{background:var(--cream);padding:clamp(4rem,9vw,8rem) clamp(1.2rem,6vw,6rem)}
+  .after .grid{max-width:76rem;margin:0 auto;display:grid;grid-template-columns:4fr 8fr;gap:clamp(1.5rem,5vw,5rem)}
+  .after h3{font-family:var(--serif);font-size:clamp(1.8rem,3.8vw,3.2rem);line-height:1.05;margin:0}
+  .after p{font-size:1.1rem;line-height:1.65;margin:0 0 1.2rem;max-width:40rem}
+  .after .big{font-family:var(--serif);font-size:clamp(1.4rem,2.4vw,2rem);line-height:1.25;color:var(--copper-d);border-left:4px solid var(--copper);padding-left:1.2rem}
+  .end{background:var(--ink);color:var(--cream);padding:clamp(3rem,7vw,6rem) clamp(1.2rem,6vw,6rem);min-height:60vh}
+  .end p{max-width:34rem;line-height:1.6}
+
+  @media (max-width:700px){
+    :root{--y-left:72%;--y-right:44%}
+    .under{grid-template-columns:1fr;align-content:end}
+    .under li{grid-template-columns:2rem 1fr auto}
+    .foot{flex-direction:column;align-items:flex-start}
+    .after .grid{grid-template-columns:1fr}
+    .head h1{font-size:clamp(3rem,17vw,5rem)}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .runway{height:auto}
+    .stage{position:relative;height:100svh}
+    .js .half--a,.js .half--b{transform:none}
+  }
+</style>
+</head>
+<body>
+<section class="runway" id="runway">
+  <div class="stage" id="stage">
+    <div class="under">
+      <span class="tag">Próxima fornada · outubro</span>
+      <h2>Cinco panelas, <em>um</em> cobre martelado por vez.</h2>
+      <ol>
+        <li><b>01</b><span>Caçarola funda, 22 cm</span><i>R$ 890</i></li>
+        <li><b>02</b><span>Frigideira de ovos, 18 cm</span><i>R$ 540</i></li>
+        <li><b>03</b><span>Panela de geleia, 28 cm</span><i>R$ 1.240</i></li>
+        <li><b>04</b><span>Jarra de mel, 1 L</span><i>R$ 420</i></li>
+        <li><b>05</b><span>Cafeteira turca, 6 xícaras</span><i>R$ 380</i></li>
+      </ol>
+    </div>
+
+    <div class="half half--a" id="halfA">
+      <div class="content" id="heroContent">
+        <div class="nav"><b>Caldeiraria Aurora</b><span>Ouro Preto · desde 1962</span></div>
+        <div class="head"><h1><span>Cobre que</span><span>fica na família.</span></h1></div>
+        <div class="foot">
+          <p>Panelas batidas a mão, estanhadas por dentro e garantidas por três gerações.</p>
+          <a href="#catalogo">Ver a próxima fornada</a>
+        </div>
+      </div>
+    </div>
+    <div class="half half--b" id="halfB"></div>
+  </div>
+</section>
+
+<section class="after" id="catalogo">
+  <div class="grid">
+    <h3>O estanho é refeito quando precisar.</h3>
+    <div>
+      <p>Toda panela volta à oficina de graça para reestanhar o interior, uma vez a cada dez anos de uso. A gente raspa, limpa e banha em estanho puro, e ela sai pronta para mais uma década.</p>
+      <p class="big">Panela de cobre não é compra de um dia: é a única que você pode deixar de herança com o fundo ainda reto.</p>
+    </div>
+  </div>
+</section>
+<section class="end">
+  <p>Visite a oficina às quartas e sextas, das 9h às 16h. Traga a panela da avó: dizemos honestamente se ainda vale o conserto.</p>
+  <p><a href="#runway">Voltar ao início</a></p>
+</section>
+
+<script>
+(() => {
+  document.documentElement.classList.add('js');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const runway = document.getElementById('runway');
+  const a = document.getElementById('halfA'), b = document.getElementById('halfB');
+  const src = document.getElementById('heroContent');
+  // clone da camada B (decorativa para leitores de tela)
+  const clone = src.cloneNode(true);
+  clone.removeAttribute('id');
+  clone.setAttribute('aria-hidden', 'true');
+  clone.querySelectorAll('a').forEach(x => x.setAttribute('tabindex', '-1'));
+  b.appendChild(clone);
+  if (reduce) return;
+
+  const TRAVEL = 1.05;              // fração da altura percorrida por cada metade
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+  const easeOut = t => 1 - Math.pow(1 - t, 3);
+  const t0 = performance.now(), INTRO = 1400;
+  let cur = 0, target = 0;
+  const frame = now => {
+    const r = runway.getBoundingClientRect();
+    target = clamp(-r.top / (r.height - innerHeight), 0, 1);
+    cur += (target - cur) * 0.12;
+    const intro = 1 - easeOut(clamp((now - t0) / INTRO, 0, 1));   // 1 -> 0
+    const open = Math.pow(cur, 1.0) * TRAVEL + intro * 1.1;
+    // metades se afastam ao longo da normal da diagonal: A sobe e vai à esquerda, B desce e vai à direita
+    a.style.setProperty('--ty', (-open * 100).toFixed(3) + '%');
+    a.style.setProperty('--tx', (-open * 6).toFixed(3) + '%');
+    b.style.setProperty('--ty', (open * 100).toFixed(3) + '%');
+    b.style.setProperty('--tx', (open * 6).toFixed(3) + '%');
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

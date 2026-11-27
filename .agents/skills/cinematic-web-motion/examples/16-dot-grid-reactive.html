@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reactive Dot Grid</title>
+<!--
+  EFFECT: Canvas dot grid. Each dot is a damped spring anchored at its grid position; the cursor repels
+  dots within RADIUS (force falls off with distance) and fast mouse movement adds an impulse. Dots near the
+  cursor glow and grow. Pure canvas 2D.
+  ADAPT: GAP (spacing), DOT (base radius), RADIUS, PUSH (repel strength), STIFFNESS & DAMPING (spring feel),
+  and the colours in draw(). Click adds a shockwave.
+  Reduced motion: static grid, no interaction/animation.
+  Resize: grid rebuilt on resize with devicePixelRatio scaling.
+-->
+<style>
+  html,body{margin:0;height:100%;background:#08080c;overflow:hidden;color:#eee;font-family:ui-sans-serif,system-ui,"Segoe UI",sans-serif}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+  main{position:fixed;inset:0;display:grid;place-content:center;text-align:center;pointer-events:none;padding:2rem}
+  h1{margin:0;font-weight:300;font-size:clamp(2.2rem,6vw,4.5rem);letter-spacing:-.03em;text-shadow:0 0 40px #08080c,0 0 20px #08080c}
+  p{margin:.8rem 0 0;opacity:.55;letter-spacing:.2em;text-transform:uppercase;font-size:.72rem}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<main><h1>Springy Grid</h1><p>Move · click</p></main>
+<script>
+(() => {
+  const GAP=30, DOT=1.6, RADIUS=140, PUSH=1.1, STIFFNESS=.08, DAMPING=.82;
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+  let W,H,dpr,dots=[],raf;
+  const m={x:-9999,y:-9999,vx:0,vy:0,px:-9999,py:-9999};
+  const waves=[];
+  function build(){
+    dpr=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;
+    canvas.width=W*dpr;canvas.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+    dots=[];
+    const cols=Math.ceil(W/GAP)+1,rows=Math.ceil(H/GAP)+1;
+    const ox=(W-(cols-1)*GAP)/2,oy=(H-(rows-1)*GAP)/2;
+    for(let j=0;j<rows;j++)for(let i=0;i<cols;i++)dots.push({ax:ox+i*GAP,ay:oy+j*GAP,x:ox+i*GAP,y:oy+j*GAP,vx:0,vy:0});
+    draw();
+  }
+  function step(){
+    m.vx=m.x-m.px;m.vy=m.y-m.py;m.px=m.x;m.py=m.y;
+    const speed=Math.min(Math.hypot(m.vx,m.vy),40);
+    for(const d of dots){
+      let fx=(d.ax-d.x)*STIFFNESS,fy=(d.ay-d.y)*STIFFNESS;
+      const dx=d.x-m.x,dy=d.y-m.y,dist=Math.hypot(dx,dy);
+      if(dist<RADIUS&&dist>.01){
+        const f=(1-dist/RADIUS);
+        fx+=dx/dist*f*f*PUSH*(2+speed*.25);fy+=dy/dist*f*f*PUSH*(2+speed*.25);
+        fx+=m.vx*f*.04;fy+=m.vy*f*.04;
+      }
+      for(const w of waves){
+        const wd=Math.hypot(d.ax-w.x,d.ay-w.y),k=Math.abs(wd-w.r);
+        if(k<60){const f=(1-k/60)*w.a*3;fx+=(d.ax-w.x)/(wd||1)*f;fy+=(d.ay-w.y)/(wd||1)*f;}
+      }
+      d.vx=(d.vx+fx)*DAMPING;d.vy=(d.vy+fy)*DAMPING;d.x+=d.vx;d.y+=d.vy;
+    }
+    for(let i=waves.length-1;i>=0;i--){const w=waves[i];w.r+=8;w.a*=.96;if(w.a<.03)waves.splice(i,1);}
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    for(const d of dots){
+      const disp=Math.hypot(d.x-d.ax,d.y-d.ay),t=Math.min(disp/40,1);
+      const near=Math.max(0,1-Math.hypot(d.x-m.x,d.y-m.y)/(RADIUS*1.2));
+      const g=Math.max(t,near*.8);
+      const r=DOT+g*2.6;
+      ctx.fillStyle=`rgba(${Math.round(110+g*110)},${Math.round(115+g*70)},${Math.round(150+g*105)},${.28+g*.72})`;
+      ctx.beginPath();ctx.arc(d.x,d.y,r,0,6.2832);ctx.fill();
+    }
+  }
+  function loop(){step();draw();raf=requestAnimationFrame(loop);}
+  if(!reduce){
+    addEventListener('pointermove',e=>{m.x=e.clientX;m.y=e.clientY;});
+    document.addEventListener('pointerleave',()=>{m.x=m.y=-9999;m.px=m.py=-9999;});
+    addEventListener('pointerdown',e=>waves.push({x:e.clientX,y:e.clientY,r:0,a:1}));
+  }
+  addEventListener('resize',()=>{build();});
+  build();
+  if(!reduce)loop();
+})();
+</script>
+</body>
+</html>

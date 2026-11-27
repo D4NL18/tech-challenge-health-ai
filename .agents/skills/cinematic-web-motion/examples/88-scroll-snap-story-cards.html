@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>88 · Scroll Snap Story Cards</title>
+<!--
+PATTERN: A horizontal strip of story cards using native CSS scroll-snap. Progress dots, a
+  "2 / 5" counter and Prev / Next buttons stay in sync with whichever card is snapped.
+Motion: Scrolling and snapping are native (scroll-snap-type: x mandatory). scroll position (card nearest the snap edge) marks the active card; the active card lifts and its dot stretches
+  into a bar. Buttons and dots call scrollIntoView with smooth behaviour.
+Accessibility: Track is a focusable region (tabindex=0) with Left/Right arrow support; dots are
+  buttons with aria-label and aria-current; the counter is text, so progress is not colour-only.
+  prefers-reduced-motion: scrolling jumps instantly, no lift transition.
+Adapting: CARD_W (CSS var), STORIES in CONFIG. Libraries: none.
+-->
+<style>
+:root{--paper:#f2ecdf;--ink:#1c1915;--rust:#a63a1c;--moss:#3d5a38;--ease:cubic-bezier(.2,.7,.2,1);
+--serif:"Iowan Old Style","Palatino Linotype",Georgia,serif;--sans:"Avenir Next","Segoe UI","Helvetica Neue",sans-serif}
+*{box-sizing:border-box;margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);padding:9vh 0 10vh}
+header{padding:0 6vw 0 11vw;display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;flex-wrap:wrap}
+h1{font:600 clamp(2.2rem,6vw,4.2rem)/1 var(--serif);letter-spacing:-.03em;max-width:11ch}
+.ctl{display:flex;gap:.5rem;align-items:center;font-size:.9rem}
+.ctl button.n{font:600 .85rem var(--sans);padding:.6rem .9rem;border:2px solid var(--ink);background:none;color:var(--ink);cursor:pointer}
+.ctl button.n:hover:not(:disabled){background:var(--ink);color:var(--paper)}
+.ctl button.n:disabled{opacity:.4;cursor:default}
+button:focus-visible,.track:focus-visible{outline:3px solid var(--rust);outline-offset:3px}
+.track{display:flex;gap:1.2rem;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding-left:11vw;padding:2.5rem 6vw 2.5rem 11vw;scrollbar-width:none}
+.track::-webkit-scrollbar{display:none}
+.card{flex:none;width:min(78vw,340px);scroll-snap-align:start;border:2px solid var(--ink);background:#f8f3e8;display:flex;flex-direction:column;transition:transform .5s var(--ease),box-shadow .5s var(--ease);opacity:.72}
+.card:nth-child(even){margin-top:2rem}
+.card.on{transform:translateY(-8px);box-shadow:8px 8px 0 var(--ink);opacity:1}
+.art{height:150px;border-bottom:2px solid var(--ink)}
+.art svg{display:block;width:100%;height:100%}
+.body{padding:1.1rem 1.2rem 1.4rem}
+.tag{font-size:.72rem;letter-spacing:.16em;text-transform:uppercase}
+h2{font:600 1.5rem/1.15 var(--serif);margin:.5rem 0}
+.body p{font-size:.92rem;line-height:1.5}
+.dots{display:flex;gap:.4rem;padding:0 6vw 0 11vw;align-items:center}
+.dots button{width:14px;height:14px;padding:0;border:2px solid var(--ink);border-radius:7px;background:none;cursor:pointer;transition:width .4s var(--ease),background .3s}
+.dots button[aria-current=true]{width:40px;background:var(--ink)}
+@media (prefers-reduced-motion:reduce){.card,.dots button{transition:none}.track{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Five stories from the quay</h1>
+  <div class="ctl"><button type="button" class="n" id="pv">Prev</button><span id="ct" aria-live="polite"></span><button type="button" class="n" id="nx">Next</button></div>
+</header>
+<div class="track" id="tr" tabindex="0" role="region" aria-label="Story cards, use left and right arrow keys"></div>
+<div class="dots" id="dots"></div>
+<script>
+(function(){
+  var CONFIG={STORIES:[
+    ["Labour","Eleven days without a shift","Dockers voted 412 to 380 to end the stoppage. Here is what changed on paper.","#d9c7a3","#a63a1c"],
+    ["Budget","The annex nobody read","A forty-page appendix moved harbour dredging costs to next year's accounts.","#c9d2bd","#2a3a2a"],
+    ["Food","Flour at four in the morning","Three bakeries on Rua Nova absorb a 14 percent rise in wheat prices.","#e3c9a8","#2f5a50"],
+    ["Transport","Why the number 9 never comes","An audit finds the route was halved in January without a public notice.","#c7b79c","#b9791f"],
+    ["Culture","Letterpress, one apprentice at a time","A 1952 Heidelberg and two trainees keep the masthead set by hand.","#ddc3b0","#40251a"]]};
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var tr=document.getElementById("tr"),dots=document.getElementById("dots"),ct=document.getElementById("ct"),pv=document.getElementById("pv"),nx=document.getElementById("nx");
+  var cards=[],ds=[],cur=0;
+  CONFIG.STORIES.forEach(function(s,i){
+    var c=document.createElement("article");c.className="card";
+    c.innerHTML='<div class="art"><svg viewBox="0 0 340 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="340" height="150" fill="'+s[3]+'"/><circle cx="'+(70+i*50)+'" cy="52" r="'+(22+i*4)+'" fill="'+s[4]+'"/><path d="M0 110 Q90 '+(70+i*8)+' 170 104 T340 96 V150 H0Z" fill="#1c1915"/></svg></div><div class="body"><span class="tag"></span><h2></h2><p></p></div>';
+    c.querySelector(".tag").textContent=(i+1)+" · "+s[0];c.querySelector("h2").textContent=s[1];c.querySelector("p").textContent=s[2];
+    tr.appendChild(c);cards.push(c);
+    var d=document.createElement("button");d.type="button";d.setAttribute("aria-label","Go to story "+(i+1)+": "+s[1]);
+    d.addEventListener("click",function(){go(i)});dots.appendChild(d);ds.push(d);
+  });
+  function go(i){
+    i=Math.max(0,Math.min(cards.length-1,i));
+    cards[i].scrollIntoView({behavior:reduce?"auto":"smooth",inline:"start",block:"nearest"});
+  }
+  function set(i){
+    cur=i;
+    cards.forEach(function(c,k){c.classList.toggle("on",k===i);ds[k].setAttribute("aria-current",k===i?"true":"false")});
+    ct.textContent=(i+1)+" / "+cards.length;pv.disabled=i===0;nx.disabled=i===cards.length-1;
+  }
+  var tk=0;
+  function sync(){
+    tk=0;
+    var max=tr.scrollWidth-tr.clientWidth,pad=parseFloat(getComputedStyle(tr).scrollPaddingLeft)||0,best=0,bd=1e9;
+    if(tr.scrollLeft>=max-2){best=cards.length-1}
+    else cards.forEach(function(c,k){var d=Math.abs(c.offsetLeft-tr.offsetLeft-(tr.scrollLeft+pad)+tr.offsetLeft);d=Math.abs(c.offsetLeft-pad-tr.scrollLeft);if(d<bd){bd=d;best=k}});
+    if(best!==cur||!cards[best].classList.contains("on"))set(best);
+  }
+  tr.addEventListener("scroll",function(){if(!tk)tk=requestAnimationFrame(sync)},{passive:true});
+  addEventListener("resize",sync);
+  pv.addEventListener("click",function(){go(cur-1)});
+  nx.addEventListener("click",function(){go(cur+1)});
+  tr.addEventListener("keydown",function(e){
+    if(e.key==="ArrowRight"){e.preventDefault();go(cur+1)}
+    else if(e.key==="ArrowLeft"){e.preventDefault();go(cur-1)}
+  });
+  sync();
+})();
+</script>
+</body>
+</html>

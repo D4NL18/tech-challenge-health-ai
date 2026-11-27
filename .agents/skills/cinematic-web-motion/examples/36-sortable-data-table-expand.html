@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sortable Data Table & Expandable Rows — Subtle UI Motion</title>
+  <!--
+    PATTERN: Sortable Data Table with Expandable Detail Rows
+    A production-grade SaaS table featuring single-column sorting, status filter, and
+    accordion-style row expansion using CSS grid-template-rows (0fr -> 1fr).
+    - Motion: Sort chevron rotates 180deg in 150ms; detail drawer expands cleanly via
+      grid-template-rows over 180ms without layout thrashing.
+    - Accessibility: <th aria-sort="ascending|descending|none">, sort buttons with clear
+      labels, and expand buttons with aria-expanded + aria-controls.
+    - Adapting: Update `rows` data and `columns` headers; keep `data-key` sort attributes.
+  -->
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --surface-subtle: #f4f4f5;
+      --border: #e4e4e7;
+      --text: #18181b;
+      --text-muted: #71717a;
+      --ok-bg: #dcfce7;
+      --ok-fg: #166534;
+      --warn-bg: #fef3c7;
+      --warn-fg: #92400e;
+      --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #09090b;
+        --surface: #18181b;
+        --surface-subtle: #27272a;
+        --border: #27272a;
+        --text: #fafafa;
+        --text-muted: #a1a1aa;
+        --ok-bg: rgba(34, 197, 94, 0.16);
+        --ok-fg: #86efac;
+        --warn-bg: rgba(245, 158, 11, 0.16);
+        --warn-fg: #fcd34d;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .card {
+      width: 100%;
+      max-width: 760px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .title { font-size: 14px; font-weight: 600; margin: 0; }
+    .search {
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      width: 210px;
+    }
+    .search:focus-visible, .sort-btn:focus-visible, .exp-btn:focus-visible {
+      outline: 2px solid var(--text);
+      outline-offset: 2px;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th {
+      text-align: left;
+      padding: 10px 14px;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: var(--surface-subtle);
+      border-bottom: 1px solid var(--border);
+    }
+    .sort-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    .sort-btn:hover { color: var(--text); }
+    .chev { transition: transform 150ms var(--ease), opacity 150ms var(--ease); opacity: 0.4; }
+    th[aria-sort="ascending"] .chev { opacity: 1; transform: rotate(0deg); }
+    th[aria-sort="descending"] .chev { opacity: 1; transform: rotate(180deg); }
+    td { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+    tr.main-row { transition: background 120ms var(--ease); }
+    tr.main-row:hover { background: var(--surface-subtle); }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .pill.ok { background: var(--ok-bg); color: var(--ok-fg); }
+    .pill.warn { background: var(--warn-bg); color: var(--warn-fg); }
+    .exp-btn {
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+    }
+    .exp-btn svg { transition: transform 160ms var(--ease); }
+    .exp-btn[aria-expanded="true"] svg { transform: rotate(90deg); }
+    .detail-row td { padding: 0; border-bottom: 1px solid var(--border); }
+    .detail-wrap {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 180ms var(--ease);
+    }
+    .detail-wrap[data-open="true"] { grid-template-rows: 1fr; }
+    .detail-inner { overflow: hidden; }
+    .detail-content {
+      padding: 12px 16px 14px 48px;
+      background: var(--surface-subtle);
+      color: var(--text-muted);
+      font-size: 12px;
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .detail-content strong { color: var(--text); font-weight: 500; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <section class="card" aria-label="Deployments table">
+    <div class="toolbar">
+      <h1 class="title">Recent Deployments</h1>
+      <input class="search" id="filterInput" type="search" placeholder="Filter service..." aria-label="Filter service" />
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:40px"></th>
+          <th aria-sort="none"><button class="sort-btn" data-key="service" type="button">Service <span class="chev">↑</span></button></th>
+          <th aria-sort="none"><button class="sort-btn" data-key="status" type="button">Status <span class="chev">↑</span></button></th>
+          <th aria-sort="descending"><button class="sort-btn" data-key="latency" type="button">P95 Latency <span class="chev">↑</span></button></th>
+          <th aria-sort="none"><button class="sort-btn" data-key="region" type="button">Region <span class="chev">↑</span></button></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </section>
+
+  <script>
+    const rows = [
+      { id: 'd1', service: 'auth-gateway', status: 'Healthy', latency: 42, region: 'us-east-1', commit: 'a91f4c', owner: 'Platform' },
+      { id: 'd2', service: 'billing-worker', status: 'Degraded', latency: 184, region: 'eu-west-1', commit: '3c82b1', owner: 'Core' },
+      { id: 'd3', service: 'search-indexer', status: 'Healthy', latency: 67, region: 'us-west-2', commit: '7e09d4', owner: 'Data' },
+      { id: 'd4', service: 'edge-router', status: 'Healthy', latency: 19, region: 'sa-east-1', commit: 'f210a8', owner: 'Infra' }
+    ];
+
+    let sortKey = 'latency';
+    let sortDir = 'descending';
+    let query = '';
+    const expanded = new Set();
+
+    const tbody = document.getElementById('tbody');
+    const filterInput = document.getElementById('filterInput');
+    const headers = [...document.querySelectorAll('th[aria-sort]')];
+
+    function render() {
+      const filtered = rows
+        .filter(r => r.service.toLowerCase().includes(query))
+        .sort((a, b) => {
+          const av = a[sortKey], bv = b[sortKey];
+          const cmp = typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv));
+          return sortDir === 'ascending' ? cmp : -cmp;
+        });
+
+      tbody.innerHTML = filtered.map(r => {
+        const isOpen = expanded.has(r.id);
+        return `
+          <tr class="main-row">
+            <td>
+              <button class="exp-btn" type="button" data-id="${r.id}" aria-expanded="${isOpen}" aria-controls="det-${r.id}" aria-label="Toggle details for ${r.service}">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </button>
+            </td>
+            <td><strong>${r.service}</strong></td>
+            <td><span class="pill ${r.status === 'Healthy' ? 'ok' : 'warn'}">${r.status}</span></td>
+            <td>${r.latency} ms</td>
+            <td>${r.region}</td>
+          </tr>
+          <tr class="detail-row">
+            <td colspan="5">
+              <div class="detail-wrap" id="det-${r.id}" data-open="${isOpen}">
+                <div class="detail-inner">
+                  <div class="detail-content">
+                    <span>Commit: <strong>${r.commit}</strong></span>
+                    <span>Owner: <strong>${r.owner}</strong></span>
+                    <span>Runtime: <strong>Node 22 LTS</strong></span>
+                  </div>
+                </div>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    document.querySelector('thead').addEventListener('click', (e) => {
+      const btn = e.target.closest('.sort-btn');
+      if (!btn) return;
+      const key = btn.dataset.key;
+      sortDir = (sortKey === key && sortDir === 'ascending') ? 'descending' : 'ascending';
+      sortKey = key;
+      headers.forEach(th => {
+        const k = th.querySelector('.sort-btn')?.dataset.key;
+        th.setAttribute('aria-sort', k === sortKey ? sortDir : 'none');
+      });
+      render();
+    });
+
+    tbody.addEventListener('click', (e) => {
+      const btn = e.target.closest('.exp-btn');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      if (expanded.has(id)) expanded.delete(id); else expanded.add(id);
+      const wrap = document.getElementById(`det-${id}`);
+      const open = expanded.has(id);
+      btn.setAttribute('aria-expanded', String(open));
+      if (wrap) wrap.dataset.open = String(open);
+    });
+
+    filterInput.addEventListener('input', (e) => {
+      query = e.target.value.trim().toLowerCase();
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>

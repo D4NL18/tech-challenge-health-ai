@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>123 · Pricing Scroll Reveal Section</title>
+<!--
+PATTERN: Pricing told as a story for a pottery studio: a sticky left column narrates "how often will
+  you come?" while three plans of deliberately different size and weight are revealed one by one on
+  the right; the middle plan is the highlighted one. A kiln-hours bar fills as you scroll.
+Motion: ScrollTrigger reveals each plan with a clip-path inset wipe + price count-up when it reaches
+  ~70% of the viewport; the sticky index (01/02/03) and hours bar are scrubbed against the plan list.
+Accessibility: Plans are <article> with h3 + dl; prices are real text (count-up ends on the exact
+  value and the final value is in aria-label). prefers-reduced-motion or no CDN: everything visible,
+  no wipe, no counting. :focus-visible on links. Mobile (390px): sticky column becomes a plain header.
+Adapting: Edit plan data in HTML (data-price drives the count-up); change .plan heights for rhythm.
+Libraries: GSAP + ScrollTrigger (CDN, optional).
+-->
+<style>
+:root{--clay:#e9ddd0;--ink:#241c19;--terra:#b4492b;--glaze:#2f5559;--bone:#f7f1e8;--sand:#cdb597;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--clay);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a:focus-visible{outline:3px solid var(--terra);outline-offset:3px}
+.hero{padding:clamp(3rem,12vh,8rem) clamp(1.2rem,6vw,6rem) 8vh}
+.hero small{letter-spacing:.2em;text-transform:uppercase;font-size:.75rem;color:var(--glaze);font-weight:700}
+.hero h1{font-family:var(--serif);font-weight:400;font-size:clamp(2.6rem,8vw,8rem);line-height:.92;letter-spacing:-.03em;margin-top:1.2rem;max-width:13ch}
+.story{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:clamp(1.5rem,5vw,6rem);padding:0 clamp(1.2rem,6vw,6rem) 14vh;align-items:start}
+.side{position:sticky;top:8vh;align-self:start}
+.side p{max-width:30ch;line-height:1.6;margin-bottom:2rem}
+.idx{font-family:var(--serif);font-size:clamp(5rem,13vw,11rem);line-height:.8;letter-spacing:-.05em;color:var(--terra);display:flex;align-items:baseline;gap:.4rem}
+.idx span{font-size:.18em;letter-spacing:0;color:var(--ink);font-family:var(--sans)}
+.idx b{font-weight:400;display:inline-block;min-width:1.1ch}
+.hours{margin-top:2.4rem;max-width:22rem}
+.hours .lab{display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:.5rem}
+.hours .bar{height:10px;background:#cdb59766;border-radius:0}
+.hours .fill{height:100%;width:100%;background:var(--glaze);transform-origin:0 50%;transform:scaleX(.15)}
+.plans{display:grid;gap:clamp(2rem,10vh,7rem)}
+.plan{position:relative;padding:clamp(1.4rem,3vw,2.6rem);border:1px solid var(--ink)}
+.plan h3{font-family:var(--serif);font-weight:400;font-size:clamp(1.6rem,3vw,2.6rem);letter-spacing:-.02em}
+.price{font-family:var(--serif);font-size:clamp(3rem,7vw,6.2rem);letter-spacing:-.04em;line-height:1;margin:1rem 0 .3rem}
+.price small{font-family:var(--sans);font-size:.9rem;letter-spacing:0;margin-left:.4rem;opacity:.75}
+.plan p{line-height:1.55;max-width:38ch;margin:.8rem 0 1.2rem}
+dl{display:grid;grid-template-columns:auto 1fr;gap:.4rem 1.2rem;font-size:.9rem;border-top:1px solid currentColor;padding-top:1rem}
+dt{opacity:.75}dd{text-align:right}
+.p-a{width:78%;margin-left:0}
+.p-b{width:100%;background:var(--terra);color:var(--bone);border-color:var(--terra);padding:clamp(1.8rem,4vw,3.6rem)}
+.p-b .badge{position:absolute;top:-.9rem;right:1.5rem;background:var(--ink);color:var(--bone);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;padding:.45rem .8rem}
+.p-b .price{font-size:clamp(4rem,10vw,9rem)}
+.p-c{width:86%;margin-left:auto;background:var(--glaze);color:var(--bone);border-color:var(--glaze)}
+.cta{display:inline-block;margin-top:1.4rem;padding:.8rem 1.3rem;border:1px solid currentColor;color:inherit;text-decoration:none;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;transition:transform .25s,background .25s,color .25s}
+.cta:hover{transform:translateX(6px);background:var(--bone);color:var(--ink)}
+.note{padding:0 clamp(1.2rem,6vw,6rem) 12vh;font-size:.9rem;max-width:60ch;line-height:1.6}
+@media(max-width:820px){
+  .story{grid-template-columns:1fr}.side{position:static}.idx{font-size:4.5rem}
+  .p-a,.p-b,.p-c{width:100%}
+}
+@media(prefers-reduced-motion:reduce){.cta{transition:none}}
+</style>
+</head>
+<body>
+<section class="hero"><small>Clayworks Studio, Glasgow</small><h1>Pay for the hours you will actually use.</h1></section>
+
+<section class="story">
+  <div class="side">
+    <p>Wheels, a glaze kitchen and two kilns, open from 7 am to 10 pm. Pick the rhythm that matches how often you throw, not the one that sounds the most generous.</p>
+    <div class="idx" aria-hidden="true"><b id="idx">01</b><span>of 03 plans</span></div>
+    <div class="hours"><div class="lab"><span>Kiln shelf space</span><span id="hrsLabel">1 shelf</span></div><div class="bar"><div class="fill" id="fill"></div></div></div>
+  </div>
+  <div class="plans">
+    <article class="plan p-a" data-i="1" data-shelf="1 shelf">
+      <h3>Drop-in</h3>
+      <div class="price" aria-label="14 pounds per session">£<span data-price="14">14</span><small>per session</small></div>
+      <p>For the curious. Three hours at a wheel, clay and one firing included. Book the day before.</p>
+      <dl><dt>Wheel time</dt><dd>3 hours</dd><dt>Clay</dt><dd>2 kg included</dd><dt>Firing</dt><dd>1 piece</dd></dl>
+      <a class="cta" href="#top">Book a session</a>
+    </article>
+    <article class="plan p-b" data-i="2" data-shelf="3 shelves">
+      <div class="badge">Most members</div>
+      <h3>Regular</h3>
+      <div class="price" aria-label="89 pounds per month">£<span data-price="89">89</span><small>per month</small></div>
+      <p>Eight sessions a month on any wheel, your own shelf in the drying room, and glazing whenever the kitchen is open. Members who throw weekly settle here within two months.</p>
+      <dl><dt>Wheel time</dt><dd>8 sessions</dd><dt>Clay</dt><dd>10 kg, then £1.80/kg</dd><dt>Firings</dt><dd>12 pieces</dd><dt>Storage</dt><dd>One shelf</dd></dl>
+      <a class="cta" href="#top">Join as Regular</a>
+    </article>
+    <article class="plan p-c" data-i="3" data-shelf="a full bay">
+      <h3>Resident</h3>
+      <div class="price" aria-label="240 pounds per month">£<span data-price="240">240</span><small>per month</small></div>
+      <p>A private bay, a key, and unlimited wheel time for people selling their work. Includes a table at the December sale.</p>
+      <dl><dt>Wheel time</dt><dd>Unlimited</dd><dt>Clay</dt><dd>40 kg</dd><dt>Firings</dt><dd>Unlimited, within reason</dd></dl>
+      <a class="cta" href="#top">Ask about a bay</a>
+    </article>
+  </div>
+</section>
+<p class="note">Prices include VAT. Month-to-month, cancel with seven days' notice. Students with a valid card get 20% off Regular.</p>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || !window.gsap || !window.ScrollTrigger) return;
+  gsap.registerPlugin(ScrollTrigger);
+  var plans = gsap.utils.toArray('.plan');
+  var idx = document.getElementById('idx'), lab = document.getElementById('hrsLabel');
+  plans.forEach(function(p){
+    var num = p.querySelector('[data-price]'), end = +num.dataset.price, o = {v: 0};
+    gsap.set(p, {clipPath: 'inset(0 0 100% 0)', opacity: .001});
+    gsap.set(p.children, {y: 24, opacity: 0});
+    var tl = gsap.timeline({paused: true})
+      .to(p, {clipPath: 'inset(0 0 0% 0)', opacity: 1, duration: 1, ease: 'power3.inOut'})
+      .to(p.children, {y: 0, opacity: 1, duration: .7, stagger: .08, ease: 'power3.out'}, .3)
+      .to(o, {v: end, duration: 1.1, ease: 'power2.out', onUpdate: function(){ num.textContent = Math.round(o.v); }}, .3);
+    ScrollTrigger.create({trigger: p, start: 'top 82%', onEnter: function(){ tl.play(); }});
+    ScrollTrigger.create({trigger: p, start: 'top 55%', end: 'bottom 55%',
+      onToggle: function(s){ if (s.isActive){ idx.textContent = '0' + p.dataset.i; lab.textContent = p.dataset.shelf; } }});
+  });
+  gsap.fromTo('#fill', {scaleX: .15}, {scaleX: 1, ease: 'none',
+    scrollTrigger: {trigger: '.plans', start: 'top 60%', end: 'bottom 70%', scrub: .5}});
+  addEventListener('load', function(){ ScrollTrigger.refresh(); });
+})();
+</script>
+</body>
+</html>

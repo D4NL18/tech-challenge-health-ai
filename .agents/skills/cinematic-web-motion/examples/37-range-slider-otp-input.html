@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Range Slider & OTP Verification Input — Subtle UI Motion</title>
+  <!--
+    PATTERN: Precision Range Slider + 6-Digit OTP Verification Input
+    Two high-frequency SaaS form controls: a custom-tracked range slider with live readout
+    and a 6-digit one-time-passcode input with paste, auto-advance, and subtle error shake.
+    - Motion: Slider thumb scales 1.12x on active drag; OTP boxes pop slightly (scale 1.04)
+      on digit entry and shake 4px horizontally on invalid code (180ms).
+    - Accessibility: Native <input type="range"> with aria-valuetext; OTP boxes have
+      inputmode="numeric", individual aria-labels, Backspace/Arrow navigation, and aria-live status.
+    - Adapting: Change `OTP_LENGTH` or `min`/`max` range attributes; demo code is `424242`.
+  -->
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --surface-subtle: #f4f4f5;
+      --border: #e4e4e7;
+      --text: #18181b;
+      --text-muted: #71717a;
+      --ok: #16a34a;
+      --err: #dc2626;
+      --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #09090b;
+        --surface: #18181b;
+        --surface-subtle: #27272a;
+        --border: #3f3f46;
+        --text: #fafafa;
+        --text-muted: #a1a1aa;
+        --ok: #4ade80;
+        --err: #f87171;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .stack {
+      width: 100%;
+      max-width: 440px;
+      display: grid;
+      gap: 16px;
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+    }
+    .row-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 12px;
+    }
+    .label { font-size: 13px; font-weight: 600; margin: 0; }
+    .val { font-size: 13px; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: linear-gradient(to right, var(--text) var(--pct, 40%), var(--surface-subtle) var(--pct, 40%));
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 2px solid var(--text);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+      transition: transform 140ms var(--ease);
+    }
+    input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.15); }
+    input[type="range"]:focus-visible, .otp-box:focus-visible, .btn:focus-visible {
+      outline: 2px solid var(--text);
+      outline-offset: 2px;
+    }
+    .otp-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      margin: 12px 0;
+    }
+    .otp-grid.shake { animation: shake 220ms var(--ease); }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+    .otp-box {
+      height: 46px;
+      width: 100%;
+      text-align: center;
+      font-size: 18px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      color: var(--text);
+      transition: border-color 140ms var(--ease), transform 140ms var(--ease);
+    }
+    .otp-box.filled { border-color: var(--text); transform: scale(1.03); }
+    .otp-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .status { font-size: 12px; color: var(--text-muted); margin: 0; }
+    .status.ok { color: var(--ok); }
+    .status.err { color: var(--err); }
+    .btn {
+      border: 1px solid var(--border);
+      background: var(--surface-subtle);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="stack">
+    <section class="panel">
+      <div class="row-head">
+        <label class="label" for="rateSlider">Rate Limit (req/s)</label>
+        <span class="val" id="rateVal">400 req/s</span>
+      </div>
+      <input id="rateSlider" type="range" min="50" max="1000" step="50" value="400" aria-valuetext="400 requests per second" />
+    </section>
+
+    <section class="panel">
+      <div class="row-head">
+        <h2 class="label">2FA Verification Code</h2>
+        <span class="val">Try 424242</span>
+      </div>
+      <div class="otp-grid" id="otpGrid"></div>
+      <div class="otp-foot">
+        <p class="status" id="otpStatus" aria-live="polite">Enter or paste 6 digits.</p>
+        <button class="btn" id="clearOtp" type="button">Clear</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const slider = document.getElementById('rateSlider');
+    const rateVal = document.getElementById('rateVal');
+    function syncSlider() {
+      const pct = ((slider.value - slider.min) / (slider.max - slider.min)) * 100;
+      slider.style.setProperty('--pct', `${pct}%`);
+      rateVal.textContent = `${slider.value} req/s`;
+      slider.setAttribute('aria-valuetext', `${slider.value} requests per second`);
+    }
+    slider.addEventListener('input', syncSlider);
+    syncSlider();
+
+    const OTP_LENGTH = 6;
+    const grid = document.getElementById('otpGrid');
+    const status = document.getElementById('otpStatus');
+    const clearBtn = document.getElementById('clearOtp');
+
+    const boxes = Array.from({ length: OTP_LENGTH }, (_, i) => {
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.inputMode = 'numeric';
+      inp.maxLength = 1;
+      inp.className = 'otp-box';
+      inp.setAttribute('aria-label', `Digit ${i + 1} of ${OTP_LENGTH}`);
+      grid.appendChild(inp);
+      return inp;
+    });
+
+    function checkCode() {
+      const code = boxes.map(b => b.value).join('');
+      if (code.length < OTP_LENGTH) {
+        status.className = 'status';
+        status.textContent = 'Enter or paste 6 digits.';
+        return;
+      }
+      if (code === '424242') {
+        status.className = 'status ok';
+        status.textContent = 'Code verified.';
+      } else {
+        status.className = 'status err';
+        status.textContent = 'Invalid code. Try 424242.';
+        grid.classList.remove('shake');
+        void grid.offsetWidth;
+        grid.classList.add('shake');
+      }
+    }
+
+    boxes.forEach((box, idx) => {
+      box.addEventListener('input', (e) => {
+        const digit = e.target.value.replace(/\D/g, '').slice(-1);
+        box.value = digit;
+        box.classList.toggle('filled', Boolean(digit));
+        if (digit && idx < OTP_LENGTH - 1) boxes[idx + 1].focus();
+        checkCode();
+      });
+
+      box.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !box.value && idx > 0) {
+          boxes[idx - 1].focus();
+        } else if (e.key === 'ArrowLeft' && idx > 0) {
+          boxes[idx - 1].focus();
+        } else if (e.key === 'ArrowRight' && idx < OTP_LENGTH - 1) {
+          boxes[idx + 1].focus();
+        }
+      });
+
+      box.addEventListener('paste', (e) => {
+        const digits = (e.clipboardData?.getData('text') || '').replace(/\D/g, '').slice(0, OTP_LENGTH);
+        if (!digits) return;
+        e.preventDefault();
+        digits.split('').forEach((d, k) => {
+          boxes[k].value = d;
+          boxes[k].classList.add('filled');
+        });
+        boxes[Math.min(digits.length, OTP_LENGTH - 1)].focus();
+        checkCode();
+      });
+    });
+
+    clearBtn.addEventListener('click', () => {
+      boxes.forEach(b => { b.value = ''; b.classList.remove('filled'); });
+      boxes[0].focus();
+      checkCode();
+    });
+  </script>
+</body>
+</html>

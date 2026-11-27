@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>114 · Hero Cursor Spotlight Grid</title>
+<!--
+  PATTERN: Grade de células acesas por proximidade do cursor sob uma manchete enorme. Um <canvas> desenha centenas
+           de células; o brilho de cada uma decai com a distância ao cursor (e ao rastro suavizado dele).
+           Ao rolar, o raio de luz cresce e as lacunas fecham até a grade inteira virar um campo âmbar sólido,
+           exatamente a cor de fundo da seção seguinte: a passagem é contínua, sem corte.
+  Motion: pointermove -> posição com lerp por rAF; scroll progress (stage sticky em 210vh) -> raio, ganho e
+          fechamento das lacunas. Sem cursor (toque), uma luz vagueia sozinha em Lissajous.
+  Accessibility: canvas aria-hidden e decorativo; a manchete é texto real. A cor do texto troca para tinta
+          escura quando o campo âmbar domina (contraste >= 4.5:1). prefers-reduced-motion: grade estática,
+          levemente acesa, sem rastro, sem crescimento por scroll. :focus-visible nos links.
+  Adapting: CELL (tamanho), RADIUS (alcance da luz), AMBER (cor acesa) e a cor de fundo da próxima seção
+          (--amber) precisam coincidir. Para outro conteúdo atrás da grade, troque o <h1>.
+  Libraries: nenhuma. Redimensiona com ResizeObserver e dpr limitado a 2.
+-->
+<style>
+  :root{
+    --ink:#16130e; --ink-2:#26211a; --cream:#f5ead2; --amber:#e8ac3c; --amber-d:#8a5a10; --line:#3a3326;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:"Gill Sans","Trebuchet MS","Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--amber);color:var(--ink);font-family:var(--sans);overflow-x:hidden}
+  a{color:inherit}
+  a:focus-visible{outline:3px solid var(--amber);outline-offset:4px;box-shadow:0 0 0 6px var(--ink)}
+
+  .runway{position:relative;height:210vh;background:var(--ink)}
+  .stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--ink);color:var(--cream)}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .layout{position:absolute;inset:0;padding:clamp(1.2rem,3.5vw,3rem);display:flex;flex-direction:column;justify-content:space-between;pointer-events:none}
+  .layout > *{pointer-events:auto}
+  .top{display:flex;justify-content:space-between;font-size:.78rem;letter-spacing:.16em;text-transform:uppercase}
+  .top b{font-family:var(--serif);font-size:1.2rem;letter-spacing:0;text-transform:none}
+  h1{font-family:var(--serif);font-weight:700;font-size:clamp(3rem,11.5vw,11.5rem);line-height:.88;letter-spacing:-.04em;margin:0;max-width:11ch;transition:color .35s}
+  h1 em{font-weight:400}
+  .bottom{display:flex;justify-content:space-between;align-items:flex-end;gap:1.5rem}
+  .bottom p{margin:0;max-width:25rem;line-height:1.5;font-size:1.02rem;transition:color .35s}
+  .bottom a{font-size:.8rem;letter-spacing:.16em;text-transform:uppercase;text-decoration:none;border-bottom:2px solid currentColor;padding-bottom:.2rem;white-space:nowrap}
+  .stage.on-amber{color:var(--ink)}
+  .stage.on-amber .top,.stage.on-amber h1,.stage.on-amber .bottom{color:var(--ink)}
+
+  .after{background:var(--amber);color:var(--ink);padding:clamp(4rem,9vw,8rem) clamp(1.2rem,6vw,6rem)}
+  .after .grid{max-width:78rem;margin:0 auto;display:grid;grid-template-columns:5fr 7fr;gap:clamp(1.5rem,5vw,5rem)}
+  .after h2{font-family:var(--serif);font-size:clamp(2rem,4.6vw,4.2rem);line-height:1;margin:0;letter-spacing:-.02em}
+  .after p{font-size:1.15rem;line-height:1.6;margin:0 0 1.1rem;max-width:36rem}
+  .specs{display:grid;grid-template-columns:repeat(2,1fr);gap:0;margin-top:2rem;border-top:2px solid var(--ink)}
+  .specs div{padding:1rem 1rem 1rem 0;border-bottom:1px solid var(--amber-d)}
+  .specs dt{font-size:.75rem;letter-spacing:.16em;text-transform:uppercase}
+  .specs dd{margin:.3rem 0 0;font-family:var(--serif);font-size:1.5rem}
+  .end{background:var(--ink);color:var(--cream);padding:clamp(3rem,7vw,6rem) clamp(1.2rem,6vw,6rem);min-height:50vh}
+  .end p{max-width:34rem;line-height:1.6}
+
+  @media (max-width:700px){
+    .after .grid{grid-template-columns:1fr}
+    .bottom{flex-direction:column;align-items:flex-start}
+    .top span{display:none}
+    h1{font-size:clamp(3rem,18vw,5.4rem)}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .runway{height:auto}
+    .stage{position:relative;height:100svh}
+  }
+</style>
+</head>
+<body>
+<section class="runway" id="runway">
+  <div class="stage" id="stage">
+    <canvas id="grid" aria-hidden="true"></canvas>
+    <div class="layout">
+      <div class="top"><b>Fundição Pavio</b><span>Tipos móveis e digitais · Curitiba</span></div>
+      <h1>Cada letra, uma <em>luz</em> acesa.</h1>
+      <div class="bottom">
+        <p>Seis famílias tipográficas desenhadas para papel jornal, etiqueta de lata e placa de rua. Passe o cursor pela grade e acenda a página como quem confere uma prova de impressão.</p>
+        <a href="#amostras">Ver as amostras</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="after" id="amostras">
+  <div class="grid">
+    <h2>Desenhadas para aguentar tinta ruim.</h2>
+    <div>
+      <p>Toda família passa por um teste: impressa em papel jornal de 48 g, no corpo 7, com tinta já cansada. Se o "e" fecha, a gente reabre o olho da letra.</p>
+      <p>As licenças valem por estúdio, não por usuário. Quem imprime em livro, placa ou embalagem usa a mesma fonte, sem renegociar.</p>
+      <dl class="specs">
+        <div><dt>Famílias</dt><dd>6</dd></div>
+        <div><dt>Pesos</dt><dd>5 a 9 por família</dd></div>
+        <div><dt>Menor corpo testado</dt><dd>6 pt</dd></div>
+        <div><dt>Licença</dt><dd>Estúdio, perpétua</dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+<section class="end">
+  <p>Amostras impressas em papel são enviadas gratuitamente para estúdios do Brasil. Escreva e conte onde a fonte será usada.</p>
+  <p><a href="#runway">Voltar ao início</a></p>
+</section>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const canvas = document.getElementById('grid');
+  const stage = document.getElementById('stage');
+  const runway = document.getElementById('runway');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) { return; }
+  const CELL = innerWidth < 700 ? 30 : 44;
+  const AMBER = [232, 172, 60], BASE = [38, 33, 26];
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  let W = 0, H = 0, dpr = 1, cols = 0, rows = 0;
+  let mx = -1e4, my = -1e4, sx = -1e4, sy = -1e4, hasPointer = false, cur = 0, target = 0;
+  const resize = () => {
+    dpr = Math.min(devicePixelRatio || 1, 2);
+    W = canvas.clientWidth; H = canvas.clientHeight;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cols = Math.ceil(W / CELL) + 1; rows = Math.ceil(H / CELL) + 1;
+  };
+  new ResizeObserver(resize).observe(canvas);
+  resize();
+  stage.addEventListener('pointermove', e => {
+    const r = stage.getBoundingClientRect();
+    mx = e.clientX - r.left; my = e.clientY - r.top; hasPointer = true;
+  }, { passive: true });
+  stage.addEventListener('pointerleave', () => { hasPointer = false; });
+
+  const draw = t => {
+    const r = runway.getBoundingClientRect();
+    target = reduce ? 0 : clamp(-r.top / (r.height - innerHeight), 0, 1);
+    cur += (target - cur) * 0.1;
+    if (!hasPointer && !reduce) {      // luz errante quando não há cursor
+      mx = W * (0.5 + 0.38 * Math.sin(t / 2300));
+      my = H * (0.52 + 0.3 * Math.sin(t / 1700 + 1));
+    }
+    if (reduce) { mx = W * 0.7; my = H * 0.4; }
+    sx += (mx - sx) * 0.14; sy += (my - sy) * 0.14;
+    if (sx < -1e3) { sx = mx; sy = my; }
+    const grow = cur > 0.12 ? (cur - 0.12) / 0.78 : 0;        // 0..1 depois dos primeiros 12%
+    const g = clamp(grow, 0, 1);
+    const radius = (Math.min(W, H) * 0.32) + g * Math.hypot(W, H);
+    const gain = 0.8 + 0.2 * g;
+    const gap = 2 * (1 - g);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#16130e';
+    ctx.fillRect(0, 0, W, H);
+    for (let j = 0; j < rows; j++) {
+      for (let i = 0; i < cols; i++) {
+        const x = i * CELL, y = j * CELL;
+        const d = Math.hypot(x + CELL / 2 - sx, y + CELL / 2 - sy);
+        let k = clamp(1 - d / radius, 0, 1);
+        k = k * k * (3 - 2 * k) * gain;
+        if (g >= 1) k = 1;
+        const mix = clamp(k, 0, 1);
+        const rr = BASE[0] + (AMBER[0] - BASE[0]) * mix;
+        const gg = BASE[1] + (AMBER[1] - BASE[1]) * mix;
+        const bb = BASE[2] + (AMBER[2] - BASE[2]) * mix;
+        ctx.fillStyle = `rgb(${rr | 0},${gg | 0},${bb | 0})`;
+        ctx.fillRect(x + gap / 2, y + gap / 2, CELL - gap, CELL - gap);
+      }
+    }
+    stage.classList.toggle('on-amber', g > 0.72);
+    if (!reduce) requestAnimationFrame(draw);
+  };
+  requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>

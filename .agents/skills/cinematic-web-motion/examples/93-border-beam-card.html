@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>93 · Border Beam Card</title>
+<!--
+PATTERN: A highlighted pricing tier for a coworking space gets a short beam of light that travels
+  around its border, drawing the eye without moving the layout.
+Motion: @property --a (angle) animates 0 -> 360deg; a conic-gradient with a narrow bright arc sits
+  in a 2px ring (border-box vs content-box mask composite). 6s linear infinite.
+  Fallback: browsers without @property show a static warm border (no beam).
+Accessibility: Beam is purely decorative (pseudo-element). The "Most booked" status is real text with
+  a check glyph, not colour or beam alone. CTA has a visible :focus-visible ring.
+  prefers-reduced-motion: animation off, beam parked as a static arc at the top-left.
+Adapting: --beam-dur, --beam-color, --beam-width on .beam; arc length in the gradient stops.
+Libraries: none (pure CSS).
+-->
+<style>
+@property --a{syntax:"<angle>";initial-value:0deg;inherits:false}
+:root{--bg:#1c1713;--paper:#f2e9d8;--card:#251f19;--gold:#e6a83a;--mute:#c9bda6;--ease:cubic-bezier(.2,.7,.2,1)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--paper);font:1rem/1.5 "Helvetica Neue",Arial,sans-serif;min-height:100vh;display:grid;grid-template-columns:5fr 4fr;gap:6vw;align-items:center;padding:8vh 7vw}
+h1{font:400 clamp(2.3rem,6vw,5rem)/1 Georgia,serif;letter-spacing:-.03em}
+.lede{margin-top:1.2rem;color:var(--mute);max-width:38ch}
+.beam{--beam-dur:6s;--beam-color:var(--gold);--beam-width:2px;position:relative;background:var(--card);padding:2rem 1.8rem;border:1px solid #4a3f33;border-radius:6px 22px 6px 6px}
+.beam::before{content:"";position:absolute;inset:calc(var(--beam-width) * -1 - 1px);border-radius:inherit;padding:var(--beam-width);pointer-events:none;
+  background:linear-gradient(var(--beam-color),var(--beam-color));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:.35}
+@supports (background:conic-gradient(from var(--a),red,blue)){
+  .beam::before{opacity:1;background:conic-gradient(from var(--a),transparent 0 70%,var(--beam-color) 90%,#fff6dc 96%,transparent 100%);animation:orbit var(--beam-dur) linear infinite}
+}
+@keyframes orbit{to{--a:360deg}}
+.status{display:inline-block;font-size:.75rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;border:1px solid var(--gold);color:var(--gold);padding:.25rem .6rem}
+h2{font:400 2rem/1.1 Georgia,serif;margin:1rem 0 .3rem}
+.price{font:400 3.2rem/1 Georgia,serif}.price small{font:400 1rem "Helvetica Neue",Arial,sans-serif;color:var(--mute)}
+ul{list-style:none;padding:0;margin:1.2rem 0 1.6rem;color:var(--mute)}
+li{padding:.35rem 0;border-top:1px solid #3d342a}
+li::before{content:"\2713\00a0\00a0";color:var(--gold)}
+a.cta{display:inline-block;background:var(--gold);color:var(--bg);font-weight:600;text-decoration:none;padding:.85rem 1.4rem;transition:transform .3s var(--ease),box-shadow .3s var(--ease)}
+a.cta:hover{transform:translateY(-3px);box-shadow:0 6px 0 var(--paper)}
+a.cta:focus-visible{outline:3px solid var(--paper);outline-offset:4px}
+@media(max-width:720px){body{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.beam::before{animation:none;--a:300deg}a.cta{transition:none}}
+</style>
+</head>
+<body>
+<div>
+  <h1>A desk that remembers your name.</h1>
+  <p class="lede">Month-to-month coworking in a converted textile mill. Cancel with one email, no deposit.</p>
+</div>
+<article class="beam">
+  <span class="status">&#10003; Most booked</span>
+  <h2>Fixed desk</h2>
+  <p class="price">$240 <small>/ month</small></p>
+  <ul><li>Same desk, 24-hour access</li><li>Locker and mail handling</li><li>Four meeting-room hours</li></ul>
+  <a class="cta" href="#">Reserve a desk</a>
+</article>
+</body>
+</html>

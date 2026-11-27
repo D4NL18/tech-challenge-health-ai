@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>133 · Custom Smooth Scroll (Lerp)</title>
+<!--
+PATTERN: Hand-written smooth scroll without Lenis: fixed content wrapper translated by a lerped value, body height mirrors the content height so the native scrollbar still drives it.
+Motion: current += (target - current) * ease every frame; wrapper gets translate3d(0,-current,0); items with data-speed get an extra offset relative to their own centre for parallax depth.
+Accessibility: Native scrollbar, keyboard, find-in-page and anchor links keep working because window scroll is real; with prefers-reduced-motion (or no JS) the page is ordinary flow; focus is never stolen.
+Adapting: Tune EASE (0.05 heavy to 0.2 snappy), data-speed per element, and the TOUCH flag to keep native momentum on phones.
+Libraries: none (vanilla JS).
+-->
+<style>
+:root{--cream:#f4ecdc;--ink:#231c17;--moss:#4d5a2a;--rust:#b4532a;--ochre:#d9a441;--cell:#2c2a24}
+*{box-sizing:border-box;margin:0}
+body{background:var(--cream);color:var(--ink);font:400 1.05rem/1.6 "Helvetica Neue",Arial,sans-serif}
+:focus-visible{outline:3px solid var(--rust);outline-offset:3px}
+.smooth #wrap{position:fixed;top:0;left:0;width:100%;will-change:transform}
+.smooth{overflow-x:hidden}
+.top{display:flex;justify-content:space-between;align-items:baseline;padding:1.4rem 6vw;font:600 .72rem/1 ui-monospace,Consolas,monospace;letter-spacing:.18em;text-transform:uppercase}
+.top a{text-decoration:none}
+.hero{padding:10vh 6vw 14vh;display:grid;grid-template-columns:repeat(12,1fr);gap:1.5rem;min-height:92vh;align-content:center}
+.hero h1{grid-column:1 / span 9;font:400 clamp(3rem,10.5vw,10rem)/.88 Georgia,"Iowan Old Style",serif;letter-spacing:-.04em}
+.hero h1 em{color:var(--rust);font-style:italic}
+.hero p{grid-column:7 / span 5;margin-top:2rem}
+.band{padding:12vh 6vw;display:grid;grid-template-columns:repeat(12,1fr);gap:1.5rem;position:relative}
+.band h2{font:400 clamp(2.2rem,5vw,4.6rem)/1 Georgia,serif;letter-spacing:-.03em;grid-column:2 / span 6}
+.band h2 em{font-style:italic;color:var(--moss)}
+.band .txt{grid-column:8 / span 4;align-self:end}
+.dark{background:var(--cell);color:var(--cream)}.dark h2 em{color:var(--ochre)}
+.plate{border-radius:0;display:grid;place-items:end start;padding:1.2rem;font:600 .72rem/1.3 ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--cream)}
+.p1{grid-column:1 / span 4;aspect-ratio:3/4;background:linear-gradient(160deg,var(--moss),#2c3417)}
+.p2{grid-column:6 / span 3;aspect-ratio:1;background:linear-gradient(200deg,var(--rust),#6d2c14);margin-top:10vh}
+.p3{grid-column:10 / span 3;aspect-ratio:4/5;background:linear-gradient(140deg,var(--ochre),#8e6416);color:var(--ink)}
+.gal{padding:6vh 6vw 14vh;display:grid;grid-template-columns:repeat(12,1fr);gap:1.5rem;align-items:start}
+.quote{padding:16vh 6vw;font:italic 400 clamp(1.8rem,4.4vw,4rem)/1.1 Georgia,serif;max-width:22em;letter-spacing:-.02em}
+.quote small{display:block;margin-top:1.4rem;font:600 .72rem/1 ui-monospace,monospace;letter-spacing:.18em;text-transform:uppercase;font-style:normal}
+.stat{display:flex;gap:3rem;flex-wrap:wrap;padding:0 6vw 14vh}
+.stat b{display:block;font:400 clamp(3rem,8vw,7rem)/1 Georgia,serif;color:var(--rust)}
+footer{padding:10vh 6vw 8vh;background:var(--ink);color:var(--cream)}
+footer h2{font:400 clamp(2.4rem,7vw,6rem)/1 Georgia,serif;letter-spacing:-.03em}
+footer a{display:inline-block;margin-top:1.6rem;padding:.85rem 1.3rem;border:2px solid currentColor;text-decoration:none;font-weight:600}
+footer a:hover{background:var(--cream);color:var(--ink)}
+@media (max-width:760px){
+  .hero h1,.hero p,.band h2,.band .txt{grid-column:1 / -1}
+  .p1{grid-column:1 / span 9}.p2{grid-column:4 / span 9;margin-top:0}.p3{grid-column:1 / span 8}
+  .band{padding:9vh 7vw}
+}
+@media (prefers-reduced-motion:reduce){.smooth #wrap{position:static!important;transform:none!important}}
+</style>
+</head>
+<body>
+<div id="wrap">
+<header class="top"><a href="#top">Highland Seed Bank</a><span>Season notes · No. 09</span></header>
+<section class="hero" id="top">
+  <h1 data-speed="0.08">Keeping the <em>old</em> barley alive.</h1>
+  <p data-speed="-0.06">Eleven growers across Orkney and the Western Isles save, sow and share seed of bere barley, a landrace grown here for over a thousand years.</p>
+</section>
+<section class="gal">
+  <div class="plate p1" data-speed="0.12">Bere barley, Birsay</div>
+  <div class="plate p2" data-speed="-0.1">Oat sheaf, Uist</div>
+  <div class="plate p3" data-speed="0.2">Rye seed tray, Lewis</div>
+</section>
+<section class="band dark">
+  <h2 data-speed="0.05">Seed is <em>kept</em> by being planted.</h2>
+  <p class="txt" data-speed="-0.08">Frozen vaults hold samples, but a variety adapts only in a living field. Each member plants a quarter hectare and returns a tenth of the harvest to the shared store.</p>
+</section>
+<p class="quote" data-speed="0.04">"The Bere ripens in ninety days. Nothing else will, this far north."<small>Mairi Gunn · grower, Westray</small></p>
+<div class="stat"><div data-speed="0.06"><b>11</b>growers</div><div data-speed="-0.04"><b>142</b>kg returned in 2024</div><div data-speed="0.1"><b>3</b>landraces recovered</div></div>
+<footer><h2>Join the sowing list.</h2><p>Packets of 200 seeds, posted each March, free to anyone farming in the Highlands and Islands.</p><a href="#top">Request a packet</a></footer>
+</div>
+<script>
+(function(){
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var TOUCH=matchMedia("(pointer:coarse)").matches;
+  if(reduce||TOUCH)return; /* native scroll on touch and reduced motion */
+  var html=document.documentElement,wrap=document.getElementById("wrap");
+  var EASE=.085,cur=scrollY,target=scrollY,h=0,vh=innerHeight,raf=0;
+  var items=[].slice.call(document.querySelectorAll("[data-speed]")).map(function(el){return{el:el,s:parseFloat(el.dataset.speed),top:0,hh:0}});
+  html.classList.add("smooth");
+  function measure(){
+    vh=innerHeight;
+    items.forEach(function(it){it.el.style.transform="";});
+    h=wrap.getBoundingClientRect().height;
+    document.body.style.height=h+"px";
+    items.forEach(function(it){var r=it.el.getBoundingClientRect();it.top=r.top+cur;it.hh=r.height});
+  }
+  function frame(){
+    target=Math.max(0,Math.min(h-vh,scrollY));
+    cur+=(target-cur)*EASE;
+    if(Math.abs(target-cur)<.05)cur=target;
+    wrap.style.transform="translate3d(0,"+(-cur).toFixed(2)+"px,0)";
+    items.forEach(function(it){
+      var centre=it.top+it.hh/2-cur-vh/2;
+      if(Math.abs(centre)>vh*1.5){return}
+      it.el.style.transform="translate3d(0,"+(centre*it.s).toFixed(1)+"px,0)";
+    });
+    raf=requestAnimationFrame(frame);
+  }
+  measure();
+  addEventListener("resize",function(){measure()});
+  if("ResizeObserver" in window)new ResizeObserver(function(){var nh=wrap.getBoundingClientRect().height;if(Math.abs(nh-h)>2)measure()}).observe(wrap);
+  addEventListener("load",measure);
+  raf=requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

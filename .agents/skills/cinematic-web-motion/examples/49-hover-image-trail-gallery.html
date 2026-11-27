@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<!--
+  Pattern: Editorial Hover Preview Trail Gallery
+  ==============================================
+  Luxury Hardware Motion:
+  - Editorial campaign index list ("ATELIER ARCHIVE // 2026") where hovering
+    each row reveals a floating, velocity-tilted preview card following the
+    cursor via `gsap.quickTo`, with smooth crossfade between procedural SVG
+    product artworks.
+
+  How to Adapt:
+  - Update the `PRODUCTS` array in the script (or `data-*` attributes on rows)
+    with your own item titles, palettes, and SVG/image previews.
+  - Tune `tiltFactor` and `quickTo` durations for snappier or heavier drag.
+  - `prefers-reduced-motion: reduce` disables cursor-tracking velocity tilt
+    and renders a stationary preview badge on hover/focus.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ATELIER ARCHIVE — Hover Preview Gallery</title>
+  <style>
+    :root {
+      --bg: #0c0c0e;
+      --surface: #141418;
+      --border: rgba(255, 255, 255, 0.1);
+      --text: #f4f4f5;
+      --text-muted: #8b8b96;
+      --accent: #e5c896;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    .archive-page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: clamp(3.5rem, 8vh, 6rem) clamp(1.25rem, 4vw, 3rem);
+    }
+
+    .archive-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 1rem;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 0 0 0.5rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 4.2vw, 3.2rem);
+      font-weight: 500;
+      letter-spacing: -0.03em;
+    }
+
+    .header-note {
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+    }
+
+    .index-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .index-row {
+      display: grid;
+      grid-template-columns: 72px 1.4fr 1fr auto;
+      align-items: center;
+      gap: 1.25rem;
+      padding: clamp(1.35rem, 2.8vh, 2rem) 0.5rem;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: border-color 0.25s ease, padding-left 0.25s ease;
+    }
+
+    .index-row:hover,
+    .index-row:focus-visible {
+      outline: none;
+      border-bottom-color: rgba(229, 200, 150, 0.55);
+      padding-left: 1rem;
+    }
+
+    .row-num {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .row-title {
+      font-size: clamp(1.25rem, 2.5vw, 1.85rem);
+      font-weight: 500;
+      letter-spacing: -0.02em;
+    }
+
+    .row-material {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .row-year {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--accent);
+    }
+
+    /* Floating cursor-tracked preview card */
+    .preview-floater {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 270px;
+      height: 330px;
+      border-radius: 18px;
+      background: var(--surface);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: 0 28px 60px rgba(0, 0, 0, 0.65);
+      pointer-events: none;
+      z-index: 40;
+      overflow: hidden;
+      opacity: 0;
+      transform: translate3d(-999px, -999px, 0) scale(0.9);
+      will-change: transform, opacity;
+    }
+
+    .preview-stage {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .preview-slide {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 1.25rem;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+
+    .preview-slide.is-visible {
+      opacity: 1;
+    }
+
+    .preview-art {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .preview-meta {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.72);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding-top: 0.65rem;
+    }
+
+    @media (max-width: 760px) {
+      .index-row {
+        grid-template-columns: 48px 1fr auto;
+      }
+      .row-material {
+        display: none;
+      }
+      .preview-floater {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="archive-page">
+    <header class="archive-header">
+      <div>
+        <p class="eyebrow">ATELIER ARCHIVE // COLLECTION 04</p>
+        <h1>Objects of Permanence</h1>
+      </div>
+      <div class="header-note">HOVER INDEX TO INSPECT OBJECT</div>
+    </header>
+
+    <ul class="index-list" id="indexList">
+      <li class="index-row" tabindex="0" data-index="0">
+        <span class="row-num">01</span>
+        <span class="row-title">Vesper Turntable</span>
+        <span class="row-material">Machined Brass &amp; Slate</span>
+        <span class="row-year">2026</span>
+      </li>
+      <li class="index-row" tabindex="0" data-index="1">
+        <span class="row-num">02</span>
+        <span class="row-title">Kuro Desk Lamp</span>
+        <span class="row-material">Anodized Obsidian</span>
+        <span class="row-year">2026</span>
+      </li>
+      <li class="index-row" tabindex="0" data-index="2">
+        <span class="row-num">03</span>
+        <span class="row-title">Helios Chronometer</span>
+        <span class="row-material">Grade 5 Titanium</span>
+        <span class="row-year">2025</span>
+      </li>
+      <li class="index-row" tabindex="0" data-index="3">
+        <span class="row-num">04</span>
+        <span class="row-title">Nori Field Recorder</span>
+        <span class="row-material">Brushed Steel &amp; Sapphire</span>
+        <span class="row-year">2025</span>
+      </li>
+      <li class="index-row" tabindex="0" data-index="4">
+        <span class="row-num">05</span>
+        <span class="row-title">Sora Acoustic Diffuser</span>
+        <span class="row-material">Smoked Walnut &amp; Felt</span>
+        <span class="row-year">2024</span>
+      </li>
+    </ul>
+  </main>
+
+  <div class="preview-floater" id="previewFloater" aria-hidden="true">
+    <div class="preview-stage" id="previewStage"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script>
+    (() => {
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const floater = document.getElementById('previewFloater');
+      const stage = document.getElementById('previewStage');
+      const rows = Array.from(document.querySelectorAll('.index-row'));
+
+      const OBJECTS = [
+        {
+          code: 'OBJ-01',
+          edition: 'ED. 150',
+          bg: 'radial-gradient(circle at 50% 35%, #3c2f1d, #121216)',
+          svg: `<svg width="150" height="150" viewBox="0 0 150 150" fill="none">
+            <rect x="15" y="25" width="120" height="100" rx="14" fill="#1b1c22" stroke="#e5c896" stroke-width="1.4"/>
+            <circle cx="68" cy="75" r="34" fill="#0d0e12" stroke="rgba(255,255,255,0.25)" stroke-width="1.2"/>
+            <circle cx="68" cy="75" r="10" fill="#e5c896"/>
+            <line x1="114" y1="42" x2="96" y2="95" stroke="#e5c896" stroke-width="2" stroke-linecap="round"/>
+          </svg>`
+        },
+        {
+          code: 'OBJ-02',
+          edition: 'ED. 300',
+          bg: 'radial-gradient(circle at 50% 30%, #1d2d3d, #111216)',
+          svg: `<svg width="150" height="150" viewBox="0 0 150 150" fill="none">
+            <path d="M40 120 H110" stroke="rgba(255,255,255,0.4)" stroke-width="4" stroke-linecap="round"/>
+            <path d="M75 120 V52 L108 38" stroke="#93c5fd" stroke-width="2.5" stroke-linecap="round"/>
+            <ellipse cx="108" cy="38" rx="18" ry="8" fill="#93c5fd" fill-opacity="0.35" stroke="#93c5fd"/>
+          </svg>`
+        },
+        {
+          code: 'OBJ-03',
+          edition: 'ED. 050',
+          bg: 'radial-gradient(circle at 50% 40%, #2d2536, #111115)',
+          svg: `<svg width="150" height="150" viewBox="0 0 150 150" fill="none">
+            <circle cx="75" cy="75" r="46" fill="#18181f" stroke="#d8b4fe" stroke-width="1.5"/>
+            <circle cx="75" cy="75" r="34" stroke="rgba(255,255,255,0.16)" stroke-dasharray="3 5"/>
+            <line x1="75" y1="75" x2="75" y2="48" stroke="#d8b4fe" stroke-width="2" stroke-linecap="round"/>
+            <line x1="75" y1="75" x2="96" y2="82" stroke="rgba(255,255,255,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>`
+        },
+        {
+          code: 'OBJ-04',
+          edition: 'ED. 200',
+          bg: 'radial-gradient(circle at 50% 35%, #1d352a, #101312)',
+          svg: `<svg width="150" height="150" viewBox="0 0 150 150" fill="none">
+            <rect x="42" y="24" width="66" height="102" rx="12" fill="#181c1a" stroke="#6ee7b7" stroke-width="1.4"/>
+            <rect x="52" y="36" width="46" height="28" rx="4" fill="#0b0f0d" stroke="rgba(110,231,183,0.4)"/>
+            <circle cx="75" cy="96" r="14" fill="#0b0f0d" stroke="#6ee7b7" stroke-width="1.2"/>
+          </svg>`
+        },
+        {
+          code: 'OBJ-05',
+          edition: 'ED. 080',
+          bg: 'radial-gradient(circle at 50% 45%, #3a231e, #121011)',
+          svg: `<svg width="150" height="150" viewBox="0 0 150 150" fill="none">
+            <rect x="30" y="30" width="90" height="90" rx="8" fill="#1c1615" stroke="#fda4af" stroke-width="1.2"/>
+            <rect x="42" y="42" width="18" height="66" fill="rgba(253,164,175,0.22)"/>
+            <rect x="66" y="42" width="18" height="66" fill="rgba(253,164,175,0.42)"/>
+            <rect x="90" y="42" width="18" height="66" fill="rgba(253,164,175,0.22)"/>
+          </svg>`
+        }
+      ];
+
+      // Build slides
+      const slides = OBJECTS.map((obj) => {
+        const el = document.createElement('div');
+        el.className = 'preview-slide';
+        el.style.background = obj.bg;
+        el.innerHTML = `
+          <div class="preview-art">${obj.svg}</div>
+          <div class="preview-meta"><span>${obj.code}</span><span>${obj.edition}</span></div>
+        `;
+        stage.appendChild(el);
+        return el;
+      });
+
+      const moveX = gsap.quickTo(floater, 'x', { duration: reducedMotion ? 0 : 0.45, ease: 'power3.out' });
+      const moveY = gsap.quickTo(floater, 'y', { duration: reducedMotion ? 0 : 0.45, ease: 'power3.out' });
+      const tiltR = gsap.quickTo(floater, 'rotation', { duration: reducedMotion ? 0 : 0.4, ease: 'power2.out' });
+
+      let lastMouseX = 0;
+      let activeIdx = -1;
+
+      function showIndex(idx) {
+        if (activeIdx === idx) return;
+        activeIdx = idx;
+        slides.forEach((s, i) => s.classList.toggle('is-visible', i === idx));
+        gsap.to(floater, {
+          opacity: 1,
+          scale: 1,
+          duration: reducedMotion ? 0 : 0.28,
+          ease: 'power3.out'
+        });
+      }
+
+      function hideFloater() {
+        activeIdx = -1;
+        gsap.to(floater, {
+          opacity: 0,
+          scale: 0.9,
+          duration: reducedMotion ? 0 : 0.22,
+          ease: 'power2.in'
+        });
+      }
+
+      rows.forEach((row) => {
+        const idx = Number(row.dataset.index);
+        row.addEventListener('pointerenter', (e) => {
+          lastMouseX = e.clientX;
+          if (reducedMotion) {
+            moveX(window.innerWidth - 310);
+            moveY(120);
+          } else {
+            moveX(e.clientX + 26);
+            moveY(e.clientY - 165);
+          }
+          showIndex(idx);
+        });
+        row.addEventListener('focus', () => {
+          moveX(window.innerWidth - 310);
+          moveY(120);
+          showIndex(idx);
+        });
+        row.addEventListener('blur', hideFloater);
+      });
+
+      const listEl = document.getElementById('indexList');
+      listEl.addEventListener('pointermove', (e) => {
+        if (reducedMotion || activeIdx === -1) return;
+        const vx = e.clientX - lastMouseX;
+        lastMouseX = e.clientX;
+        const clampedTilt = Math.max(-10, Math.min(10, vx * 0.45));
+        moveX(e.clientX + 26);
+        moveY(e.clientY - 165);
+        tiltR(clampedTilt);
+      });
+
+      listEl.addEventListener('pointerleave', hideFloater);
+    })();
+  </script>
+</body>
+</html>

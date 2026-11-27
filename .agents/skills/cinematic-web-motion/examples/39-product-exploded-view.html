@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>39 — Product Exploded View</title>
+<!--
+  EFFECT: Scroll & toggle-driven 3D exploded view of a minimalist smartwatch ("CHRONOS S1")
+  built from 6 layered procedural SVG/CSS hardware assemblies. As the user scrolls through the
+  pinned showcase—or clicks the Explode/Assemble toggle & layer pills—parts separate smoothly
+  along Z/Y axes with animated SVG callout leader lines and spec labels.
+  ADAPT: Edit `.layer` elements and `EXPLODE_OFFSETS` to match your product's stack; swap
+  `data-layer` specs in HTML; tweak `PERSPECTIVE` and `TILT_X` for camera angle; adjust
+  ScrollTrigger `end` distance (`+=1800`) to control scrub length.
+  Reduced motion: Disables Lenis smooth scroll and scrub animations; toggle snaps cleanly
+  between assembled and exploded states without motion.
+-->
+<style>
+  :root {
+    --bg: #07080a;
+    --surface: #101216;
+    --border: rgba(255,255,255,0.09);
+    --text: #f4f5f7;
+    --muted: #8a909e;
+    --accent: #38bdf8;
+    --accent-soft: rgba(56,189,248,0.14);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .topbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 40;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px clamp(20px, 4vw, 56px);
+    background: linear-gradient(180deg, rgba(7,8,10,0.9), rgba(7,8,10,0));
+    pointer-events: none;
+  }
+  .topbar > * { pointer-events: auto; }
+  .brand {
+    font-size: 12px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .brand-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent);
+  }
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .btn {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: rgba(16,18,22,0.8);
+    backdrop-filter: blur(12px);
+    color: var(--text);
+    padding: 9px 16px;
+    border-radius: 999px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 0.25s, background 0.25s, transform 0.2s;
+  }
+  .btn:hover { border-color: rgba(255,255,255,0.28); }
+  .btn.active {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .hero-intro {
+    min-height: 55vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 110px clamp(20px, 5vw, 72px) 48px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 14px;
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(2.4rem, 6vw, 5.2rem);
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    line-height: 0.98;
+    max-width: 14ch;
+  }
+  .sub {
+    margin: 18px 0 0;
+    max-width: 52ch;
+    color: var(--muted);
+    font-size: clamp(0.95rem, 1.3vw, 1.1rem);
+    line-height: 1.6;
+  }
+
+  /* Pinned Exploded Stage */
+  .stage-wrap {
+    position: relative;
+    min-height: 100vh;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr minmax(280px, 340px);
+    align-items: center;
+    padding: 80px clamp(20px, 5vw, 72px);
+    gap: 32px;
+    overflow: hidden;
+  }
+  .stage-bg-glow {
+    position: absolute;
+    left: 38%;
+    top: 50%;
+    width: min(70vw, 680px);
+    height: min(70vw, 680px);
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(56,189,248,0.09) 0%, rgba(56,189,248,0.02) 45%, transparent 72%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .viewport {
+    position: relative;
+    height: clamp(460px, 72vh, 720px);
+    display: grid;
+    place-items: center;
+    perspective: 1400px;
+    z-index: 1;
+  }
+  .stack {
+    position: relative;
+    width: clamp(220px, 28vw, 310px);
+    height: clamp(220px, 28vw, 310px);
+    transform-style: preserve-3d;
+    transform: rotateX(56deg) rotateZ(-28deg);
+  }
+  .layer {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    will-change: transform, opacity;
+    cursor: pointer;
+  }
+  .layer svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    overflow: visible;
+    filter: drop-shadow(0 18px 26px rgba(0,0,0,0.55));
+  }
+  .layer.is-dimmed { opacity: 0.35; transition: opacity 0.3s; }
+  .layer.is-focused { filter: drop-shadow(0 0 18px rgba(56,189,248,0.35)); }
+
+  /* Callouts anchored in 3D space but counter-rotated flat */
+  .callout {
+    position: absolute;
+    left: 102%;
+    top: 50%;
+    transform: translateY(-50%) rotateZ(28deg) rotateX(-56deg);
+    transform-origin: left center;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    pointer-events: none;
+    opacity: 0;
+    white-space: nowrap;
+  }
+  .callout-line {
+    width: 64px;
+    height: 2px;
+    overflow: visible;
+  }
+  .callout-line line {
+    stroke: var(--accent);
+    stroke-width: 1.5;
+    stroke-dasharray: 64;
+    stroke-dashoffset: 64;
+  }
+  .callout-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    flex-shrink: 0;
+  }
+  .callout-tag {
+    background: rgba(16,18,22,0.88);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--text);
+  }
+  .callout-tag span {
+    color: var(--muted);
+    margin-left: 6px;
+    font-size: 10px;
+  }
+
+  /* Side Inspector Panel */
+  .inspector {
+    position: relative;
+    z-index: 2;
+    background: rgba(16,18,22,0.75);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(18px);
+    border-radius: 20px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .inspector-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 14px;
+  }
+  .inspector-head h2 {
+    margin: 0;
+    font-size: 13px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .progress-readout {
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .layer-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .layer-pill {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    background: rgba(255,255,255,0.025);
+    color: var(--text);
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .layer-pill:hover { background: rgba(255,255,255,0.05); }
+  .layer-pill.active {
+    background: var(--accent-soft);
+    border-color: rgba(56,189,248,0.45);
+  }
+  .layer-pill-title { font-size: 13px; font-weight: 500; }
+  .layer-pill-code { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .spec-detail {
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .spec-detail h3 {
+    margin: 0 0 6px;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .spec-detail p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--muted);
+  }
+
+  .outro {
+    min-height: 45vh;
+    display: grid;
+    place-items: center;
+    padding: 64px 24px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  @media (max-width: 920px) {
+    .stage-wrap {
+      grid-template-columns: 1fr;
+      padding-top: 90px;
+    }
+    .viewport { height: 420px; }
+    .callout { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><span class="brand-dot"></span>CHRONOS // S1</div>
+  <div class="controls">
+    <button class="btn" id="toggleExplode" type="button">Explode View</button>
+  </div>
+</header>
+
+<section class="hero-intro">
+  <div class="eyebrow">Architecture &amp; Tolerance</div>
+  <h1>Six layers. Zero wasted micron.</h1>
+  <p class="sub">Scroll to separate the Grade-5 Titanium chassis, LTPO sapphire optics, and dual-core silicon stack—or toggle exploded mode to inspect each assembly.</p>
+</section>
+
+<section class="stage-wrap" id="stageSection">
+  <div class="stage-bg-glow"></div>
+
+  <div class="viewport">
+    <div class="stack" id="watchStack">
+
+      <!-- Layer 6 (Bottom): Ceramic Sensor Backplate -->
+      <div class="layer" data-index="5" data-z="-170" data-y="130">
+        <svg viewBox="0 0 260 260">
+          <defs>
+            <linearGradient id="backGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#1e222a"/>
+              <stop offset="100%" stop-color="#0b0d11"/>
+            </linearGradient>
+          </defs>
+          <rect x="30" y="30" width="200" height="200" rx="54" fill="url(#backGrad)" stroke="#333a47" stroke-width="2"/>
+          <circle cx="130" cy="130" r="56" fill="#090b0f" stroke="#2c3442" stroke-width="2"/>
+          <circle cx="130" cy="130" r="34" fill="#101826" stroke="#38bdf8" stroke-opacity="0.5" stroke-width="1.5"/>
+          <circle cx="114" cy="130" r="6" fill="#10b981"/>
+          <circle cx="146" cy="130" r="6" fill="#ef4444"/>
+          <circle cx="130" cy="114" r="5" fill="#38bdf8"/>
+          <circle cx="130" cy="146" r="5" fill="#38bdf8"/>
+        </svg>
+        <div class="callout">
+          <span class="callout-dot"></span>
+          <svg class="callout-line"><line x1="0" y1="1" x2="64" y2="1"/></svg>
+          <div class="callout-tag">Optical Array<span>ZrO2 Ceramic</span></div>
+        </div>
+      </div>
+
+      <!-- Layer 5: High-Density Battery -->
+      <div class="layer" data-index="4" data-z="-100" data-y="75">
+        <svg viewBox="0 0 260 260">
+          <rect x="46" y="46" width="168" height="168" rx="38" fill="#151820" stroke="#2d3442" stroke-width="1.5"/>
+          <rect x="64" y="64" width="132" height="132" rx="22" fill="#1b202b" stroke="#3b4558" stroke-width="1"/>
+          <path d="M138 96 L114 132 H132 L122 164 L148 126 H130 Z" fill="#38bdf8" fill-opacity="0.85"/>
+          <text x="130" y="184" text-anchor="middle" fill="#6d7687" font-size="10" letter-spacing="2">420 mAh // 3.88V</text>
+        </svg>
+        <div class="callout">
+          <span class="callout-dot"></span>
+          <svg class="callout-line"><line x1="0" y1="1" x2="64" y2="1"/></svg>
+          <div class="callout-tag">L-Cell Battery<span>72h Reserve</span></div>
+        </div>
+      </div>
+
+      <!-- Layer 4: SiP Logic Board -->
+      <div class="layer" data-index="3" data-z="-35" data-y="25">
+        <svg viewBox="0 0 260 260">
+          <rect x="42" y="42" width="176" height="176" rx="42" fill="#0d221c" stroke="#1f5c4a" stroke-width="1.5"/>
+          <!-- Traces -->
+          <g stroke="#2dd4bf" stroke-opacity="0.35" stroke-width="1.2" fill="none">
+            <path d="M70 80 H110 V110"/>
+            <path d="M190 80 H150 V110"/>
+            <path d="M70 180 H110 V150"/>
+            <path d="M190 180 H150 V150"/>
+            <circle cx="70" cy="80" r="3" fill="#2dd4bf"/>
+            <circle cx="190" cy="80" r="3" fill="#2dd4bf"/>
+            <circle cx="70" cy="180" r="3" fill="#2dd4bf"/>
+            <circle cx="190" cy="180" r="3" fill="#2dd4bf"/>
+          </g>
+          <!-- Silicon Die -->
+          <rect x="96" y="96" width="68" height="68" rx="10" fill="#181c24" stroke="#64748b" stroke-width="1.5"/>
+          <rect x="108" y="108" width="44" height="44" rx="6" fill="#0f172a" stroke="#38bdf8" stroke-width="1"/>
+          <text x="130" y="134" text-anchor="middle" fill="#e2e8f0" font-size="11" font-weight="700" letter-spacing="1.5">S1 SiP</text>
+        </svg>
+        <div class="callout">
+          <span class="callout-dot"></span>
+          <svg class="callout-line"><line x1="0" y1="1" x2="64" y2="1"/></svg>
+          <div class="callout-tag">Dual-Core SiP<span>4nm Silicon</span></div>
+        </div>
+      </div>
+
+      <!-- Layer 3: Grade-5 Titanium Unibody -->
+      <div class="layer" data-index="2" data-z="35" data-y="-25">
+        <svg viewBox="0 0 260 260">
+          <defs>
+            <linearGradient id="tiGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#8b93a1"/>
+              <stop offset="45%" stop-color="#3e4450"/>
+              <stop offset="100%" stop-color="#1f232b"/>
+            </linearGradient>
+          </defs>
+          <rect x="24" y="24" width="212" height="212" rx="58" fill="none" stroke="url(#tiGrad)" stroke-width="22"/>
+          <rect x="24" y="24" width="212" height="212" rx="58" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="1.5"/>
+          <!-- Digital Crown -->
+          <rect x="234" y="96" width="14" height="36" rx="5" fill="#646d7d" stroke="#a0a8b8" stroke-width="1"/>
+          <rect x="234" y="148" width="8" height="26" rx="3" fill="#474f5e"/>
+        </svg>
+        <div class="callout">
+          <span class="callout-dot"></span>
+          <svg class="callout-line"><line x1="0" y1="1" x2="64" y2="1"/></svg>
+          <div class="callout-tag">Unibody Case<span>Grade-5 Ti</span></div>
+        </div>
+      </div>
+
+      <!-- Layer 2: Micro-OLED LTPO Display -->
+      <div class="layer" data-index="1" data-z="105" data-y="-80">
+        <svg viewBox="0 0 260 260">
+          <rect x="38" y="38" width="184" height="184" rx="44" fill="#05070b" stroke="#262c38" stroke-width="2"/>
+          <circle cx="130" cy="130" r="64" fill="none" stroke="#1e293b" stroke-width="1.5" stroke-dasharray="4 6"/>
+          <circle cx="130" cy="130" r="64" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-dasharray="280 402" stroke-linecap="round" transform="rotate(-90 130 130)"/>
+          <text x="130" y="126" text-anchor="middle" fill="#f8fafc" font-size="28" font-weight="600" letter-spacing="-1">10:09</text>
+          <text x="130" y="148" text-anchor="middle" fill="#38bdf8" font-size="10" letter-spacing="2">3000 NITS</text>
+        </svg>
+        <div class="callout">
+          <span class="callout-dot"></span>
+          <svg class="callout-line"><line x1="0" y1="1" x2="64" y2="1"/></svg>
+          <div class="callout-tag">LTPO OLED<span>1–120 Hz</span></div>
+        </div>
+      </div>
+
+      <!-- Layer 1 (Top): Sapphire Crystal Dome -->
+      <div class="layer" data-index="0" data-z="175" data-y="-135">
+        <svg viewBox="0 0 260 260">
+          <defs>
+            <linearGradient id="glassGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="rgba(255,255,255,0.34)"/>
+              <stop offset="35%" stop-color="rgba(56,189,248,0.08)"/>
+              <stop offset="100%" stop-color="rgba(255,255,255,0.03)"/>
+            </linearGradient>
+          </defs>
+          <rect x="34" y="34" width="192" height="192" rx="48" fill="url(#glassGrad)" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+          <path d="M58 68 C90 46, 150 46, 188 64" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <div class="callout">
+          <span class="callout-dot"></span>
+          <svg class="callout-line"><line x1="0" y1="1" x2="64" y2="1"/></svg>
+          <div class="callout-tag">Sapphire Lens<span>Mohs 9</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <aside class="inspector">
+    <div class="inspector-head">
+      <h2>Assembly Stack</h2>
+      <span class="progress-readout" id="progressText">0%</span>
+    </div>
+    <div class="layer-list" id="layerList">
+      <button class="layer-pill active" data-target="0" type="button">
+        <span class="layer-pill-title">01. Sapphire Crystal</span>
+        <span class="layer-pill-code">1.4 mm</span>
+      </button>
+      <button class="layer-pill" data-target="1" type="button">
+        <span class="layer-pill-title">02. LTPO Micro-OLED</span>
+        <span class="layer-pill-code">3000 nits</span>
+      </button>
+      <button class="layer-pill" data-target="2" type="button">
+        <span class="layer-pill-title">03. Grade-5 Titanium</span>
+        <span class="layer-pill-code">CNC Milled</span>
+      </button>
+      <button class="layer-pill" data-target="3" type="button">
+        <span class="layer-pill-title">04. S1 Dual-Core SiP</span>
+        <span class="layer-pill-code">4nm Node</span>
+      </button>
+      <button class="layer-pill" data-target="4" type="button">
+        <span class="layer-pill-title">05. High-Density Cell</span>
+        <span class="layer-pill-code">420 mAh</span>
+      </button>
+      <button class="layer-pill" data-target="5" type="button">
+        <span class="layer-pill-title">06. Biometric Ceramic</span>
+        <span class="layer-pill-code">4-Ch Optical</span>
+      </button>
+    </div>
+    <div class="spec-detail" id="specDetail">
+      <h3>Sapphire Crystal Dome</h3>
+      <p>Flat-chamfered synthetic sapphire crystal with dual-side anti-reflective vapor deposition and oleophobic nano-coating.</p>
+    </div>
+  </aside>
+</section>
+
+<section class="outro">
+  CHRONOS // S1 — Engineered for 100m Depth
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.min.js"></script>
+<script>
+(() => {
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  gsap.registerPlugin(ScrollTrigger);
+
+  const SPECS = [
+    { title: 'Sapphire Crystal Dome', desc: 'Flat-chamfered synthetic sapphire crystal with dual-side anti-reflective vapor deposition and oleophobic nano-coating.' },
+    { title: 'LTPO Micro-OLED Matrix', desc: 'Variable 1Hz–120Hz refresh rate hitting 3000 nits peak outdoor luminance with zero-bezel optical bonding.' },
+    { title: 'Grade-5 Titanium Unibody', desc: '5-axis CNC-milled aerospace titanium housing with knurled inductive crown and 100m hydrostatic seal.' },
+    { title: 'S1 Dual-Core SiP', desc: 'Custom 4nm System-in-Package integrating dual-frequency GNSS, UWB Gen-2, and neural biometric DSP.' },
+    { title: 'High-Density L-Cell', desc: 'Silicon-anode 420 mAh battery delivering 72 hours of continuous telemetry and 0–80% fast charge in 28 minutes.' },
+    { title: 'Biometric Ceramic Back', desc: 'Zirconia-toughened ceramic array housing 4-channel photoplethysmography, SpO2, and skin-temp thermistors.' }
+  ];
+
+  const layers = gsap.utils.toArray('.layer');
+  const callouts = gsap.utils.toArray('.callout');
+  const lines = gsap.utils.toArray('.callout-line line');
+  const pills = gsap.utils.toArray('.layer-pill');
+  const toggleBtn = document.getElementById('toggleExplode');
+  const progressText = document.getElementById('progressText');
+  const specDetail = document.getElementById('specDetail');
+
+  let isExploded = false;
+  let scrollST = null;
+
+  function setActiveSpec(idx) {
+    pills.forEach((p, i) => p.classList.toggle('active', i === idx));
+    layers.forEach((l) => {
+      const lIdx = Number(l.dataset.index);
+      l.classList.toggle('is-focused', lIdx === idx);
+    });
+    const item = SPECS[idx];
+    if (item) {
+      specDetail.innerHTML = `<h3>${item.title}</h3><p>${item.desc}</p>`;
+    }
+  }
+
+  function applyExplodeState(progress, instant = false) {
+    progressText.textContent = `${Math.round(progress * 100)}%`;
+    const dur = instant || reduceMotion ? 0 : 0.75;
+    layers.forEach((layer) => {
+      const tz = Number(layer.dataset.z) * progress;
+      const ty = Number(layer.dataset.y) * progress;
+      gsap.to(layer, {
+        z: tz,
+        y: ty,
+        duration: dur,
+        ease: 'power3.out',
+        overwrite: 'auto'
+      });
+    });
+
+    const calloutVis = progress > 0.35 ? (progress - 0.35) / 0.65 : 0;
+    callouts.forEach((c) => {
+      gsap.to(c, { opacity: calloutVis, duration: dur * 0.6, overwrite: 'auto' });
+    });
+    lines.forEach((ln) => {
+      gsap.to(ln, { strokeDashoffset: 64 * (1 - calloutVis), duration: dur * 0.7, overwrite: 'auto' });
+    });
+  }
+
+  // Click layer or pill to inspect
+  pills.forEach((pill) => {
+    pill.addEventListener('click', () => setActiveSpec(Number(pill.dataset.target)));
+  });
+  layers.forEach((layer) => {
+    layer.addEventListener('click', () => setActiveSpec(Number(layer.dataset.index)));
+  });
+
+  // Toggle Explode / Assemble
+  toggleBtn.addEventListener('click', () => {
+    isExploded = !isExploded;
+    toggleBtn.classList.toggle('active', isExploded);
+    toggleBtn.textContent = isExploded ? 'Assemble View' : 'Explode View';
+    applyExplodeState(isExploded ? 1 : 0);
+  });
+
+  if (!reduceMotion) {
+    const lenis = new Lenis({ lerp: 0.09, smoothWheel: true });
+    lenis.on('scroll', ScrollTrigger.update);
+    gsap.ticker.add((time) => lenis.raf(time * 1000));
+    gsap.ticker.lagSmoothing(0);
+
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: '#stageSection',
+        start: 'top top',
+        end: '+=1600',
+        pin: true,
+        scrub: 0.8,
+        onUpdate: (self) => {
+          progressText.textContent = `${Math.round(self.progress * 100)}%`;
+          isExploded = self.progress > 0.5;
+          toggleBtn.classList.toggle('active', isExploded);
+          toggleBtn.textContent = isExploded ? 'Assemble View' : 'Explode View';
+        }
+      }
+    });
+
+    layers.forEach((layer) => {
+      tl.to(layer, {
+        z: Number(layer.dataset.z),
+        y: Number(layer.dataset.y),
+        ease: 'none'
+      }, 0);
+    });
+    tl.to(callouts, { opacity: 1, stagger: 0.04, ease: 'none' }, 0.35);
+    tl.to(lines, { strokeDashoffset: 0, stagger: 0.04, ease: 'none' }, 0.35);
+  }
+})();
+</script>
+</body>
+</html>

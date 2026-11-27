@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>102 · Scroll Zoom Through Hero</title>
+<!--
+PATTERN: Zoom-through hero. A dark SVG mask with a giant word cut out of it; scrolling scales the mask up until the viewer flies through one letter into the next scene.
+Motion: GSAP ScrollTrigger pins the hero for 250% and scrubs scale 1 -> 90 on the mask group with svgOrigin set to the centre of one letter stem (measured with getExtentOfChar); caption fades first, scene copy rises at the end.
+Accessibility: Heading has a real text alternative (aria-label on the svg + visible h1 for screen readers); without GSAP or with prefers-reduced-motion the hero is a static dark panel with the word cut out and the scene copy below it, no pin.
+Adapting: Change WORD, ZOOM_CHAR (index of the letter to fly through) and the scene background in CONFIG/CSS.
+Libraries: gsap 3.12.5 + ScrollTrigger (jsdelivr CDN). Concept demo: "Observatorio Aurora" is a fictional site.
+-->
+<style>
+:root{--ink:#16201f;--cream:#f4ecdc;--peach:#f3b98a;--coral:#d4573a;--deep:#1f4a47;--mute:#5a6764;
+--serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Segoe UI","Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--cream);color:var(--ink);font-family:var(--sans);line-height:1.55;overflow-x:hidden}
+a:focus-visible{outline:3px solid var(--coral);outline-offset:4px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.hero{position:relative;height:100vh;overflow:hidden;background:var(--ink)}
+.scene{position:absolute;inset:0;background:radial-gradient(circle at 50% 78%,#ffe3b0 0 9%,#f7b36d 22%,transparent 55%),linear-gradient(#e86f4b,#f2a46a 45%,#f6d49a 70%,#1f4a47 70.3%);display:grid;align-content:end;justify-items:start;padding:0 6vw 12vh;color:#fff8ea}
+.scene h2{font:400 clamp(2.4rem,7vw,6.5rem)/.95 var(--serif);letter-spacing:-.03em;max-width:10em;color:#fff8ea;text-shadow:0 2px 30px #1f4a4766}
+.scene p{max-width:26rem;margin-top:1rem;font-size:1.05rem}
+.mask{position:absolute;inset:0;width:100%;height:100%;display:block}
+.cap{position:absolute;left:6vw;right:6vw;bottom:5vh;display:flex;justify-content:space-between;gap:1rem;color:var(--cream);font-size:.75rem;letter-spacing:.2em;text-transform:uppercase}
+.top{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:1.4rem 6vw;color:var(--cream);font-size:.78rem;letter-spacing:.2em;text-transform:uppercase;z-index:2}
+.top b{font:400 1.25rem var(--serif);letter-spacing:.02em;text-transform:none}
+.after{padding:16vh 6vw;display:grid;grid-template-columns:5fr 6fr;gap:6vw;align-items:start;min-height:100vh}
+.after h3{font:400 clamp(2rem,4.6vw,4.2rem)/1.02 var(--serif);letter-spacing:-.02em}
+.after h3 em{color:var(--coral)}
+.after div p{margin-bottom:1.2rem;max-width:32rem;color:var(--mute)}
+.times{margin-top:3rem;border-top:2px solid var(--ink)}
+.times div{display:flex;justify-content:space-between;padding:1rem 0;border-bottom:1px solid #16201f33;font:400 1.4rem var(--serif)}
+.times span{font:600 .8rem var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--coral);align-self:center}
+.deep{background:var(--deep);color:var(--cream);padding:16vh 6vw;min-height:80vh;display:grid;align-content:center;gap:1.5rem}
+.deep h3{font:400 clamp(2rem,5.5vw,5rem)/1 var(--serif);max-width:13em}
+.deep a{color:var(--cream);border-bottom:2px solid var(--peach);text-decoration:none;justify-self:start;padding-bottom:.2rem}
+.disc{font-size:.72rem;padding:1rem 6vw;background:var(--deep);color:var(--cream);opacity:.85}
+.anim .cap,.anim .top{will-change:opacity}
+@media (max-width:760px){.after{grid-template-columns:1fr;gap:2rem}.scene{padding-bottom:16vh}}
+</style>
+</head>
+<body>
+<section class="hero" id="hero">
+ <div class="top"><b>Observatório Aurora</b><span>Serra do Cipó · MG</span></div>
+ <div class="scene" id="scene">
+  <h2>O céu aqui começa antes do amanhecer.</h2>
+  <p>Visitas guiadas às 4h40, telescópio de 40 cm e café de coador na varanda.</p>
+ </div>
+ <svg class="mask" id="mask" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Aurora, título do observatório">
+  <defs><mask id="cut"><rect width="1000" height="600" fill="#fff"/><text id="word" x="500" y="400" text-anchor="middle" font-family="Iowan Old Style,Palatino Linotype,Palatino,Georgia,serif" font-weight="700" font-size="270" letter-spacing="-8" fill="#000">AURORA</text></mask></defs>
+  <g id="zoom"><rect width="1000" height="600" fill="#16201f" mask="url(#cut)"/></g>
+ </svg>
+ <div class="cap" id="cap"><span>Role para atravessar a letra</span><span>Temporada 2026</span></div>
+</section>
+<section class="after">
+ <h3>Quatro horas antes do <em>sol</em>, o mapa celeste inteiro cabe na varanda.</h3>
+ <div>
+  <p>O Aurora funciona em uma antiga fazenda de gado a 1.180 metros de altitude. A cidade mais próxima fica a 38 km e não há poste de luz na estrada de terra.</p>
+  <p>Cada sessão leva no máximo doze pessoas. Quem chega primeiro escolhe o objeto da noite: Saturno, a Nebulosa de Orion ou o aglomerado Omega Centauri.</p>
+  <div class="times"><div>Sessão de aurora <span>04h40</span></div><div>Sessão do ocaso <span>18h20</span></div><div>Roda de conversa <span>20h00</span></div></div>
+ </div>
+</section>
+<section class="deep"><h3>Reservas abertas de abril a setembro, nas luas novas.</h3><a href="#hero">Ver calendário de luas</a></section>
+<p class="disc">Demo conceitual: Observatório Aurora é uma marca fictícia criada apenas para ilustrar o padrão.</p>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  var CONFIG={zoomChar:3,zoomTo:110,length:"+=260%"};
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches||!window.gsap||!window.ScrollTrigger)return;
+  gsap.registerPlugin(ScrollTrigger);
+  document.documentElement.classList.add("anim");
+  var word=document.getElementById("word"),zoom=document.getElementById("zoom");
+  var ex=word.getExtentOfChar(CONFIG.zoomChar);
+  /* stem of the letter: left third of the glyph box, vertical middle */
+  var ox=ex.x+ex.width*.22,oy=ex.y+ex.height*.62;
+  gsap.set(zoom,{svgOrigin:ox+" "+oy});
+  gsap.set("#scene h2,#scene p",{y:40,opacity:0});
+  var tl=gsap.timeline({defaults:{ease:"none"},scrollTrigger:{trigger:"#hero",start:"top top",end:CONFIG.length,pin:true,scrub:.7,anticipatePin:1}});
+  tl.to("#cap,.top",{opacity:0,duration:.12},0)
+    .to(zoom,{scale:CONFIG.zoomTo,ease:"power3.in",duration:1},0)
+    .to("#scene h2,#scene p",{y:0,opacity:1,stagger:.05,duration:.25},.75);
+  /* hide the mask once the hole covers the screen so nothing stays on top */
+  tl.set("#mask",{autoAlpha:0},.995);
+})();
+</script>
+</body>
+</html>

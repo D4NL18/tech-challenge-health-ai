@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>119 · Hero Kinetic Typography Scroll</title>
+<!--
+  PATTERN: Tipografia cinética guiada pela rolagem, como um cartaz que demonstra "eixos" de uma fonte variável.
+           Quatro palavras empilhadas; cada uma assume um eixo em sequência conforme o progresso do scroll:
+           PESA (peso, simulado por -webkit-text-stroke), ESTICA (largura, scaleX + onda de scaleY por letra),
+           INCLINA (obliquidade, skewX) e GIRA (rotação por letra, escalonada). A palavra ativa acende em
+           terracota; as já passadas ficam em tinta; as próximas esperam apagadas.
+  Motion: scroll progress 0..1 (stage sticky em 480vh) dividido em 4 janelas. Em cada janela, um "sino"
+          sin(pi*q) leva o efeito de 0 ao máximo e de volta ao repouso. Tudo transform e text-stroke; lerp por
+          rAF. O alcance do stretch é calculado pela largura real da palavra para nunca estourar a viewport.
+  Accessibility: o <h1> mantém o texto completo num span sr-only; as letras animadas são aria-hidden. O painel
+          lateral descreve o eixo ativo em texto real (aria-live="off" para não verbalizar a cada frame).
+          prefers-reduced-motion: palavras estáticas, cada uma com seu eixo aplicado em valor moderado,
+          sem pin. :focus-visible nos links.
+  Adapting: edite WORDS (texto + eixo + legenda). Para novos eixos, acrescente um case em applyAxis().
+          MAX_STRETCH, MAX_SKEW e MAX_STROKE limitam a intensidade.
+  Libraries: nenhuma.
+-->
+<style>
+  :root{
+    --bone:#efe9dc; --ink:#141210; --terra:#c9482a; --olive:#59603a; --rule:#cfc6b2; --soft:#bdb4a0;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:"Gill Sans","Trebuchet MS","Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bone);color:var(--ink);font-family:var(--sans);overflow-x:hidden}
+  a{color:inherit}
+  a:focus-visible{outline:3px solid var(--terra);outline-offset:4px}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+  .runway{position:relative;height:480vh}
+  .stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--bone)}
+  .layout{position:absolute;inset:0;padding:clamp(1.2rem,3.5vw,3rem);display:flex;flex-direction:column;justify-content:space-between}
+  .top{display:flex;justify-content:space-between;font-size:.78rem;letter-spacing:.16em;text-transform:uppercase}
+  .top b{font-family:var(--serif);font-size:1.2rem;letter-spacing:0;text-transform:none}
+
+  .words{margin:0;display:flex;flex-direction:column;gap:0}
+  .word{display:block;font-family:var(--serif);font-weight:700;width:fit-content;font-size:clamp(3rem,min(14vw,17.5vh),15rem);line-height:.9;letter-spacing:-.04em;
+    text-transform:uppercase;white-space:nowrap;transform-origin:0 100%;color:var(--soft);transition:color .25s;will-change:transform}
+  .word.on{color:var(--terra)}
+  .word.done{color:var(--ink)}
+  .word .c{display:inline-block;transform-origin:50% 60%;-webkit-text-stroke:0 currentColor}
+  .words{position:relative}
+  .word:nth-child(even){align-self:flex-end}
+
+  .panel{position:absolute;left:clamp(1.2rem,3.5vw,3rem);top:clamp(5rem,17vh,9rem);width:min(18rem,30vw);font-size:.95rem;line-height:1.5;border-top:2px solid var(--ink);padding-top:.8rem}
+  .panel .ax{font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--terra);display:block;margin-bottom:.4rem}
+  .panel b{display:block;font-family:var(--serif);font-size:1.5rem;font-weight:400;margin-bottom:.4rem}
+  .panel .val{font-variant-numeric:tabular-nums;font-size:.85rem;margin-top:.7rem;color:#4a4437}
+  .bottom{display:flex;justify-content:space-between;align-items:flex-end;gap:1.5rem;font-size:.95rem}
+  .bottom p{margin:0;max-width:22rem;line-height:1.5}
+  .bottom a{font-size:.8rem;letter-spacing:.16em;text-transform:uppercase;text-decoration:none;border-bottom:2px solid currentColor;padding-bottom:.2rem;white-space:nowrap}
+  .bar{position:absolute;left:0;top:0;height:5px;background:var(--terra);width:calc(var(--p,0) * 100%)}
+
+  .after{background:var(--ink);color:var(--bone);padding:clamp(4rem,9vw,8rem) clamp(1.2rem,6vw,6rem)}
+  .after .grid{max-width:78rem;margin:0 auto;display:grid;grid-template-columns:7fr 5fr;gap:clamp(1.5rem,5vw,5rem)}
+  .after h2{font-family:var(--serif);font-weight:400;font-size:clamp(2rem,4.6vw,4rem);line-height:1.02;margin:0;letter-spacing:-.02em}
+  .after h2 em{color:#e68468}
+  .after p{font-size:1.1rem;line-height:1.65;margin:0 0 1.1rem;max-width:34rem;color:#ddd5c3}
+  .after dl{margin:1.6rem 0 0;border-top:1px solid #5b5446}
+  .after dl div{display:flex;justify-content:space-between;padding:.8rem 0;border-bottom:1px solid #5b5446}
+  .after dt{font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:#cbbf9f}
+  .after dd{margin:0;font-family:var(--serif);font-size:1.2rem}
+  .end{background:var(--bone);padding:clamp(3rem,7vw,6rem) clamp(1.2rem,6vw,6rem);min-height:50vh}
+  .end p{max-width:34rem;line-height:1.6}
+
+  @media (max-width:760px){
+    .panel{position:relative;left:auto;top:auto;width:auto;max-width:20rem;margin-top:.8rem}
+    .word{font-size:clamp(3.4rem,21vw,7rem)}
+    .top span{display:none}
+    .after .grid{grid-template-columns:1fr}
+    .bottom{flex-direction:column;align-items:flex-start}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .runway{height:auto}
+    .stage{position:relative;height:auto;min-height:100svh}
+    .layout{position:relative;min-height:100svh;gap:2rem}
+    .word{color:var(--ink)}
+  }
+</style>
+</head>
+<body>
+<section class="runway" id="runway">
+  <div class="stage" id="stage">
+    <div class="bar" aria-hidden="true"></div>
+    <div class="layout">
+      <div class="top"><b>Bienal Tipográfica do Sul</b><span>Porto Alegre · 6 a 28 de setembro</span></div>
+
+      <div>
+        <h1 class="words" id="words"><span class="sr">A letra pesa, estica, inclina e gira.</span></h1>
+        <div class="panel" id="panel">
+          <span class="ax" id="axName">Eixo 01 · Peso</span>
+          <b id="axTitle">A letra pesa.</b>
+          <span id="axText">Do traço fino ao preto cheio, sem trocar de fonte.</span>
+          <div class="val" id="axVal">peso 400</div>
+        </div>
+      </div>
+
+      <div class="bottom">
+        <p>Quatro semanas de oficinas, mostra de cartazes e a primeira fonte variável gaúcha lançada ao vivo.</p>
+        <a href="#oficinas">Ver as oficinas</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="after" id="oficinas">
+  <div class="grid">
+    <h2>Um alfabeto, quatro <em>eixos</em>, nenhum compromisso com o meio-termo.</h2>
+    <div>
+      <p>Cada oficina trabalha um eixo da fonte variável: peso, largura, inclinação e rotação de glifos. Nos fins de semana, o público desenha uma letra e a vê entrar na fonte da bienal.</p>
+      <dl>
+        <div><dt>Oficinas</dt><dd>12, de 3 horas</dd></div>
+        <div><dt>Vagas por turma</dt><dd>18</dd></div>
+        <div><dt>Local</dt><dd>Casa de Cultura Mario Quintana</dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+<section class="end">
+  <p>Inscrições gratuitas até 30 de agosto. Traga lápis 6B e um texto de que você goste: vamos desenhá-lo letra por letra.</p>
+  <p><a href="#runway">Voltar ao início</a></p>
+</section>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const WORDS = [
+    { t: 'pesa',    axis: 'weight', n: 'Eixo 01 · Peso',        title: 'A letra pesa.',       text: 'Do traço fino ao preto cheio, sem trocar de fonte.' },
+    { t: 'estica',  axis: 'width',  n: 'Eixo 02 · Largura',     title: 'A letra estica.',     text: 'Condensada para o jornal, aberta para a fachada.' },
+    { t: 'inclina', axis: 'slant',  n: 'Eixo 03 · Inclinação',  title: 'A letra inclina.',    text: 'Do romano ao itálico, passando por todos os ângulos.' },
+    { t: 'gira',    axis: 'spin',   n: 'Eixo 04 · Rotação',     title: 'A letra gira.',       text: 'Cada glifo, uma volta. Depois ele volta ao prumo.' }
+  ];
+  const MAX_STRETCH = 1.7, MAX_SKEW = 22, MAX_STROKE = 0.05;
+  const root = document.getElementById('words');
+  const stage = document.getElementById('stage');
+  const runway = document.getElementById('runway');
+  const bar = stage.querySelector('.bar');
+  const ax = { name: document.getElementById('axName'), title: document.getElementById('axTitle'), text: document.getElementById('axText'), val: document.getElementById('axVal') };
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const ease = t => t * t * (3 - 2 * t);
+  const bell = q => Math.sin(Math.PI * clamp(q, 0, 1));
+
+  // monta linhas e letras
+  const lines = WORDS.map(w => {
+    const el = document.createElement('span');
+    el.className = 'word'; el.setAttribute('aria-hidden', 'true');
+    const chars = [...w.t].map(ch => { const s = document.createElement('span'); s.className = 'c'; s.textContent = ch; el.appendChild(s); return s; });
+    root.appendChild(el);
+    return { el, chars, w, maxStretch: MAX_STRETCH };
+  });
+  const measure = () => {
+    const avail = stage.clientWidth - parseFloat(getComputedStyle(stage.querySelector('.layout')).paddingLeft) * 2;
+    for (const l of lines) {
+      l.el.style.transform = 'none';
+      const w0 = l.el.getBoundingClientRect().width;
+      l.maxStretch = clamp(avail / w0, 1.05, MAX_STRETCH);
+    }
+  };
+  document.fonts && document.fonts.ready.then(measure);
+  addEventListener('resize', measure);
+  measure();
+
+  const applyAxis = (l, q, p) => {
+    const e = bell(q);
+    let label = '';
+    switch (l.w.axis) {
+      case 'weight': {
+        const s = e * MAX_STROKE;
+        l.chars.forEach(c => { c.style.webkitTextStroke = `${s.toFixed(4)}em currentColor`; });
+        l.el.style.transform = 'none';
+        label = `peso ${Math.round(400 + e * 500)}`;
+        break;
+      }
+      case 'width': {
+        const sx = 1 + (l.maxStretch - 1) * e;
+        l.el.style.transform = `scaleX(${sx.toFixed(4)})`;
+        l.chars.forEach((c, i) => { c.style.transform = `scaleY(${(1 + 0.22 * Math.sin(q * Math.PI * 2 + i * 0.9) * e).toFixed(4)})`; });
+        label = `largura ${Math.round(100 + (sx - 1) * 100)}%`;
+        break;
+      }
+      case 'slant': {
+        const k = -MAX_SKEW * e;
+        l.el.style.transform = `skewX(${k.toFixed(3)}deg)`;
+        label = `inclinação ${Math.round(-k)}°`;
+        break;
+      }
+      case 'spin': {
+        l.chars.forEach((c, i) => {
+          const r = ease(clamp(q * 1.5 - i * 0.14, 0, 1)) * 360;
+          c.style.transform = `rotate(${r.toFixed(2)}deg)`;
+        });
+        l.el.style.transform = 'none';
+        label = `rotação ${Math.round(ease(clamp(q, 0, 1)) * 360)}°`;
+        break;
+      }
+    }
+    return label;
+  };
+
+  if (reduce) {
+    // estado estático: cada eixo em valor moderado
+    lines.forEach((l, i) => {
+      l.el.classList.add('done');
+      if (l.w.axis === 'weight') l.chars.forEach(c => c.style.webkitTextStroke = '0.025em currentColor');
+      if (l.w.axis === 'width') l.el.style.transform = `scaleX(${(1 + (l.maxStretch - 1) * 0.5).toFixed(3)})`;
+      if (l.w.axis === 'slant') l.el.style.transform = 'skewX(-12deg)';
+    });
+    ax.val.textContent = '';
+    return;
+  }
+
+  let cur = 0;
+  const frame = () => {
+    const r = runway.getBoundingClientRect();
+    const target = clamp(-r.top / (r.height - innerHeight), 0, 1);
+    cur += (target - cur) * 0.1;
+    bar.style.setProperty('--p', cur.toFixed(4));
+    const lead = clamp(cur * 1.06 - 0.02, 0, 0.9999);   // pequena folga no começo e no fim
+    let active = clamp(Math.floor(lead * 4), 0, 3);
+    lines.forEach((l, i) => {
+      const q = clamp(lead * 4 - i, 0, 1);
+      const label = applyAxis(l, q, cur);
+      const on = q > 0 && q < 1;
+      l.el.classList.toggle('on', on);
+      l.el.classList.toggle('done', q >= 1);
+      if (i === active) ax.val.textContent = label;
+    });
+    const a = lines[active].w;
+    if (ax.name.textContent !== a.n) { ax.name.textContent = a.n; ax.title.textContent = a.title; ax.text.textContent = a.text; }
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

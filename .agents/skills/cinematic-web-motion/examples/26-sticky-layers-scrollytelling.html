@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sticky layers scrollytelling (MELT-style)</title>
+<style>
+:root{--cream:#F4EBDD;--brown:#2B1710;--caramel:#C98A3B;--ink:#2B1710}
+*{margin:0;box-sizing:border-box}body{font-family:system-ui,sans-serif;background:var(--cream);color:var(--ink)}
+nav{position:fixed;inset:0 0 auto;display:flex;justify-content:space-between;align-items:center;padding:1.2rem 4vw;z-index:10;mix-blend-mode:difference;color:#fff;font-weight:700;letter-spacing:.06em}
+.pill{padding:.7rem 1.4rem;border-radius:999px;background:#2B1710;color:#fff;border:0;font-weight:700}
+.stage{height:100vh;position:relative;overflow:clip}
+.copy{position:absolute;left:6vw;top:50%;translate:0 -50%;width:min(34rem,45vw)}
+.copy h2{font:900 clamp(3rem,8vw,8rem)/.88 'Arial Black',Impact,sans-serif;letter-spacing:-.04em;text-transform:uppercase}
+.copy p{margin:1.2rem 0 1.6rem;max-width:26rem;opacity:.8}
+.copy .eyebrow{font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;margin-bottom:1rem}
+.chapter{position:absolute;inset:0}
+.product{position:absolute;right:8vw;top:50%;translate:0 -50%;width:min(40vw,34rem);aspect-ratio:1}
+.layer{position:absolute;left:50%;width:70%;border-radius:50%;translate:-50% 0}
+/* Replace these shapes with <img src="layer.webp"> transparent PNG/WebP */
+.cookie1{bottom:8%;height:26%;background:radial-gradient(circle at 35% 30%,#d9a15a,#a8682a);box-shadow:0 30px 40px rgba(0,0,0,.35)}
+.choc{bottom:30%;height:12%;width:60%;border-radius:12px;background:#3a1d12}
+.marsh{bottom:40%;height:22%;width:44%;border-radius:40px;background:#fff6e8;box-shadow:inset 0 -10px 20px rgba(0,0,0,.12)}
+.cookie2{bottom:58%;height:26%;background:radial-gradient(circle at 35% 30%,#e0aa63,#b0702e)}
+.dots{position:fixed;left:50%;bottom:20px;translate:-50% 0;display:flex;gap:8px;z-index:10}
+.dots i{width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.3}.dots i.on{opacity:1}
+</style></head><body>
+<nav><span>MELT CLUB</span><span>Flavors · Craft · Ingredients</span><button class="pill">Sign in</button></nav>
+<section class="stage" id="stage">
+ <div class="chapter" data-bg="#F4EBDD" data-fg="#2B1710"><div class="copy"><div class="eyebrow">Melt editorial</div><h2>Made<br>to melt.</h2><p>One cookie. A thousand reasons to scroll.</p><button class="pill">Read more</button></div></div>
+ <div class="chapter c" data-bg="#2B1710" data-fg="#fff"><div class="copy"><h2>Dark at heart.</h2><p>Rich chocolate, layered slow.</p></div></div>
+ <div class="chapter c" data-bg="#C98A3B" data-fg="#2B1710"><div class="copy"><h2>Toasted to perfection.</h2><p>A marshmallow, kissed by flame.</p></div></div>
+ <div class="chapter c" data-bg="#F4EBDD" data-fg="#2B1710"><div class="copy"><h2>The perfect stack.</h2><p>One final cookie on top.</p></div></div>
+ <div class="chapter c" data-bg="#2B1710" data-fg="#fff"><div class="copy"><h2>Feel the melt.</h2><p>Impossible to resist.</p></div></div>
+ <div class="product"><div class="layer cookie1"></div><div class="layer choc"></div><div class="layer marsh"></div><div class="layer cookie2"></div></div>
+</section>
+<div class="dots"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+<section style="height:60vh;display:grid;place-items:center;font:900 5vw 'Arial Black';text-transform:uppercase">Impossible to resist</section>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script>
+gsap.registerPlugin(ScrollTrigger);
+const lenis=new Lenis();lenis.on('scroll',ScrollTrigger.update);gsap.ticker.add(t=>lenis.raf(t*1000));gsap.ticker.lagSmoothing(0);
+const ch=[...document.querySelectorAll('.chapter')],dots=[...document.querySelectorAll('.dots i')];
+gsap.set('.c',{autoAlpha:0});
+gsap.set('.layer',{yPercent:-260,autoAlpha:0,rotate:()=>gsap.utils.random(-12,12)});
+gsap.set('.cookie1',{yPercent:0,autoAlpha:1,rotate:0});
+const tl=gsap.timeline({defaults:{ease:'none'},scrollTrigger:{trigger:'#stage',start:'top top',end:'+=5000',pin:true,scrub:.8,
+  onUpdate:s=>{const i=Math.min(4,Math.floor(s.progress*5));dots.forEach((d,k)=>d.classList.toggle('on',k===i))}}});
+const drops=['.choc','.marsh','.cookie2'];
+ch.forEach((c,i)=>{ if(i===0) return;
+  const t=i-1;
+  tl.to(ch[i-1],{autoAlpha:0,duration:.3},t).to(c,{autoAlpha:1,duration:.3},t+.2)
+    .to('#stage',{backgroundColor:c.dataset.bg,color:c.dataset.fg,duration:.5},t);
+  if(drops[i-1]) tl.to(drops[i-1],{yPercent:0,autoAlpha:1,rotate:0,duration:.8,ease:'power3.out'},t+.1);
+});
+gsap.set('#stage',{backgroundColor:'#F4EBDD'});
+tl.to('.product',{rotateX:18,scale:1.1,duration:1},3.2);
+</script></body></html>

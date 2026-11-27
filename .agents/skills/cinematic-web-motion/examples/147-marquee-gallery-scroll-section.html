@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>147 · Marquee Gallery Scroll Section</title>
+<!--
+PATTERN: A gallery section of three rows of poster cards that drift sideways on their own and are also pushed by
+  scroll, each row in alternating directions at different speeds. Hovering (or focusing) a row slows it to a stop
+  and lifts the card under the cursor. All artwork is generated procedurally as inline SVG (no image files).
+Motion: one rAF loop. Row offset = auto drift (time * speed * dir * pauseFactor) + scrollY * parallax * dir,
+  wrapped modulo the width of one card set (set is duplicated for seamless loop). pauseFactor eases to 0 on hover.
+Accessibility: Cards are <figure> with figcaption; the duplicate set is aria-hidden and not focusable.
+  Each card is focusable (tabindex 0) so keyboard users can pause a row. prefers-reduced-motion: rows stop and
+  become horizontally scrollable lists (overflow-x:auto) with the original set only.
+Adapting: Edit POSTERS data, ROW speeds/directions, card size (--cw), and the generators in art().
+  Libraries: none.
+-->
+<style>
+:root{--cream:#f1e9d7;--ink:#1a1714;--tomato:#d4472a;--mustard:#e0a83a;--teal:#2f6a63;--plum:#4a2a35;--cw:clamp(220px,24vw,340px);
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--cream);color:var(--ink);font-family:var(--sans);line-height:1.5;overflow-x:hidden}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--tomato);outline-offset:4px}
+.nav{display:flex;justify-content:space-between;padding:22px clamp(18px,4vw,48px);font-size:.76rem;letter-spacing:.16em;text-transform:uppercase}
+.nav b{font:italic 400 1.2rem var(--serif);letter-spacing:0;text-transform:none}
+.hero{padding:9vh clamp(18px,4vw,48px) 10vh;display:grid;grid-template-columns:repeat(12,1fr);gap:0 16px}
+.hero h1{grid-column:1/11;font:400 clamp(3rem,9.4vw,9rem)/.9 var(--serif);letter-spacing:-.035em}
+.hero h1 em{color:var(--tomato)}
+.hero p{grid-column:8/13;margin-top:30px;max-width:36ch}
+.gal{background:var(--ink);color:var(--cream);padding:11vh 0 12vh;overflow:hidden}
+.gal header{padding:0 clamp(18px,4vw,48px) 6vh;display:flex;justify-content:space-between;align-items:end;gap:20px;flex-wrap:wrap}
+.gal h2{font:400 clamp(2rem,5vw,4.4rem)/.95 var(--serif);letter-spacing:-.03em;max-width:14ch}
+.gal header p{max-width:34ch;color:#cfc6b1;font-size:.95rem}
+.row{overflow:hidden;padding:14px 0}
+.track{display:flex;gap:clamp(14px,2vw,28px);width:max-content;will-change:transform}
+.set{display:flex;gap:inherit;padding-right:clamp(14px,2vw,28px)}
+figure{width:var(--cw);flex:none;transition:transform .5s cubic-bezier(.16,1,.3,1)}
+figure svg{display:block;width:100%;height:auto;aspect-ratio:4/5}
+figcaption{display:flex;justify-content:space-between;gap:10px;padding-top:10px;font-size:.78rem;letter-spacing:.06em;color:#cfc6b1}
+figcaption b{font:italic 400 1rem var(--serif);color:var(--cream);letter-spacing:0}
+.row:hover figure:hover,figure:focus-visible{transform:translateY(-10px) rotate(-1.2deg)}
+.row:nth-child(3) figure{width:calc(var(--cw)*1.2)}
+.hint{padding:5vh clamp(18px,4vw,48px) 0;font-size:.74rem;letter-spacing:.18em;text-transform:uppercase;color:#a79e8b}
+.end{padding:14vh clamp(18px,4vw,48px);display:grid;grid-template-columns:repeat(12,1fr);gap:0 16px;align-items:end}
+.end h2{grid-column:1/9;font:400 clamp(2.4rem,6vw,5.4rem)/.95 var(--serif);letter-spacing:-.03em}
+.end a{grid-column:9/13;justify-self:start;padding:15px 26px;background:var(--ink);color:var(--cream);text-decoration:none;font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;transition:background .25s,transform .25s}
+.end a:hover{background:var(--tomato);transform:translateX(6px)}
+@media (max-width:720px){
+  :root{--cw:62vw}.hero h1,.hero p{grid-column:1/13}.end h2,.end a{grid-column:1/13}.end a{margin-top:26px}
+}
+@media (prefers-reduced-motion:reduce){.row{overflow-x:auto}.track{transform:none!important}.set[aria-hidden]{display:none}}
+</style>
+</head>
+<body>
+<div class="nav"><b>Almanaque</b><span>Poster club, Lisbon</span></div>
+<section class="hero">
+  <h1>Twelve posters a year, one for <em>every moon.</em></h1>
+  <p>Almanaque prints a screenprinted poster each month in an edition of 150. Here is the wall so far, from the January tide to the December thaw.</p>
+</section>
+
+<section class="gal" aria-labelledby="gh">
+  <header><h2 id="gh">The wall, 2026</h2><p>Hover a row to slow it down. Scroll to push the rows along. Every poster is drawn from a few shapes and a lot of patience.</p></header>
+  <div class="row" data-dir="-1" data-speed="38"><div class="track"></div></div>
+  <div class="row" data-dir="1" data-speed="26"><div class="track"></div></div>
+  <div class="row" data-dir="-1" data-speed="48"><div class="track"></div></div>
+  <p class="hint">Edition of 150 each · Printed in four colours on 300 gsm cotton</p>
+</section>
+
+<section class="end">
+  <h2>Join the club and receive the next one at your door.</h2>
+  <a href="#">Subscribe from 24 euros</a>
+</section>
+
+<script>
+(function(){
+  var P=[["Januar","Mar da Palha","tide"],["Fevereiro","Chuva","rain"],["Março","Sementeira","rows"],["Abril","Cheia do Tejo","wave"],["Maio","Sol de Maio","sun"],["Junho","Santos","arch"],
+         ["Julho","Salinas","grid"],["Agosto","Incêndio","fire"],["Setembro","Vindima","dots"],["Outubro","Nevoeiro","fog"],["Novembro","Castanhas","moon"],["Dezembro","Degelo","peak"]];
+  var PAL=[["#d4472a","#f1e9d7","#1a1714","#e0a83a"],["#2f6a63","#f1e9d7","#1a1714","#e0a83a"],["#e0a83a","#1a1714","#d4472a","#f1e9d7"],["#4a2a35","#e0a83a","#f1e9d7","#2f6a63"]];
+  function art(kind,i){
+    var c=PAL[i%4],bg=c[0],a=c[1],b=c[2],d=c[3],s='<svg viewBox="0 0 200 250" role="img" aria-hidden="true"><rect width="200" height="250" fill="'+bg+'"/>',k;
+    if(kind==="tide"||kind==="wave"){for(k=0;k<7;k++)s+='<path d="M0 '+(70+k*24)+' Q 25 '+(50+k*24)+' 50 '+(70+k*24)+' T 100 '+(70+k*24)+' T 150 '+(70+k*24)+' T 200 '+(70+k*24)+' V250 H0Z" fill="'+(k%2?a:b)+'" opacity="'+(.95-k*.07)+'"/>';s+='<circle cx="150" cy="48" r="20" fill="'+d+'"/>';}
+    if(kind==="rain"){for(k=0;k<30;k++)s+='<line x1="'+(k*7+(k%3)*2)+'" y1="'+(10+(k*37)%120)+'" x2="'+(k*7-8+(k%3)*2)+'" y2="'+(50+(k*37)%120)+'" stroke="'+(k%4?a:d)+'" stroke-width="2"/>';s+='<rect x="0" y="200" width="200" height="50" fill="'+b+'"/>';}
+    if(kind==="rows"){for(k=0;k<9;k++){s+='<rect x="0" y="'+(30+k*22)+'" width="200" height="9" fill="'+(k%2?a:b)+'"/>';}s+='<circle cx="60" cy="60" r="26" fill="'+d+'"/>';}
+    if(kind==="sun"){for(k=0;k<16;k++)s+='<path d="M100 130 L'+(100+160*Math.cos(k*.3927))+' '+(130+160*Math.sin(k*.3927))+' L'+(100+160*Math.cos((k+.5)*.3927))+' '+(130+160*Math.sin((k+.5)*.3927))+'Z" fill="'+(k%2?a:d)+'"/>';s+='<circle cx="100" cy="130" r="38" fill="'+b+'"/>';}
+    if(kind==="arch"){for(k=0;k<4;k++)s+='<path d="M'+(30+k*10)+' 230 V'+(120-k*6)+' a'+(70-k*10)+' '+(70-k*10)+' 0 0 1 '+((70-k*10)*2)+' 0 V230Z" fill="'+[b,a,d,bg][k]+'"/>';}
+    if(kind==="grid"){for(k=0;k<20;k++){var x=(k%4)*50,y=Math.floor(k/4)*50;s+='<rect x="'+(x+5)+'" y="'+(y+2)+'" width="40" height="40" fill="'+((k*7)%3?a:(k%2?b:d))+'"/>';}}
+    if(kind==="fire"){for(k=0;k<6;k++)s+='<path d="M'+(10+k*32)+' 250 Q '+(26+k*32)+' '+(120-(k*37)%50)+' '+(30+k*30)+' '+(70-(k*23)%30)+' Q '+(40+k*32)+' '+(140)+' '+(58+k*32)+' 250Z" fill="'+[d,a,b][k%3]+'"/>';}
+    if(kind==="dots"){for(k=0;k<54;k++)s+='<circle cx="'+(20+(k%6)*32)+'" cy="'+(24+Math.floor(k/6)*26)+'" r="'+(4+(k*5)%9)+'" fill="'+(k%3?a:d)+'"/>';}
+    if(kind==="fog"){for(k=0;k<8;k++)s+='<rect x="'+(k%2?-20:20)+'" y="'+(30+k*26)+'" width="'+(140+(k*23)%50)+'" height="14" rx="7" fill="'+(k%3?a:b)+'" opacity="'+(1-k*.09)+'"/>';}
+    if(kind==="moon"){s+='<circle cx="100" cy="120" r="70" fill="'+a+'"/><circle cx="128" cy="108" r="64" fill="'+bg+'"/><circle cx="46" cy="40" r="3" fill="'+d+'"/><circle cx="170" cy="200" r="3" fill="'+d+'"/>';}
+    if(kind==="peak"){s+='<path d="M0 220 L70 90 L110 150 L150 60 L200 200 V250 H0Z" fill="'+b+'"/><path d="M150 60 L128 100 L150 92 L166 104Z" fill="'+a+'"/><circle cx="40" cy="50" r="18" fill="'+d+'"/>';}
+    return s+'<rect x="8" y="8" width="184" height="234" fill="none" stroke="'+a+'" stroke-width="1.5" opacity=".6"/></svg>';
+  }
+  function fig(p,i,hid){return '<figure'+(hid?' aria-hidden="true"':' tabindex="0"')+'>'+art(p[2],i)+'<figcaption><b>'+p[1]+'</b><span>'+p[0]+' · No. '+String(i+1).padStart(2,"0")+'</span></figcaption></figure>';}
+  var rows=[].slice.call(document.querySelectorAll(".row")),state=[];
+  rows.forEach(function(r,ri){
+    var list=P.slice(ri*2).concat(P.slice(0,ri*2)),set="";
+    list.forEach(function(p,i){set+=fig(p,(i+ri*3)%12,false)});
+    var dup=""; list.forEach(function(p,i){dup+=fig(p,(i+ri*3)%12,true)});
+    r.firstElementChild.innerHTML='<div class="set">'+set+'</div><div class="set" aria-hidden="true">'+dup+'</div>';
+    var st={el:r.firstElementChild,dir:+r.dataset.dir,speed:+r.dataset.speed,pause:1,target:1,off:0,w:0};
+    ["pointerenter","focusin"].forEach(function(ev){r.addEventListener(ev,function(){st.target=0})});
+    ["pointerleave","focusout"].forEach(function(ev){r.addEventListener(ev,function(){st.target=1})});
+    state.push(st);
+  });
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  function measure(){state.forEach(function(s){s.w=s.el.firstElementChild.getBoundingClientRect().width})}
+  measure();addEventListener("resize",measure);addEventListener("load",measure);
+  var last=performance.now();
+  function loop(now){
+    var dt=Math.min((now-last)/1000,.05);last=now;var sy=scrollY;
+    state.forEach(function(s,i){
+      s.pause+=(s.target-s.pause)*Math.min(dt*6,1);
+      s.off+=s.dir*s.speed*s.pause*dt;
+      var x=s.off+sy*(.45+i*.15)*s.dir;
+      var w=s.w||1;x=((x%w)+w)%w;
+      s.el.style.transform="translate3d("+(-x)+"px,0,0)";
+    });
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

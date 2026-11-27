@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>90 · Number Stepper Spring</title>
+<!--
+PATTERN: Quantity stepper for a bakery order. The digit rolls up or down when the value changes and
+  the buttons squash with a spring on press. Holding a button repeats and accelerates.
+Motion: New digit slides in from below (increment) or above (decrement) while the old one leaves,
+  280ms cubic-bezier(.2,.7,.2,1). Press feedback: scale .9 -> overshoot 1.06 -> 1 via a spring-like
+  cubic-bezier(.3,1.6,.5,1). Long press: after HOLD_MS repeat every REPEAT_MS, speeding up.
+Accessibility: role="spinbutton" with aria-valuenow/min/max, ArrowUp/ArrowDown/Home/End/PageUp
+  keys; +/- are real buttons with aria-label; disabled at limits plus a text "Maximum reached" note
+  (not colour alone). Live total in aria-live="polite".
+  prefers-reduced-motion: value swaps instantly, no spring.
+Adapting: MIN, MAX, HOLD_MS, REPEAT_MS, UNIT_PRICE in the CONFIG. Libraries: none.
+-->
+<style>
+:root{--bg:#f3ead9;--ink:#2a2118;--crust:#b5651d;--line:#2a2118;--ease:cubic-bezier(.2,.7,.2,1)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font:1rem/1.5 "Helvetica Neue",Arial,sans-serif;min-height:100vh;display:grid;grid-template-columns:5fr 6fr;gap:6vw;align-items:center;padding:6vh 7vw}
+h1{font:400 clamp(2.2rem,6vw,5rem)/1 Georgia,serif;letter-spacing:-.03em}
+.lede{margin-top:1rem;max-width:34ch;color:#52463a}
+.row{display:flex;align-items:center;gap:1.2rem}
+button{width:3.4rem;height:3.4rem;border:2px solid var(--line);background:transparent;color:var(--ink);font:600 1.6rem/1 Georgia,serif;cursor:pointer;border-radius:50%;transition:transform .35s cubic-bezier(.3,1.6,.5,1),background .2s}
+button:hover:not(:disabled){background:var(--crust);color:var(--bg)}
+button:active:not(:disabled){transform:scale(.9);transition-duration:.08s}
+button:disabled{opacity:.4;cursor:not-allowed;border-style:dashed}
+button:focus-visible,.val:focus-visible{outline:3px solid var(--crust);outline-offset:4px}
+.val{position:relative;width:4.5rem;height:5rem;overflow:hidden;font:400 4rem/5rem Georgia,serif;text-align:center;border-bottom:2px solid var(--line)}
+.val span{position:absolute;inset:0;transition:transform .28s var(--ease),opacity .28s}
+.note{margin-top:1rem;min-height:1.5rem;font-size:.9rem}
+.total{margin-top:.5rem;font-weight:600}
+@media(max-width:720px){body{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.val span,button{transition:none}}
+</style>
+</head>
+<body>
+<div>
+  <h1>Sourdough, by the loaf.</h1>
+  <p class="lede">Baked at 5 a.m., sold out by noon. Reserve up to twelve for Saturday pickup.</p>
+</div>
+<div>
+  <div class="row">
+    <button type="button" id="dec" aria-label="Remove one loaf">&minus;</button>
+    <div class="val" id="val" role="spinbutton" tabindex="0" aria-label="Loaves" aria-valuemin="1" aria-valuemax="12" aria-valuenow="2"><span>2</span></div>
+    <button type="button" id="inc" aria-label="Add one loaf">+</button>
+  </div>
+  <p class="note" id="note"></p>
+  <p class="total" aria-live="polite" id="total"></p>
+</div>
+<script>
+(function(){
+  var CONFIG={MIN:1,MAX:12,HOLD_MS:380,REPEAT_MS:140,UNIT_PRICE:7.5};
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var val=document.getElementById("val"),inc=document.getElementById("inc"),dec=document.getElementById("dec"),
+      note=document.getElementById("note"),total=document.getElementById("total");
+  var n=2,timer=null,delay=CONFIG.REPEAT_MS;
+  function paint(dir){
+    while(val.children.length>1)val.removeChild(val.firstElementChild);
+    var old=val.lastElementChild;
+    if(reduce||!dir){old.textContent=n}
+    else{
+      var s=document.createElement("span");s.textContent=n;
+      s.style.transform="translateY("+(dir*100)+"%)";s.style.opacity=0;
+      val.appendChild(s);
+      s.offsetWidth;
+      s.style.transform="";s.style.opacity=1;
+      old.style.transform="translateY("+(-dir*100)+"%)";old.style.opacity=0;
+      setTimeout(function(){if(old.parentNode&&old!==val.lastElementChild)old.parentNode.removeChild(old)},300);
+    }
+    val.setAttribute("aria-valuenow",n);
+    dec.disabled=n<=CONFIG.MIN;inc.disabled=n>=CONFIG.MAX;
+    note.textContent=n>=CONFIG.MAX?"Maximum reached: 12 loaves per order":(n<=CONFIG.MIN?"Minimum: 1 loaf":"");
+    total.textContent=n+" × $"+CONFIG.UNIT_PRICE.toFixed(2)+" = $"+(n*CONFIG.UNIT_PRICE).toFixed(2);
+  }
+  function set(v){v=Math.max(CONFIG.MIN,Math.min(CONFIG.MAX,v));if(v===n)return false;var d=v>n?1:-1;n=v;paint(d);return true}
+  function step(d){return set(n+d)}
+  function start(d){
+    step(d);delay=CONFIG.REPEAT_MS;
+    function tick(){if(!step(d)){stop();return}delay=Math.max(50,delay*.9);timer=setTimeout(tick,delay)}
+    timer=setTimeout(tick,CONFIG.HOLD_MS);
+  }
+  function stop(){clearTimeout(timer);timer=null}
+  [[inc,1],[dec,-1]].forEach(function(p){
+    p[0].addEventListener("pointerdown",function(e){if(e.button===0&&!p[0].disabled){e.preventDefault();p[0].focus();start(p[1])}});
+    p[0].addEventListener("keydown",function(e){if(e.key===" "||e.key==="Enter"){e.preventDefault();if(!e.repeat)step(p[1])}});
+  });
+  ["pointerup","pointerleave","pointercancel","blur"].forEach(function(ev){inc.addEventListener(ev,stop);dec.addEventListener(ev,stop)});
+  val.addEventListener("keydown",function(e){
+    var k=e.key,m={ArrowUp:function(){step(1)},ArrowDown:function(){step(-1)},PageUp:function(){step(3)},PageDown:function(){step(-3)},Home:function(){set(CONFIG.MIN)},End:function(){set(CONFIG.MAX)}};
+    if(m[k]){e.preventDefault();m[k]()}
+  });
+  paint(0);
+})();
+</script>
+</body>
+</html>

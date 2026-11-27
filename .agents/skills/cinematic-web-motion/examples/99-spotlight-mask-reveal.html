@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>99 · Spotlight Mask Reveal</title>
+<!--
+PATTERN: Two stacked layers carry the same headline. The top layer is the "surface" claim; a
+  radial-gradient mask around the pointer cuts a hole that reveals the hidden second layer
+  (the fine print, in a different colour).
+Motion: CSS mask-image: radial-gradient(circle var(--r) at calc(var(--x) + 2vw) var(--y), transparent, #000).
+  Pointer position is eased toward the target in rAF; radius grows on enter, shrinks on leave.
+Accessibility: The revealed text is real DOM text, always readable by assistive tech (hidden layer
+  is not aria-hidden; surface layer is aria-hidden to avoid double reading). A visible "Show fine
+  print" toggle button reveals the second layer fully (touch/keyboard fallback, aria-pressed).
+  Arrow keys on the focused stage move the spotlight. :focus-visible ring.
+  prefers-reduced-motion: no easing; spotlight snaps and radius is static.
+Adapting: RADIUS, EASE, STEP in CONFIG; palette via CSS variables. Libraries: none.
+-->
+<style>
+:root{--paper:#f1ebdd;--ink:#1b1815;--wine:#7a2433;--gold:#e3b04b;--x:30%;--y:40%;--r:0px;--ease:cubic-bezier(.2,.7,.2,1)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--paper);color:var(--ink);font:1rem/1.55 "Helvetica Neue",Arial,sans-serif;min-height:100vh;padding:8vh 6vw}
+h1{font:700 .75rem ui-monospace,monospace;letter-spacing:.18em;text-transform:uppercase;margin-bottom:2rem}
+.stage{position:relative;max-width:60rem;min-height:60vh;margin-left:3vw;cursor:none;touch-action:pan-y}
+.stage:focus-visible{outline:3px solid var(--wine);outline-offset:8px}
+.layer{position:absolute;inset:0;padding:1rem 0;font:700 clamp(2rem,7vw,5.2rem)/1.02 Georgia,"Times New Roman",serif;letter-spacing:-.03em}
+.layer small{display:block;margin-top:1.2rem;font:500 1rem/1.5 "Helvetica Neue",Arial,sans-serif;letter-spacing:0;max-width:32ch}
+.top{background:var(--paper);color:var(--ink);margin:0 -2vw;padding:1rem 2vw;-webkit-mask-image:radial-gradient(circle var(--r) at calc(var(--x) + 2vw) var(--y),transparent 98%,#000 100%);mask-image:radial-gradient(circle var(--r) at calc(var(--x) + 2vw) var(--y),transparent 98%,#000 100%)}
+.under{background:var(--wine);color:var(--gold);margin:0 -2vw;padding:1rem 2vw}
+.stage.all .top{opacity:0}
+.stage.all .under{opacity:1}
+.top{transition:opacity .4s var(--ease)}
+.stage.touch,.stage.kbd{cursor:default}
+.btn{margin-top:1.5rem;margin-left:3vw;font:600 .9rem "Helvetica Neue",Arial,sans-serif;background:var(--ink);color:var(--paper);border:0;padding:.7rem 1.1rem;border-radius:3px;cursor:pointer}
+.btn:focus-visible{outline:3px solid var(--wine);outline-offset:3px}
+.btn[aria-pressed=true]::before{content:"\2713  "}
+@media (prefers-reduced-motion:reduce){.top{transition:none}}
+</style>
+</head>
+<body>
+<h1>Annual fee schedule</h1>
+<div class="stage" id="stage" tabindex="0" role="group" aria-label="Fee headline. Move pointer or use arrow keys to reveal the fine print.">
+  <div class="layer under"><span>Plus 1.4% on every refund.<small>Refunds over 90 days old cost a flat 6 euro and are not reversible.</small></span></div>
+  <div class="layer top" aria-hidden="true"><span>No fees. Ever.<small>Open an account in ten minutes with an ID and a phone number.</small></span></div>
+</div>
+<button class="btn" id="btn" type="button" aria-pressed="false">Show fine print</button>
+<script>
+(function(){
+  var CONFIG={RADIUS:170,EASE:.14,STEP:48};
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var stage=document.getElementById("stage"),btn=document.getElementById("btn");
+  var s={x:.3,y:.4,tx:.3,ty:.4,r:0,tr:0,raf:0};
+  function paint(){
+    var k=reduce?1:CONFIG.EASE;
+    s.x+=(s.tx-s.x)*k;s.y+=(s.ty-s.y)*k;s.r+=(s.tr-s.r)*k;
+    var b=stage.getBoundingClientRect();
+    stage.style.setProperty("--x",(s.x*b.width)+"px");
+    stage.style.setProperty("--y",(s.y*b.height)+"px");
+    stage.style.setProperty("--r",s.r+"px");
+    var more=Math.abs(s.tx-s.x)>.001||Math.abs(s.ty-s.y)>.001||Math.abs(s.tr-s.r)>.5;
+    s.raf=more?requestAnimationFrame(paint):0;
+  }
+  function kick(){if(!s.raf)s.raf=requestAnimationFrame(paint)}
+  function aim(e){
+    var b=stage.getBoundingClientRect();
+    s.tx=(e.clientX-b.left)/b.width;s.ty=(e.clientY-b.top)/b.height;s.tr=CONFIG.RADIUS;kick();
+  }
+  stage.addEventListener("pointermove",function(e){
+    if(e.pointerType==="touch")stage.classList.add("touch");aim(e);
+  });
+  stage.addEventListener("pointerleave",function(){s.tr=0;kick()});
+  stage.addEventListener("keydown",function(e){
+    var d={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];
+    if(!d)return;e.preventDefault();stage.classList.add("kbd");
+    var b=stage.getBoundingClientRect();
+    s.tx=Math.min(1,Math.max(0,s.tx+d[0]*CONFIG.STEP/b.width));
+    s.ty=Math.min(1,Math.max(0,s.ty+d[1]*CONFIG.STEP/b.height));
+    s.tr=CONFIG.RADIUS;kick();
+  });
+  stage.addEventListener("blur",function(){s.tr=0;kick()});
+  btn.addEventListener("click",function(){
+    var on=btn.getAttribute("aria-pressed")!=="true";
+    btn.setAttribute("aria-pressed",on);stage.classList.toggle("all",on);
+    btn.firstChild.nodeValue=on?"Hide fine print":"Show fine print";
+  });
+  paint();
+})();
+</script>
+</body>
+</html>

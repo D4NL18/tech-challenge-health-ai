@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>59 · Glass Orbs Parallax Hero</title>
+<!--
+PATTERN: Glassmorphism hero with floating orbs and mouse parallax.
+Motion: Blurred gradient orbs drift via CSS keyframes; each has a depth value so pointer movement shifts them at different speeds (rAF lerp). A frosted glass panel sits above.
+Accessibility: Orbs are decorative (aria-hidden); text keeps AA contrast on the glass; reduced-motion stops drifting and parallax.
+Adapting: Edit ORBS (size, hue, position, depth); change panel blur/opacity in .glass.
+-->
+<style>
+:root{--bg:#0b0b18;--fg:#f4f2ff}
+*{box-sizing:border-box;margin:0}
+body{min-height:100vh;background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif;overflow:hidden}
+.stage{position:relative;min-height:100vh;display:grid;place-items:center;padding:1.5rem;overflow:hidden}
+.orb{position:absolute;border-radius:50%;background:radial-gradient(circle at 30% 30%,hsl(var(--h) 90% 75%),hsl(var(--h) 80% 45%) 60%,hsl(calc(var(--h) + 40) 80% 25%));filter:blur(var(--b,2px));box-shadow:inset -10px -10px 40px #0006,0 0 80px hsl(var(--h) 90% 50%/.35);will-change:transform}
+.orb i{display:block;width:100%;height:100%;border-radius:50%;animation:float var(--t,9s) ease-in-out infinite alternate}
+@keyframes float{from{transform:translateY(-18px) scale(1)}to{transform:translateY(22px) scale(1.06)}}
+.glass{position:relative;z-index:2;max-width:640px;padding:clamp(1.8rem,5vw,3.5rem);border-radius:28px;background:#ffffff1a;border:1px solid #ffffff3d;backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);box-shadow:0 30px 80px #0006}
+h1{font-size:clamp(2.4rem,7vw,5rem);letter-spacing:-.04em;line-height:.95}
+p{margin-top:1.2rem;font-size:1.15rem;line-height:1.5;color:#e6e2ff}
+a{display:inline-block;margin-top:1.8rem;padding:.9rem 1.6rem;border-radius:99px;background:#fff;color:#16102e;text-decoration:none;font-weight:600}
+a:focus-visible{outline:3px solid #ffd36b;outline-offset:3px}
+@media (prefers-reduced-motion:reduce){.orb i{animation:none}}
+</style>
+</head>
+<body>
+<main class="stage" id="stage">
+  <div class="glass"><h1>Depth, in glass.</h1><p>Soft orbs float behind a frosted panel. Move your pointer and each layer answers at its own speed.</p><a href="#start">Get started</a></div>
+</main>
+<script>
+(function(){
+  var ORBS=[{s:340,h:265,x:8,y:12,d:.05,b:4,t:10},{s:220,h:330,x:72,y:8,d:.09,b:2,t:8},{s:420,h:200,x:62,y:58,d:.04,b:6,t:12},{s:140,h:30,x:14,y:68,d:.14,b:0,t:7},{s:90,h:160,x:46,y:80,d:.2,b:0,t:6}];
+  var stage=document.getElementById("stage"),els=[];
+  ORBS.forEach(function(o){
+    var e=document.createElement("div");e.className="orb";e.setAttribute("aria-hidden","true");
+    e.style.cssText="width:"+o.s+"px;height:"+o.s+"px;left:"+o.x+"%;top:"+o.y+"%;--h:"+o.h+";--b:"+o.b+"px;--t:"+o.t+"s;max-width:50vw;max-height:50vw";
+    e.innerHTML="<i></i>";stage.insertBefore(e,stage.firstChild);els.push({el:e,d:o.d,x:0,y:0});
+  });
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  var tx=0,ty=0,raf=null;
+  addEventListener("pointermove",function(e){tx=e.clientX-innerWidth/2;ty=e.clientY-innerHeight/2;if(!raf)raf=requestAnimationFrame(tick)});
+  function tick(){
+    var busy=false;
+    els.forEach(function(o){
+      var gx=-tx*o.d,gy=-ty*o.d;
+      o.x+=(gx-o.x)*.07;o.y+=(gy-o.y)*.07;
+      if(Math.abs(gx-o.x)+Math.abs(gy-o.y)>.1)busy=true;
+      o.el.style.transform="translate3d("+o.x.toFixed(2)+"px,"+o.y.toFixed(2)+"px,0)";
+    });
+    raf=busy?requestAnimationFrame(tick):null;
+  }
+})();
+</script>
+</body>
+</html>

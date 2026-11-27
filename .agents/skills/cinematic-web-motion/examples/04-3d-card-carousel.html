@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3D Card Carousel</title>
+<!--
+  EFFECT: Pure CSS-3D ring of cards (rotateY + translateZ) that you drag/swipe to spin, with inertia, wheel
+  support, arrow keys and auto-rotate. Cards facing the camera are brighter; GSAP drives inertia + snapping.
+  ADAPT: add/remove .card elements (layout recomputes), tweak RADIUS_FACTOR, CARD_W, AUTO_SPEED, and
+  the gradient hues in the card markup (--h). Replace card contents with images/links freely.
+  Reduced motion: no auto-rotate or inertia; drag/keys snap directly to the nearest card.
+-->
+<style>
+  :root{--w:clamp(150px,22vw,260px);--h:calc(var(--w)*1.4)}
+  html,body{margin:0;height:100%;background:radial-gradient(ellipse at 50% 40%,#17171f,#07070a 70%);color:#fff;font-family:Inter,system-ui,sans-serif;overflow:hidden}
+  .stage{position:fixed;inset:0;display:grid;place-items:center;perspective:1400px;cursor:grab;touch-action:pan-y;user-select:none}
+  .stage.drag{cursor:grabbing}
+  .ring{position:relative;width:var(--w);height:var(--h);transform-style:preserve-3d}
+  .card{position:absolute;inset:0;border-radius:18px;padding:1.2rem;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-end;
+    background:linear-gradient(160deg,hsl(var(--h) 80% 55%),hsl(calc(var(--h) + 50) 70% 18%));
+    box-shadow:0 20px 50px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.15);backface-visibility:visible;-webkit-box-reflect:below 8px linear-gradient(transparent 70%,rgba(255,255,255,.12))}
+  .card span{font-size:.7rem;letter-spacing:.25em;text-transform:uppercase;opacity:.75}
+  .card h3{margin:.3em 0 0;font-size:clamp(1.1rem,2.4vw,1.6rem)}
+  .card::after{content:"";position:absolute;inset:0;border-radius:inherit;background:#000;opacity:var(--dim,0);pointer-events:none}
+  h1{position:fixed;top:6vh;width:100%;text-align:center;margin:0;font-weight:300;letter-spacing:.4em;text-transform:uppercase;font-size:.8rem;color:#9a9aab}
+  .hint{position:fixed;bottom:5vh;width:100%;text-align:center;font-size:.7rem;letter-spacing:.25em;color:#6d6d7d;text-transform:uppercase}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+</head>
+<body>
+<h1>Selected Works</h1>
+<div class="stage" id="stage"><div class="ring" id="ring"></div></div>
+<div class="hint">Drag · Scroll · ← →</div>
+<script>
+(function(){
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const RADIUS_FACTOR = 1.15, AUTO_SPEED = 4; // degrees per second
+  const items = [['Aurora','Identity'],['Nimbus','Web'],['Kinetic','Motion'],['Orbit','Product'],['Solstice','Brand'],['Vertex','3D'],['Lumen','Film'],['Echo','Sound']];
+  const ring = document.getElementById('ring'), stage = document.getElementById('stage');
+  items.forEach(([t,k],i)=>{
+    const c = document.createElement('div'); c.className='card'; c.style.setProperty('--h', (i*360/items.length+220)%360);
+    c.innerHTML = `<span>0${i+1} — ${k}</span><h3>${t}</h3>`; ring.appendChild(c);
+  });
+  const cards = [...ring.children], N = cards.length, step = 360/N;
+  const st = {rot:0}; let radius = 400, dragging=false, lastX=0, vel=0, idle=0;
+
+  function layout(){
+    const w = cards[0].offsetWidth;
+    radius = Math.round((w/2)/Math.tan(Math.PI/N) * RADIUS_FACTOR);
+    cards.forEach((c,i)=>{ c.style.transform = `rotateY(${i*step}deg) translateZ(${radius}px)`; });
+    apply();
+  }
+  function apply(){
+    ring.style.transform = `translateZ(${-radius}px) rotateY(${st.rot}deg)`;
+    cards.forEach((c,i)=>{
+      let a = ((i*step + st.rot)%360+540)%360-180;      // -180..180, 0 = facing camera
+      c.style.setProperty('--dim', Math.min(.75, Math.abs(a)/180*.9).toFixed(3));
+    });
+  }
+  function snap(){
+    const target = Math.round(st.rot/step)*step;
+    gsap.to(st,{rot:target,duration:reduce?0:.8,ease:'power3.out',onUpdate:apply,onComplete:apply});
+  }
+  function go(dir){ gsap.killTweensOf(st); st.rot = Math.round(st.rot/step)*step; gsap.to(st,{rot:st.rot - dir*step,duration:reduce?0:.8,ease:'power3.inOut',onUpdate:apply,onComplete:apply}); }
+
+  stage.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;vel=0;gsap.killTweensOf(st);stage.classList.add('drag');stage.setPointerCapture(e.pointerId);});
+  stage.addEventListener('pointermove',e=>{ if(!dragging)return; const dx=e.clientX-lastX; lastX=e.clientX; vel=dx*.35; st.rot+=dx*.35; apply(); });
+  const end=()=>{ if(!dragging)return; dragging=false; stage.classList.remove('drag');
+    if(reduce) return snap();
+    const inertia = vel*14; gsap.to(st,{rot:Math.round((st.rot+inertia)/step)*step,duration:1.4,ease:'power3.out',onUpdate:apply}); idle=0; };
+  stage.addEventListener('pointerup',end); stage.addEventListener('pointercancel',end);
+  let wheelT; addEventListener('wheel',e=>{ gsap.killTweensOf(st); st.rot -= (e.deltaY+e.deltaX)*.12; apply(); clearTimeout(wheelT); wheelT=setTimeout(snap,150); },{passive:true});
+  addEventListener('keydown',e=>{ if(e.key==='ArrowRight')go(1); if(e.key==='ArrowLeft')go(-1); });
+
+  let last=performance.now();
+  function tick(now){
+    const dt=(now-last)/1000; last=now; idle+=dt;
+    if(!dragging && !gsap.isTweening(st) && idle>1.5){ st.rot += AUTO_SPEED*dt; apply(); }
+    requestAnimationFrame(tick);
+  }
+  addEventListener('resize',layout);
+  layout();
+  if(!reduce) requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shader Gradient (WebGL)</title>
+<!--
+  EFFECT: Fullscreen fragment-shader mesh gradient. Domain-warped simplex noise blends 4 colours,
+  the mouse bends the flow locally, and film grain is added in-shader. Raw WebGL, no dependencies.
+  ADAPT: edit the COLORS array (vec3 0-1) , SPEED, WARP (distortion strength), GRAIN, MOUSE (influence).
+  Use as a hero background: keep the <canvas> position:fixed/absolute and put content above it.
+  Reduced motion: renders a single static frame (no time progression, no mouse).
+  Resize: canvas resized to devicePixelRatio (capped at 2) on window resize.
+-->
+<style>
+  html,body{margin:0;height:100%;background:#07070b;color:#f2f0ea;font-family:ui-sans-serif,system-ui,"Segoe UI",sans-serif;overflow:hidden}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+  main{position:relative;z-index:1;height:100%;display:grid;place-content:center;text-align:center;padding:2rem;pointer-events:none}
+  h1{font-weight:300;font-size:clamp(2.5rem,8vw,6.5rem);letter-spacing:-.04em;margin:0;line-height:1}
+  p{margin:1.2rem 0 0;opacity:.7;letter-spacing:.2em;text-transform:uppercase;font-size:.75rem}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<main><h1>Fluid Colour</h1><p>Move your cursor</p></main>
+<script>
+(() => {
+  const SPEED = 0.12, WARP = 1.6, GRAIN = 0.07, MOUSE = 0.35;
+  const COLORS = [[0.05,0.06,0.18],[0.35,0.18,0.75],[0.95,0.35,0.45],[0.10,0.55,0.75]];
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const canvas = document.getElementById('c');
+  const gl = canvas.getContext('webgl', {antialias:false});
+  if (!gl) { document.body.style.background='linear-gradient(135deg,#0d0f2e,#5a2db8,#f25a73)'; return; }
+
+  const vs = `attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}`;
+  const fs = `precision highp float;
+  uniform vec2 uRes,uMouse;uniform float uTime,uWarp,uGrain,uMouseAmt;uniform vec3 uC[4];
+  vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}
+  vec2 mod289(vec2 x){return x-floor(x*(1./289.))*289.;}
+  vec3 permute(vec3 x){return mod289(((x*34.)+1.)*x);}
+  float snoise(vec2 v){
+    const vec4 C=vec4(.211324865405187,.366025403784439,-.577350269189626,.024390243902439);
+    vec2 i=floor(v+dot(v,C.yy));vec2 x0=v-i+dot(i,C.xx);
+    vec2 i1=(x0.x>x0.y)?vec2(1.,0.):vec2(0.,1.);
+    vec4 x12=x0.xyxy+C.xxzz;x12.xy-=i1;i=mod289(i);
+    vec3 p=permute(permute(i.y+vec3(0.,i1.y,1.))+i.x+vec3(0.,i1.x,1.));
+    vec3 m=max(.5-vec3(dot(x0,x0),dot(x12.xy,x12.xy),dot(x12.zw,x12.zw)),0.);
+    m=m*m;m=m*m;
+    vec3 x=2.*fract(p*C.www)-1.;vec3 h=abs(x)-.5;vec3 ox=floor(x+.5);vec3 a0=x-ox;
+    m*=1.79284291400159-.85373472095314*(a0*a0+h*h);
+    vec3 g;g.x=a0.x*x0.x+h.x*x0.y;g.yz=a0.yz*x12.xz+h.yz*x12.yw;
+    return 130.*dot(m,g);
+  }
+  float hash(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
+  void main(){
+    vec2 uv=gl_FragCoord.xy/uRes;
+    float asp=uRes.x/uRes.y;
+    vec2 q=(uv-.5)*vec2(asp,1.);
+    vec2 m=(uMouse-.5)*vec2(asp,1.);
+    float md=length(q-m);
+    q+=(q-m)*exp(-md*3.)*uMouseAmt;
+    float t=uTime;
+    vec2 w=vec2(snoise(q*1.2+vec2(t,0.)),snoise(q*1.2+vec2(0.,-t)+7.));
+    vec2 r=vec2(snoise(q*2.+w*uWarp+vec2(t*1.3,3.)),snoise(q*2.+w*uWarp-vec2(2.,t*1.1)));
+    float n=snoise(q*1.5+r*uWarp);
+    float k=n*.5+.5;
+    vec3 col=mix(uC[0],uC[1],smoothstep(0.,.45,k));
+    col=mix(col,uC[2],smoothstep(.35,.85,k+r.x*.2));
+    col=mix(col,uC[3],smoothstep(.5,1.,.5+r.y*.5)*.55);
+    col*=1.-dot(uv-.5,uv-.5)*.9;
+    col+=(hash(gl_FragCoord.xy+fract(t)*100.)-.5)*uGrain;
+    gl_FragColor=vec4(col,1.);
+  }`;
+  const sh=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);
+    if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))console.warn(gl.getShaderInfoLog(o));return o;};
+  const pr=gl.createProgram();
+  gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs));
+  gl.linkProgram(pr);gl.useProgram(pr);
+  const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+  const loc=gl.getAttribLocation(pr,'p');gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+  const U=n=>gl.getUniformLocation(pr,n);
+  const uRes=U('uRes'),uMouse=U('uMouse'),uTime=U('uTime');
+  gl.uniform1f(U('uWarp'),WARP);gl.uniform1f(U('uGrain'),GRAIN);gl.uniform1f(U('uMouseAmt'),MOUSE);
+  gl.uniform3fv(U('uC'),new Float32Array(COLORS.flat()));
+
+  const mouse={x:.5,y:.5,tx:.5,ty:.5};
+  if(!reduce) addEventListener('pointermove',e=>{mouse.tx=e.clientX/innerWidth;mouse.ty=1-e.clientY/innerHeight;});
+  function resize(){
+    const d=Math.min(devicePixelRatio||1,2);
+    canvas.width=Math.floor(innerWidth*d);canvas.height=Math.floor(innerHeight*d);
+    gl.viewport(0,0,canvas.width,canvas.height);gl.uniform2f(uRes,canvas.width,canvas.height);
+    if(reduce)draw(performance.now());
+  }
+  function draw(now){
+    mouse.x+=(mouse.tx-mouse.x)*.06;mouse.y+=(mouse.ty-mouse.y)*.06;
+    gl.uniform2f(uMouse,mouse.x,mouse.y);
+    gl.uniform1f(uTime,reduce?4.0:now*.001*SPEED*4.);
+    gl.drawArrays(gl.TRIANGLES,0,3);
+  }
+  addEventListener('resize',resize);resize();
+  if(!reduce){const loop=t=>{draw(t);requestAnimationFrame(loop);};requestAnimationFrame(loop);}
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Liquid Distortion Image</title>
+<!--
+  EFFECT: A procedurally generated "image" (gradient sunset with sun, mountains, stripes — generated on a 2D
+  canvas, no external assets) is uploaded as a WebGL texture. A fragment shader distorts it with a mouse-driven
+  liquid ripple: pointer velocity feeds a smoothed trail; sine ripples + noise displace UVs and split RGB channels.
+  ADAPT: replace makeTexture() drawing with ctx.drawImage(yourImg,...) to use a real image (same-origin/CORS).
+  Tune STRENGTH (displacement), RIPPLE_FREQ, RADIUS (influence), CHROMA (RGB split), RELAX (trail decay).
+  Reduced motion: shows undistorted image, no animation or pointer response.
+  Resize: canvas fills window; texture is cover-fitted in the shader so aspect ratio is preserved.
+-->
+<style>
+  html,body{margin:0;height:100%;background:#08080b;overflow:hidden;font-family:ui-sans-serif,system-ui,"Segoe UI",sans-serif;color:#f3efe6}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
+  .label{position:fixed;left:2rem;bottom:2rem;pointer-events:none;mix-blend-mode:difference}
+  .label h1{margin:0;font-weight:300;font-size:clamp(1.8rem,5vw,3.5rem);letter-spacing:-.03em}
+  .label p{margin:.4rem 0 0;font-size:.72rem;letter-spacing:.25em;text-transform:uppercase;opacity:.7}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="label"><h1>Liquid Surface</h1><p>Drag your cursor across</p></div>
+<script>
+(() => {
+  const STRENGTH=.045, RIPPLE_FREQ=28, RADIUS=.28, CHROMA=.012, RELAX=.94;
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const canvas=document.getElementById('c');
+  const gl=canvas.getContext('webgl');
+  if(!gl){return;}
+
+  // ---- procedural texture ----
+  function makeTexture(){
+    const s=1600,h=1000,c=document.createElement('canvas');c.width=s;c.height=h;
+    const x=c.getContext('2d');
+    let g=x.createLinearGradient(0,0,0,h);
+    g.addColorStop(0,'#1a1040');g.addColorStop(.45,'#b0366b');g.addColorStop(.7,'#ff8a5b');g.addColorStop(1,'#ffd68a');
+    x.fillStyle=g;x.fillRect(0,0,s,h);
+    // sun
+    g=x.createRadialGradient(s*.5,h*.62,0,s*.5,h*.62,h*.45);
+    g.addColorStop(0,'rgba(255,250,220,1)');g.addColorStop(.25,'rgba(255,220,150,.95)');g.addColorStop(1,'rgba(255,140,90,0)');
+    x.fillStyle=g;x.fillRect(0,0,s,h);
+    // sun stripes
+    x.fillStyle='#b0366b';
+    for(let i=0;i<8;i++){x.globalAlpha=.55;x.fillRect(s*.5-190,h*.62+i*26+10,380,4+i*2);}
+    x.globalAlpha=1;
+    // mountains layers
+    const cols=['#5b2a7a','#3a1b5c','#1f1040','#0d0820'];
+    cols.forEach((col,k)=>{
+      x.fillStyle=col;x.beginPath();x.moveTo(0,h);
+      const base=h*(.68+k*.08);
+      for(let i=0;i<=s;i+=20){
+        const y=base-Math.abs(Math.sin(i*.004+k*2))*120*(1-k*.12)-Math.sin(i*.017+k)*18;
+        x.lineTo(i,y);
+      }
+      x.lineTo(s,h);x.closePath();x.fill();
+    });
+    // grid lines in foreground
+    x.strokeStyle='rgba(255,120,200,.35)';x.lineWidth=2;
+    for(let i=-20;i<=20;i++){x.beginPath();x.moveTo(s/2+i*30,h*.9);x.lineTo(s/2+i*160,h);x.stroke();}
+    for(let j=0;j<6;j++){const y=h*.9+Math.pow(j/6,1.6)*h*.1;x.beginPath();x.moveTo(0,y);x.lineTo(s,y);x.stroke();}
+    // stars
+    x.fillStyle='#fff';
+    for(let i=0;i<120;i++){x.globalAlpha=Math.random()*.8;x.fillRect(Math.random()*s,Math.random()*h*.4,2,2);}
+    return c;
+  }
+  const tex=gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D,tex);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+  const img=makeTexture();
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+
+  const vs='attribute vec2 p;varying vec2 v;void main(){v=gl_Position.xy=p;gl_Position=vec4(p,0.,1.);}'.replace('v=gl_Position.xy=p;','v=p*.5+.5;');
+  const fs=`precision highp float;
+  varying vec2 v;uniform sampler2D uTex;uniform vec2 uRes,uImg,uMouse,uVel;
+  uniform float uTime,uStr,uFreq,uRad,uChroma,uOn;
+  vec2 cover(vec2 uv){
+    float ra=uRes.x/uRes.y,ia=uImg.x/uImg.y;vec2 s=ra>ia?vec2(1.,ia/ra):vec2(ra/ia,1.);
+    return (uv-.5)*s+.5;
+  }
+  void main(){
+    vec2 uv=v;
+    vec2 asp=vec2(uRes.x/uRes.y,1.);
+    vec2 d=(uv-uMouse)*asp;
+    float dist=length(d);
+    float infl=smoothstep(uRad,0.,dist);
+    float ripple=sin(dist*uFreq-uTime*4.)*infl;
+    vec2 dir=normalize(d+1e-4);
+    float vm=length(uVel);
+    vec2 off=dir*ripple*uStr*uOn+uVel*infl*.6*uOn;
+    off+=uOn*vec2(sin(uv.y*9.+uTime*1.2),cos(uv.x*9.+uTime*1.0))*.0025;
+    vec2 cu=cover(uv+off);
+    vec2 ch=dir*uChroma*(infl+.1*vm*8.)*uOn;
+    float r=texture2D(uTex,cover(uv+off)+ch).r;
+    float g=texture2D(uTex,cu).g;
+    float b=texture2D(uTex,cover(uv+off)-ch).b;
+    vec3 col=vec3(r,g,b);
+    col*=1.-.35*dot(uv-.5,uv-.5)*2.;
+    gl_FragColor=vec4(col,1.);
+  }`;
+  const sh=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);
+    if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))console.warn(gl.getShaderInfoLog(o));return o;};
+  const pr=gl.createProgram();
+  gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs));
+  gl.linkProgram(pr);gl.useProgram(pr);
+  gl.bindBuffer(gl.ARRAY_BUFFER,gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+  const l=gl.getAttribLocation(pr,'p');gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,2,gl.FLOAT,false,0,0);
+  const U=n=>gl.getUniformLocation(pr,n);
+  const u={res:U('uRes'),mouse:U('uMouse'),vel:U('uVel'),time:U('uTime')};
+  gl.uniform1i(U('uTex'),0);gl.uniform2f(U('uImg'),img.width,img.height);
+  gl.uniform1f(U('uStr'),STRENGTH);gl.uniform1f(U('uFreq'),RIPPLE_FREQ);gl.uniform1f(U('uRad'),RADIUS);
+  gl.uniform1f(U('uChroma'),CHROMA);gl.uniform1f(U('uOn'),reduce?0:1);
+
+  const mouse={x:.5,y:.5,tx:.5,ty:.5,vx:0,vy:0};
+  if(!reduce)addEventListener('pointermove',e=>{mouse.tx=e.clientX/innerWidth;mouse.ty=1-e.clientY/innerHeight;});
+  function draw(now){
+    const px=mouse.x,py=mouse.y;
+    mouse.x+=(mouse.tx-mouse.x)*.12;mouse.y+=(mouse.ty-mouse.y)*.12;
+    mouse.vx=mouse.vx*RELAX+(mouse.x-px)*(1-RELAX)*12;
+    mouse.vy=mouse.vy*RELAX+(mouse.y-py)*(1-RELAX)*12;
+    gl.uniform2f(u.mouse,mouse.x,mouse.y);gl.uniform2f(u.vel,mouse.vx,mouse.vy);
+    gl.uniform1f(u.time,now*.001);
+    gl.drawArrays(gl.TRIANGLES,0,3);
+  }
+  function resize(){
+    const d=Math.min(devicePixelRatio||1,2);
+    canvas.width=Math.floor(innerWidth*d);canvas.height=Math.floor(innerHeight*d);
+    gl.viewport(0,0,canvas.width,canvas.height);gl.uniform2f(u.res,canvas.width,canvas.height);
+    if(reduce)draw(0);
+  }
+  addEventListener('resize',resize);resize();
+  if(!reduce){const loop=t=>{draw(t);requestAnimationFrame(loop);};requestAnimationFrame(loop);}
+})();
+</script>
+</body>
+</html>
