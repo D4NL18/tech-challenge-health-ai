@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>96 · Stacked Avatars Hover Expand</title>
+<!--
+PATTERN: A tight, overlapping stack of reviewer avatars that fans out when the group is hovered or
+  contains focus, with a "+N" overflow chip and a name tooltip on the active avatar.
+Motion: Each avatar has negative margin overlap; on expand the margin eases to a positive gap
+  (transition on margin-left, cubic-bezier(.2,.7,.2,1)) and the hovered one lifts. Tooltips fade/rise.
+Accessibility: Group is role="group" with aria-label; each avatar is a focusable button whose
+  aria-label holds the full name and role (tooltip is also text, not colour). The chip is a real
+  button that reveals the hidden names list. :focus-visible rings. Expands on focus-within so
+  keyboard and touch (tap) work. prefers-reduced-motion: no movement, instant expand.
+Adapting: PEOPLE array and MAX_VISIBLE in CONFIG. Libraries: none. Initials avatars are inline CSS.
+-->
+<style>
+:root{--paper:#f6f1e7;--ink:#201c17;--rust:#a8452b;--teal:#2d5d57;--ochre:#c58f2a;--plum:#6a3a4c;--ease:cubic-bezier(.2,.7,.2,1);--ov:-14px}
+*{box-sizing:border-box;margin:0}
+body{background:var(--paper);color:var(--ink);font:1rem/1.6 "Helvetica Neue",Arial,sans-serif;min-height:100vh;padding:14vh 7vw}
+.card{max-width:34rem;margin-left:4vw;padding-left:1.5rem;border-left:4px solid var(--ink)}
+.eyebrow{font:600 .72rem ui-monospace,monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
+h1{font:700 clamp(2rem,5vw,3.4rem)/1.05 Georgia,"Times New Roman",serif;letter-spacing:-.02em;margin:.6rem 0 1rem}
+p{max-width:40ch;margin-bottom:2rem}
+.stack{display:flex;align-items:center;padding:34px 0 8px}
+.stack:hover,.stack:focus-within,.stack.open{--ov:6px}
+.av{position:relative;width:48px;height:48px;border-radius:50%;border:3px solid var(--paper);margin-left:var(--ov);cursor:pointer;color:#fff;font:700 .8rem ui-monospace,monospace;letter-spacing:.04em;display:grid;place-items:center;
+  transition:margin-left .45s var(--ease),transform .3s var(--ease)}
+.av:first-child{margin-left:0}
+.av:hover,.av:focus-visible{transform:translateY(-6px);z-index:3}
+.av:focus-visible,.chip:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+.av::after{content:attr(data-name);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translate(-50%,4px);white-space:nowrap;background:var(--ink);color:var(--paper);font:500 .75rem "Helvetica Neue",Arial,sans-serif;padding:.3rem .55rem;border-radius:3px;opacity:0;pointer-events:none;transition:opacity .25s var(--ease),transform .25s var(--ease)}
+.av:hover::after,.av:focus-visible::after{opacity:1;transform:translate(-50%,0)}
+.chip{width:48px;height:48px;border-radius:50%;border:3px solid var(--paper);margin-left:var(--ov);background:var(--ink);color:var(--paper);font:700 .8rem ui-monospace,monospace;cursor:pointer;transition:margin-left .45s var(--ease)}
+.names{margin-top:1rem;font-size:.9rem;min-height:1.5em}
+@media (prefers-reduced-motion:reduce){.av,.chip,.av::after{transition:none}.av:hover,.av:focus-visible{transform:none}}
+</style>
+</head>
+<body>
+<article class="card">
+  <p class="eyebrow">Pull request #482</p>
+  <h1>Rewrite the invoice export queue</h1>
+  <p>Six people are on this review. Hover or tab into the stack to see who, or press the count to list the rest.</p>
+  <div class="stack" role="group" aria-label="Reviewers"></div>
+  <p class="names" id="names" aria-live="polite"></p>
+</article>
+<script>
+(function(){
+  var CONFIG={MAX_VISIBLE:4,PEOPLE:[
+    ["Marta Okonkwo","Backend lead","#a8452b"],["Luis Ferreira","Payments","#2d5d57"],
+    ["Hana Ito","QA","#c58f2a"],["Dmitri Volkov","SRE","#6a3a4c"],
+    ["Ines Barros","Design systems","#2d5d57"],["Tomás Weil","Security","#a8452b"]]};
+  var stack=document.querySelector(".stack"),out=document.getElementById("names");
+  function initials(n){return n.split(" ").map(function(w){return w[0]}).join("").slice(0,2)}
+  CONFIG.PEOPLE.slice(0,CONFIG.MAX_VISIBLE).forEach(function(p){
+    var b=document.createElement("button");
+    b.type="button";b.className="av";b.textContent=initials(p[0]);
+    b.style.background=p[2];b.dataset.name=p[0]+" · "+p[1];
+    b.setAttribute("aria-label",p[0]+", "+p[1]);
+    b.addEventListener("click",function(){out.textContent=p[0]+" requested changes in "+p[1]+" scope."});
+    stack.appendChild(b);
+  });
+  var rest=CONFIG.PEOPLE.slice(CONFIG.MAX_VISIBLE);
+  if(rest.length){
+    var c=document.createElement("button");
+    c.type="button";c.className="chip";c.textContent="+"+rest.length;
+    c.setAttribute("aria-label",rest.length+" more reviewers, show names");
+    c.addEventListener("click",function(){
+      stack.classList.add("open");
+      out.textContent="Also reviewing: "+rest.map(function(p){return p[0]}).join(", ")+".";
+    });
+    stack.appendChild(c);
+  }
+  stack.addEventListener("mouseleave",function(){stack.classList.remove("open")});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>21 · Multi-layer Parallax Hero</title>
+<!--
+  EFFECT: A layered SVG mountain-scape hero (sky, sun, 4 ridges, mist, foreground, title). Each layer has a data-depth.
+  - Scroll parallax: layers translate by depth via ScrollTrigger scrub (far layers move less).
+  - Mouse parallax: layers shift opposite the cursor, eased with gsap.quickTo.
+  Lenis smooths scroll.
+
+  HOW TO ADAPT:
+  - Add a layer: <div class="layer" data-depth="0.4">…</div>. Depth 0 = static, 1 = fastest.
+  - Replace inline SVG with transparent PNG/SVG cutouts of your own scene.
+  - Tune SCROLL (px of travel at depth 1) and MOUSE (px of shift at depth 1).
+  - Reduced motion: layers stay static, no mouse or scroll effects.
+-->
+<style>
+  :root { --fg:#fff4e6; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html.lenis { height:auto; }
+  body { background:#120a1f; color:var(--fg); font-family:"Helvetica Neue",Arial,sans-serif; overflow-x:hidden; }
+  .hero { position:relative; height:100vh; overflow:hidden; background:linear-gradient(#1b1038 0%,#6a2c70 40%,#f08a5d 78%,#ffd29a 100%); }
+  .layer { position:absolute; inset:-8% -6% -2%; will-change:transform; }
+  .layer svg { position:absolute; bottom:0; left:0; width:100%; height:100%; }
+  .layer.sun { display:grid; place-items:center; }
+  .sun i { position:absolute; width:min(26vw,300px); aspect-ratio:1; border-radius:50%; left:50%; top:46%; translate:-50% -50%;
+           background:radial-gradient(circle,#fff6d8,#ffc77a 55%,#ff9a62 70%,transparent 72%); box-shadow:0 0 120px 40px #ffa86a80; }
+  .stars { background:
+      radial-gradient(1.5px 1.5px at 12% 18%,#fff,transparent),radial-gradient(1px 1px at 30% 8%,#fff,transparent),
+      radial-gradient(1.5px 1.5px at 55% 22%,#fff,transparent),radial-gradient(1px 1px at 72% 10%,#fff,transparent),
+      radial-gradient(1.5px 1.5px at 88% 26%,#fff,transparent),radial-gradient(1px 1px at 44% 5%,#fff,transparent); }
+  .mist { background:linear-gradient(transparent 55%,#ffd8b066 80%,transparent); }
+  .title { position:absolute; inset:0; display:grid; place-content:center; text-align:center; z-index:5; pointer-events:none; }
+  .title h1 { font-weight:200; font-size:clamp(3rem,12vw,10rem); letter-spacing:.12em; text-shadow:0 10px 60px #3a104080; }
+  .title p { letter-spacing:.5em; text-transform:uppercase; font-size:.8rem; margin-top:1rem; opacity:.85; }
+  .after { min-height:100vh; background:#120a1f; display:grid; place-content:center; text-align:center; padding:2rem; }
+  .after h2 { font-weight:300; font-size:clamp(1.8rem,5vw,3.6rem); max-width:18ch; margin:auto; line-height:1.15; }
+  .after p { color:#a99bbd; margin-top:1rem; }
+  @media (max-width:700px){ .layer{inset:-8% -20% -2%} }
+</style>
+</head>
+<body>
+<section class="hero" id="hero">
+  <div class="layer stars" data-depth="0.05"></div>
+  <div class="layer sun" data-depth="0.12"><i></i></div>
+  <div class="layer" data-depth="0.2"><svg viewBox="0 0 1600 600" preserveAspectRatio="none"><path fill="#8a3f7a" d="M0 380 L180 250 L320 340 L520 190 L700 330 L900 220 L1100 340 L1300 210 L1450 300 L1600 240 V600 H0Z"/></svg></div>
+  <div class="layer" data-depth="0.35"><svg viewBox="0 0 1600 600" preserveAspectRatio="none"><path fill="#5d2a6b" d="M0 430 L200 330 L380 410 L600 280 L820 410 L1000 320 L1220 420 L1420 310 L1600 400 V600 H0Z"/></svg></div>
+  <div class="layer mist" data-depth="0.45"></div>
+  <div class="layer" data-depth="0.55"><svg viewBox="0 0 1600 600" preserveAspectRatio="none"><path fill="#3a1b57" d="M0 480 L160 400 L340 470 L560 360 L760 470 L980 390 L1180 480 L1400 380 L1600 470 V600 H0Z"/></svg></div>
+  <div class="layer" data-depth="0.8"><svg viewBox="0 0 1600 600" preserveAspectRatio="none"><path fill="#1c0e33" d="M0 540 L220 480 L420 540 L680 460 L900 545 L1160 470 L1380 545 L1600 500 V600 H0Z"/>
+      <g fill="#120a1f"><path d="M120 560 l30 -110 l30 110z"/><path d="M190 570 l24 -90 l24 90z"/><path d="M1320 565 l32 -120 l32 120z"/><path d="M1400 570 l22 -80 l22 80z"/></g></svg></div>
+  <div class="title" data-depth-wrap><div class="inner" data-depth="0.3"><h1>AURORA</h1><p>Scroll to descend</p></div></div>
+</section>
+<section class="after"><div><h2>Depth is just different speeds.</h2><p>Move your mouse over the hero, then scroll back up.</p></div></section>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script>
+(function(){
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches || !window.gsap) return;
+  gsap.registerPlugin(ScrollTrigger);
+  var lenis = new Lenis();
+  lenis.on("scroll", ScrollTrigger.update);
+  gsap.ticker.add(function(t){ lenis.raf(t*1000); });
+  gsap.ticker.lagSmoothing(0);
+
+  var SCROLL = 320, MOUSE = 40;
+  var layers = gsap.utils.toArray("[data-depth]");
+
+  // Scroll parallax on the wrapper's y (separate from mouse x/y on quickTo targets via CSS vars)
+  var items = layers.map(function(el){
+    var d = parseFloat(el.dataset.depth);
+    var setX = gsap.quickTo(el, "x", { duration:.8, ease:"power3.out" });
+    var setY = gsap.quickTo(el, "y", { duration:.8, ease:"power3.out" });
+    return { el:el, d:d, setX:setX, setY:setY, sy:0, mx:0, my:0 };
+  });
+  function apply(it){ it.setX(it.mx); it.setY(it.sy + it.my); }
+
+  ScrollTrigger.create({
+    trigger:"#hero", start:"top top", end:"bottom top", scrub:true,
+    onUpdate:function(s){ items.forEach(function(it){ it.sy = s.progress * SCROLL * it.d; apply(it); }); }
+  });
+
+  var hero = document.getElementById("hero");
+  hero.addEventListener("pointermove", function(e){
+    var nx = e.clientX/innerWidth - .5, ny = e.clientY/innerHeight - .5;
+    items.forEach(function(it){ it.mx = -nx*MOUSE*it.d*2; it.my = -ny*MOUSE*it.d; apply(it); });
+  });
+  hero.addEventListener("pointerleave", function(){ items.forEach(function(it){ it.mx = 0; it.my = 0; apply(it); }); });
+
+  gsap.from(".title", { opacity:0, duration:1.6, ease:"power3.out", delay:.2 });
+})();
+</script>
+</body>
+</html>

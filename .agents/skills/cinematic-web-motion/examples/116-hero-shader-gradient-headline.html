@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>116 · Hero Shader Gradient Headline</title>
+<!--
+  PATTERN: Campo de gradiente em WebGL cru (fragment shader com domain warping de simplex noise) sob uma manchete
+           em serifa. A cor é brasa: marrom queimado, vermelho, laranja e açafrão. O cursor dobra o fluxo
+           localmente. Ao rolar, uScroll "esfria" o campo até o marrom da seção seguinte (--ember), então a
+           lista de atrações entra sem emenda.
+  Motion: tempo contínuo no shader; pointermove com lerp; scroll progress (stage sticky em 220vh) -> uniform
+          uCool (0..1) + parallax e fade da manchete. Resolução interna reduzida (0.75 do dpr, teto 1.5) para
+          manter 60 fps em telas grandes.
+  Accessibility: o canvas é decorativo (aria-hidden). Fallback: se o WebGL falhar (ou ?nogl na URL), a classe
+          .no-gl aplica um gradiente CSS estático equivalente e o conteúdo permanece legível. A manchete tem
+          sombra mínima + contraste >= 4.5:1 sobre os tons escuros do campo. prefers-reduced-motion: um quadro
+          estático, sem mouse, sem esfriar por scroll (seção em fluxo). :focus-visible nos links.
+  Adapting: edite COLORS (vec3 0..1), SPEED, WARP, GRAIN e a cor --ember da próxima seção para coincidir com
+          COLORS[0]. Para trocar o conteúdo, mexa apenas no <h1> e no bloco .lineup.
+  Libraries: nenhuma (WebGL 1 puro).
+-->
+<style>
+  :root{
+    --ember:#2a0f0c; --brasa:#b8321f; --laranja:#f0802c; --acafrao:#f6c344; --cream:#f8ecd4;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:"Gill Sans","Trebuchet MS","Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ember);color:var(--cream);font-family:var(--sans);overflow-x:hidden}
+  a{color:inherit}
+  a:focus-visible{outline:3px solid var(--acafrao);outline-offset:4px}
+
+  .runway{position:relative;height:220vh}
+  .stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--ember)}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .no-gl canvas{display:none}
+  .no-gl .stage{background:radial-gradient(90% 70% at 70% 30%,var(--laranja) 0,var(--brasa) 45%,var(--ember) 100%)}
+
+  .stage::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(80deg,rgba(42,15,12,.62) 0,rgba(42,15,12,.28) 45%,rgba(42,15,12,0) 75%),linear-gradient(0deg,rgba(42,15,12,.55) 0,rgba(42,15,12,0) 30%)}
+  .layout{z-index:1;position:absolute;inset:0;padding:clamp(1.2rem,3.5vw,3rem);display:flex;flex-direction:column;justify-content:space-between}
+  .top{display:flex;justify-content:space-between;font-size:.78rem;letter-spacing:.16em;text-transform:uppercase}
+  .top b{font-family:var(--serif);font-size:1.2rem;letter-spacing:0;text-transform:none}
+  .title{will-change:transform,opacity}
+  .title .date{font-size:.85rem;letter-spacing:.2em;text-transform:uppercase;margin:0 0 1rem}
+  .title h1{font-family:var(--serif);font-weight:400;font-size:clamp(4rem,16.5vw,17rem);line-height:.8;letter-spacing:-.05em;margin:0 0 0 -.04em;text-shadow:0 2px 40px rgba(42,15,12,.35)}
+  .title h1 span{display:block}
+  .title h1 span + span{padding-left:clamp(2rem,16vw,16rem);font-style:italic}
+  .bottom{display:flex;justify-content:space-between;align-items:flex-end;gap:1.5rem}
+  .bottom p{margin:0;max-width:24rem;line-height:1.5;font-size:1.05rem}
+  .bottom a{font-size:.8rem;letter-spacing:.16em;text-transform:uppercase;text-decoration:none;border-bottom:2px solid currentColor;padding-bottom:.2rem;white-space:nowrap}
+
+  .lineup{background:var(--ember);padding:clamp(4rem,9vw,8rem) clamp(1.2rem,6vw,6rem)}
+  .lineup .grid{max-width:78rem;margin:0 auto;display:grid;grid-template-columns:4fr 8fr;gap:clamp(1.5rem,5vw,5rem)}
+  .lineup h2{font-family:var(--serif);font-weight:400;font-size:clamp(2rem,4.2vw,3.8rem);line-height:1.02;margin:0}
+  .lineup h2 em{color:var(--acafrao)}
+  .lineup ol{list-style:none;margin:0;padding:0;border-top:1px solid #6a3a2e}
+  .lineup li{display:grid;grid-template-columns:5rem 1fr auto;gap:1rem;align-items:baseline;padding:1.1rem 0;border-bottom:1px solid #6a3a2e}
+  .lineup .day{font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;color:var(--acafrao)}
+  .lineup .name{font-family:var(--serif);font-size:clamp(1.4rem,2.6vw,2.2rem)}
+  .lineup .where{font-size:.9rem;color:#e0c9a8}
+  .end{background:var(--cream);color:var(--ember);padding:clamp(3rem,7vw,6rem) clamp(1.2rem,6vw,6rem);min-height:50vh}
+  .end p{max-width:34rem;line-height:1.6}
+
+  @media (max-width:700px){
+    .lineup .grid{grid-template-columns:1fr}
+    .lineup li{grid-template-columns:3.6rem 1fr}
+    .lineup .where{grid-column:2}
+    .bottom{flex-direction:column;align-items:flex-start}
+    .top span{display:none}
+    .title h1{font-size:clamp(4rem,26vw,7rem)}
+    .stage::after{background:linear-gradient(0deg,rgba(42,15,12,.6) 0,rgba(42,15,12,.38) 60%,rgba(42,15,12,.3) 100%)}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .runway{height:auto}
+    .stage{position:relative;height:100svh}
+  }
+</style>
+</head>
+<body>
+<section class="runway" id="runway">
+  <div class="stage" id="stage">
+    <canvas id="gl" aria-hidden="true"></canvas>
+    <div class="layout">
+      <div class="top"><b>Festival Fogo Baixo</b><span>Salvador · Trapiche Barnabé</span></div>
+      <div class="title" id="title">
+        <p class="date">12 a 14 de dezembro · 31 atrações</p>
+        <h1><span>Fogo</span><span>baixo.</span></h1>
+      </div>
+      <div class="bottom">
+        <p>Três noites de samba de roda, jazz de terreiro e orquestras de sopro, tocadas ao ar livre e sem pressa.</p>
+        <a href="#programacao">Ver a programação</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="lineup" id="programacao">
+  <div class="grid">
+    <h2>Quem acende <em>cada noite.</em></h2>
+    <ol>
+      <li><span class="day">Sex 12</span><span class="name">Orquestra Rumpilezz</span><span class="where">Palco do Trapiche</span></li>
+      <li><span class="day">Sex 12</span><span class="name">Mariene de Castro</span><span class="where">Palco do Cais</span></li>
+      <li><span class="day">Sáb 13</span><span class="name">Samba de Roda Dona Dalva</span><span class="where">Roda central</span></li>
+      <li><span class="day">Sáb 13</span><span class="name">Letieres Leite e convidados</span><span class="where">Palco do Trapiche</span></li>
+      <li><span class="day">Dom 14</span><span class="name">Filarmônica Lira Ceciliana</span><span class="where">Coreto</span></li>
+    </ol>
+  </div>
+</section>
+<section class="end">
+  <p>Ingressos por noite ou passe de três dias. Crianças até 12 anos entram sem pagar, acompanhadas. A feira de comida abre às 16h.</p>
+  <p><a href="#runway">Voltar ao início</a></p>
+</section>
+
+<script>
+(() => {
+  const root = document.documentElement;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const stage = document.getElementById('stage');
+  const runway = document.getElementById('runway');
+  const title = document.getElementById('title');
+  const canvas = document.getElementById('gl');
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const fail = () => root.classList.add('no-gl');
+
+  let gl = null;
+  if (!/[?&]nogl/.test(location.search)) {
+    try { gl = canvas.getContext('webgl', { antialias: false, alpha: false }); } catch (e) { gl = null; }
+  }
+  if (!gl) { fail(); }
+
+  const SPEED = 0.1, WARP = 1.5, GRAIN = 0.05, MOUSE = 0.4;
+  // COLORS[0] deve coincidir com --ember da seção seguinte (#2a0f0c)
+  const COLORS = [[0.165, 0.059, 0.047], [0.72, 0.196, 0.122], [0.941, 0.502, 0.173], [0.965, 0.765, 0.267]];
+
+  if (gl) {
+    const vs = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
+    const fs = `precision highp float;
+    uniform vec2 uRes,uMouse;uniform float uTime,uWarp,uGrain,uMouseAmt,uCool;uniform vec3 uC[4];
+    vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}
+    vec2 mod289(vec2 x){return x-floor(x*(1./289.))*289.;}
+    vec3 permute(vec3 x){return mod289(((x*34.)+1.)*x);}
+    float snoise(vec2 v){
+      const vec4 C=vec4(.211324865405187,.366025403784439,-.577350269189626,.024390243902439);
+      vec2 i=floor(v+dot(v,C.yy));vec2 x0=v-i+dot(i,C.xx);
+      vec2 i1=(x0.x>x0.y)?vec2(1.,0.):vec2(0.,1.);
+      vec4 x12=x0.xyxy+C.xxzz;x12.xy-=i1;i=mod289(i);
+      vec3 p=permute(permute(i.y+vec3(0.,i1.y,1.))+i.x+vec3(0.,i1.x,1.));
+      vec3 m=max(.5-vec3(dot(x0,x0),dot(x12.xy,x12.xy),dot(x12.zw,x12.zw)),0.);
+      m=m*m;m=m*m;
+      vec3 x=2.*fract(p*C.www)-1.;vec3 h=abs(x)-.5;vec3 ox=floor(x+.5);vec3 a0=x-ox;
+      m*=1.79284291400159-.85373472095314*(a0*a0+h*h);
+      vec3 g;g.x=a0.x*x0.x+h.x*x0.y;g.yz=a0.yz*x12.xz+h.yz*x12.yw;
+      return 130.*dot(m,g);
+    }
+    float hash(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
+    void main(){
+      vec2 uv=gl_FragCoord.xy/uRes;
+      float asp=uRes.x/uRes.y;
+      vec2 q=(uv-.5)*vec2(asp,1.);
+      vec2 m=(uMouse-.5)*vec2(asp,1.);
+      float md=length(q-m);
+      q+=(q-m)*exp(-md*3.)*uMouseAmt;
+      float t=uTime;
+      vec2 w=vec2(snoise(q*1.1+vec2(t,0.)),snoise(q*1.1+vec2(0.,-t)+7.));
+      vec2 r=vec2(snoise(q*1.9+w*uWarp+vec2(t*1.3,3.)),snoise(q*1.9+w*uWarp-vec2(2.,t*1.1)));
+      float n=snoise(q*1.4+r*uWarp);
+      float k=clamp(n*.5+.5+(uv.y-.5)*.35-uCool*.55,0.,1.);
+      vec3 col=mix(uC[0],uC[1],smoothstep(.0,.42,k));
+      col=mix(col,uC[2],smoothstep(.38,.8,k+r.x*.15));
+      col=mix(col,uC[3],smoothstep(.62,1.,k+r.y*.2)*.9);
+      col=mix(col,uC[0],clamp(uCool*1.15,0.,1.)*(.6+.4*(1.-uv.y)));
+      col*=1.-dot(uv-.5,uv-.5)*.7;
+      col+=(hash(gl_FragCoord.xy+fract(t)*100.)-.5)*uGrain;
+      gl_FragColor=vec4(col,1.);
+    }`;
+    const sh = (type, src) => {
+      const o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o);
+      if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(o)); return null; }
+      return o;
+    };
+    const v = sh(gl.VERTEX_SHADER, vs), f = sh(gl.FRAGMENT_SHADER, fs);
+    const pr = gl.createProgram();
+    if (!v || !f) { gl = null; fail(); }
+    else {
+      gl.attachShader(pr, v); gl.attachShader(pr, f); gl.linkProgram(pr);
+      if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) { gl = null; fail(); }
+    }
+    if (gl) {
+      gl.useProgram(pr);
+      const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+      const loc = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+      const U = n => gl.getUniformLocation(pr, n);
+      const uRes = U('uRes'), uMouse = U('uMouse'), uTime = U('uTime'), uCool = U('uCool');
+      gl.uniform1f(U('uWarp'), WARP); gl.uniform1f(U('uGrain'), GRAIN); gl.uniform1f(U('uMouseAmt'), reduce ? 0 : MOUSE);
+      gl.uniform3fv(U('uC'), new Float32Array(COLORS.flat()));
+      const mouse = { x: 0.7, y: 0.6, tx: 0.7, ty: 0.6 };
+      if (!reduce) addEventListener('pointermove', e => { mouse.tx = e.clientX / innerWidth; mouse.ty = 1 - e.clientY / innerHeight; }, { passive: true });
+      let cool = 0, cTarget = 0;
+      const resize = () => {
+        const d = Math.min((devicePixelRatio || 1) * 0.75, 1.5);
+        canvas.width = Math.max(2, Math.floor(canvas.clientWidth * d));
+        canvas.height = Math.max(2, Math.floor(canvas.clientHeight * d));
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.uniform2f(uRes, canvas.width, canvas.height);
+        if (reduce) draw(0);
+      };
+      const draw = now => {
+        mouse.x += (mouse.tx - mouse.x) * 0.06; mouse.y += (mouse.ty - mouse.y) * 0.06;
+        gl.uniform2f(uMouse, mouse.x, mouse.y);
+        gl.uniform1f(uTime, reduce ? 6.0 : now * 0.001 * SPEED * 4.0);
+        gl.uniform1f(uCool, cool);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+      };
+      new ResizeObserver(resize).observe(canvas);
+      resize();
+      if (!reduce) {
+        const loop = now => {
+          const r = runway.getBoundingClientRect();
+          cTarget = clamp(-r.top / (r.height - innerHeight), 0, 1);
+          cool += (cTarget - cool) * 0.1;
+          draw(now);
+          title.style.transform = `translate3d(0,${(-cool * 14).toFixed(2)}vh,0)`;
+          title.style.opacity = (1 - clamp(cool * 1.3, 0, 1)).toFixed(3);
+          requestAnimationFrame(loop);
+        };
+        requestAnimationFrame(loop);
+      }
+    }
+  }
+  // fallback sem WebGL: manchete ainda ganha parallax/fade por scroll
+  if (!gl && !reduce) {
+    const loop = () => {
+      const r = runway.getBoundingClientRect();
+      const c = clamp(-r.top / (r.height - innerHeight), 0, 1);
+      title.style.transform = `translate3d(0,${(-c * 14).toFixed(2)}vh,0)`;
+      title.style.opacity = (1 - clamp(c * 1.3, 0, 1)).toFixed(3);
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  }
+})();
+</script>
+</body>
+</html>

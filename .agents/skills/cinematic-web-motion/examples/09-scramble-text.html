@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>09 · Scramble Text</title>
+<!--
+EFFECT: Text decodes from random glyphs into the real string, character by character (left→right),
+triggered on hover (menu items), on scroll into view (headline + paragraph), and via a button.
+Hand-rolled (no ScrambleTextPlugin needed): a GSAP tween drives a 0→1 progress value; characters
+below progress*len are resolved, the rest show random glyphs refreshed ~every 40ms.
+HOW TO ADAPT:
+  - scramble(el, {text, duration, chars}) is reusable; call it from anything.
+  - Mark elements: data-scramble-hover (re-run on pointerenter), data-scramble-scroll (run on enter).
+  - Change the glyph set via CHARS. Width stays stable because elements use monospace font.
+REDUCED MOTION: final text shown immediately; no scrambling.
+-->
+<style>
+*{box-sizing:border-box;margin:0}
+body{background:#0a0d0b;color:#d7f5dc;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;-webkit-font-smoothing:antialiased}
+section{min-height:100vh;padding:12vh 8vw;display:flex;flex-direction:column;justify-content:center;gap:2rem}
+.dim{color:#4c6b52;font-size:.75rem;letter-spacing:.25em;text-transform:uppercase}
+h1{font-size:clamp(2.2rem,7vw,6.5rem);line-height:1.05;letter-spacing:-.04em;font-weight:700;color:#eaffee}
+p{max-width:58ch;line-height:1.7;color:#8fb497;font-size:1.05rem}
+nav{display:flex;flex-direction:column;gap:.4rem}
+nav a{font-size:clamp(1.6rem,4vw,3.4rem);color:#d7f5dc;text-decoration:none;letter-spacing:-.03em;padding:.2rem 0;border-bottom:1px solid #1d2b20;display:flex;justify-content:space-between;transition:color .3s}
+nav a:hover,nav a:focus-visible{color:#6dff8c;outline:none}
+nav a small{font-size:.8rem;color:#4c6b52;align-self:center}
+button{align-self:flex-start;font:inherit;background:transparent;color:#6dff8c;border:1px solid #6dff8c;padding:.9rem 1.6rem;cursor:pointer;letter-spacing:.15em;text-transform:uppercase;font-size:.8rem;transition:background .3s,color .3s}
+button:hover,button:focus-visible{background:#6dff8c;color:#0a0d0b;outline:none}
+.sc{white-space:pre-wrap}
+</style>
+</head>
+<body>
+<section>
+  <span class="dim" data-scramble-scroll>// signal.decode</span>
+  <h1 data-scramble-scroll class="sc">Decrypting the future of interface motion.</h1>
+  <p data-scramble-scroll class="sc">Characters resolve left to right while the unresolved tail flickers through random glyphs. Subtle, legible, and fast enough to feel like a system booting up rather than a gimmick.</p>
+</section>
+<section>
+  <span class="dim">// hover the index</span>
+  <nav>
+    <a href="#" data-scramble-hover><span>Selected Work</span><small>01</small></a>
+    <a href="#" data-scramble-hover><span>Studio Notes</span><small>02</small></a>
+    <a href="#" data-scramble-hover><span>Experiments</span><small>03</small></a>
+    <a href="#" data-scramble-hover><span>Contact</span><small>04</small></a>
+  </nav>
+  <button id="again">Re-run all</button>
+</section>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  gsap.registerPlugin(ScrollTrigger);
+  var CHARS="!<>-_\\/[]{}—=+*^?#01ABCDEFXZ";
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function scramble(el,o){
+    o=o||{};
+    var text=o.text||el._final||el.textContent;
+    el._final=text;
+    if(reduce){el.textContent=text;return}
+    var chars=o.chars||CHARS,dur=o.duration||Math.min(2.2,.6+text.length*.02);
+    var p={v:0},last=0;
+    if(el._tw)el._tw.kill();
+    var out=text.split("");
+    el._tw=gsap.to(p,{v:1,duration:dur,ease:"power2.inOut",
+      onUpdate:function(){
+        var now=performance.now();
+        var done=Math.floor(p.v*text.length);
+        if(now-last<40&&p.v<1)return;last=now;
+        var s="";
+        for(var i=0;i<text.length;i++){
+          var c=text[i];
+          s+= (i<done||/\s/.test(c)) ? c : chars[Math.floor(Math.random()*chars.length)];
+        }
+        el.textContent=s;
+      },
+      onComplete:function(){el.textContent=text}});
+  }
+
+  document.querySelectorAll("[data-scramble-hover]").forEach(function(a){
+    var t=a.querySelector("span");t._final=t.textContent;
+    var go=function(){scramble(t,{duration:.7})};
+    a.addEventListener("pointerenter",go);a.addEventListener("focus",go);
+  });
+
+  var scrollEls=[].slice.call(document.querySelectorAll("[data-scramble-scroll]"));
+  scrollEls.forEach(function(el){
+    el._final=el.textContent;
+    if(!reduce){el.style.visibility="hidden"}
+    ScrollTrigger.create({trigger:el,start:"top 85%",once:true,onEnter:function(){el.style.visibility="visible";scramble(el)}});
+  });
+
+  document.getElementById("again").addEventListener("click",function(){
+    scrollEls.forEach(function(el){scramble(el)});
+    document.querySelectorAll("[data-scramble-hover] span").forEach(function(t){scramble(t)});
+  });
+})();
+</script>
+</body>
+</html>

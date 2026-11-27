@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>77 · Copy Button Tooltip</title>
+<!--
+PATTERN: Copy-to-clipboard button whose icon morphs from "copy" to a check mark, with a tooltip
+  that confirms the action (Design Spells / Details Matter).
+Motion: Two SVG icons cross-swap with scale + rotate + blur; the check path draws itself with
+  stroke-dashoffset. Tooltip rises from the button with cubic-bezier(.2,.7,.2,1) and reverts after RESET ms.
+Accessibility: Icon-only buttons carry aria-label; a polite live region announces "Copied" so status is
+  not conveyed by colour or icon alone (tooltip text changes too). Tooltip also shows on :focus-visible.
+  prefers-reduced-motion: swap is instant, no transforms.
+Adapting: RESET, and the data-copy attribute on each button. Libraries: none.
+-->
+<style>
+:root{--paper:#f2ece0;--ink:#1c1a17;--mute:#5a5348;--acc:#a8401d;--line:#cfc5b3;--e:cubic-bezier(.2,.7,.2,1)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--paper);color:var(--ink);font:16px/1.55 "Helvetica Neue",Arial,sans-serif;min-height:100vh;padding:12vh 7vw}
+main{max-width:760px;margin-left:8vw}
+h1{font:600 clamp(2rem,5vw,3.6rem)/1.05 Georgia,"Iowan Old Style",serif;letter-spacing:-.02em;margin-bottom:1rem}
+p{max-width:46ch;color:var(--mute);margin-bottom:2.5rem}
+.row{display:flex;align-items:center;gap:.75rem;border-bottom:1px solid var(--line);padding:1rem 0}
+.row:first-of-type{border-top:1px solid var(--line)}
+.lbl{width:7.5rem;font:600 .72rem ui-monospace,Menlo,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+code{flex:1;font:.95rem ui-monospace,Menlo,monospace;overflow-wrap:anywhere}
+.copy{position:relative;width:40px;height:40px;border:1px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer;display:grid;place-items:center;border-radius:2px;transition:background .25s var(--e),color .25s var(--e),transform .25s var(--e)}
+.copy:hover{background:var(--ink);color:var(--paper);transform:translateY(-2px)}
+.copy:focus-visible{outline:3px solid var(--acc);outline-offset:3px}
+.copy svg{grid-area:1/1;width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;transition:opacity .3s var(--e),transform .35s var(--e),filter .3s var(--e)}
+.copy .ok{opacity:0;transform:scale(.4) rotate(-40deg);filter:blur(3px)}
+.copy .ok path{stroke-dasharray:20;stroke-dashoffset:20;transition:stroke-dashoffset .4s var(--e) .1s}
+.copy.done{background:var(--acc);border-color:var(--acc);color:#fff}
+.copy.done .cp{opacity:0;transform:scale(.4) rotate(40deg);filter:blur(3px)}
+.copy.done .ok{opacity:1;transform:none;filter:none}
+.copy.done .ok path{stroke-dashoffset:0}
+.tip{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translate(-50%,6px);background:var(--ink);color:var(--paper);font:600 .75rem ui-monospace,monospace;padding:.35rem .6rem;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .2s var(--e),transform .3s var(--e)}
+.tip::after{content:"";position:absolute;top:100%;left:50%;margin-left:-5px;border:5px solid transparent;border-top-color:var(--ink)}
+.copy:hover .tip,.copy:focus-visible .tip,.copy.done .tip{opacity:1;transform:translate(-50%,0)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media (max-width:560px){main{margin-left:0}.row{flex-wrap:wrap}.lbl{width:100%}code{min-width:0}}
+@media (prefers-reduced-motion:reduce){.copy,.copy svg,.tip,.copy .ok path{transition:none}.copy:hover{transform:none}.copy .ok,.copy.done .cp{transform:none;filter:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Hand off the deploy keys.</h1>
+  <p>Staging credentials for the Porto warehouse sync. Copy one, paste it into the runbook, move on.</p>
+  <div class="row"><span class="lbl">Remote</span><code>git@git.armazem.pt:logistica/sync.git</code>
+    <button class="copy" data-copy="git@git.armazem.pt:logistica/sync.git" aria-label="Copy remote URL"><svg class="cp" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="1"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></svg><svg class="ok" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span class="tip" aria-hidden="true">Copy</span></button></div>
+  <div class="row"><span class="lbl">Install</span><code>npm i @armazem/sync-cli@2.4.1</code>
+    <button class="copy" data-copy="npm i @armazem/sync-cli@2.4.1" aria-label="Copy install command"><svg class="cp" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="1"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></svg><svg class="ok" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span class="tip" aria-hidden="true">Copy</span></button></div>
+  <div class="sr" role="status" aria-live="polite" id="live"></div>
+</main>
+<script>
+(function(){
+  var CONFIG={RESET:1800};
+  var live=document.getElementById("live");
+  function fallback(t){var a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();try{document.execCommand("copy")}catch(e){}document.body.removeChild(a)}
+  [].forEach.call(document.querySelectorAll(".copy"),function(b){
+    var tip=b.querySelector(".tip"),timer;
+    b.addEventListener("click",function(){
+      var t=b.getAttribute("data-copy");
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).catch(function(){fallback(t)})}else{fallback(t)}
+      b.classList.add("done");tip.textContent="Copied";live.textContent="Copied to clipboard";
+      clearTimeout(timer);
+      timer=setTimeout(function(){b.classList.remove("done");tip.textContent="Copy";live.textContent=""},CONFIG.RESET);
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>121 · Features Sticky Stack Sections</title>
+<!--
+PATTERN: Full-page "how we work" section where each chapter is a sticky full-height panel that
+  slides up and stacks over the previous one (card-deck effect), for a coffee roastery.
+Motion: Every panel is position:sticky; top:0, so native CSS does the stacking. ScrollTrigger (scrub)
+  watches the NEXT panel entering and shrinks/dims the panel underneath (scale .94, rotate -1deg,
+  overlay darkening) so depth is felt. Panel illustrations draw in (stroke-dashoffset) once on enter.
+Accessibility: Pure DOM reading order, real h2/h3 headings. prefers-reduced-motion or CDN failure:
+  panels still stack natively via sticky, with no scale/dim/draw scripting; all copy is always visible.
+  :focus-visible ring on links. Mobile (390px): same stack, copy sized to fit one screen.
+Adapting: Edit the .panel blocks (bg via --bg / --ink custom props). Tune scale/dim in buildStack().
+  Not a 3-icon grid: each chapter owns the whole viewport and a different composition.
+Libraries: GSAP 3.12 + ScrollTrigger (CDN, optional).
+-->
+<style>
+:root{
+  --paper:#f1e9dc; --bark:#2a1d16; --ember:#c8481f; --moss:#4a5a3a; --clay:#d9a77a; --cream:#fbf6ec;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --sans:"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:auto}
+body{font-family:var(--sans);background:var(--bark);color:var(--bark);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit}
+a:focus-visible,button:focus-visible{outline:3px solid var(--ember);outline-offset:4px}
+.mast{position:absolute;inset:0 0 auto 0;z-index:50;display:flex;justify-content:space-between;align-items:center;padding:1.1rem clamp(1rem,4vw,3rem);color:var(--bark);font-size:.8rem;letter-spacing:.14em;text-transform:uppercase}
+.mast b{font-family:var(--serif);font-weight:400;font-size:1.25rem;letter-spacing:0;text-transform:none}
+.intro{min-height:70vh;background:var(--paper);display:grid;align-content:end;padding:12vh clamp(1.2rem,6vw,6rem) 7vh;gap:2rem}
+.intro h1{font-family:var(--serif);font-weight:400;font-size:clamp(2.8rem,9vw,9rem);line-height:.92;letter-spacing:-.03em;max-width:12ch}
+.intro h1 em{color:var(--ember);font-style:italic}
+.intro p{max-width:42ch;line-height:1.55;font-size:1.05rem;margin-left:auto;margin-right:8vw}
+.panel{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--bg);color:var(--ink);isolation:isolate}
+.panel .shade{position:absolute;inset:0;background:#120a06;opacity:0;pointer-events:none;z-index:5}
+.panel .wrap{height:100%;display:grid;grid-template-columns:1.05fr .95fr;align-items:center;gap:4vw;padding:0 clamp(1.2rem,6vw,6rem);transform-origin:50% 100%}
+.num{font-family:var(--serif);font-size:clamp(7rem,22vw,20rem);line-height:.8;letter-spacing:-.05em;opacity:.16;position:absolute;left:3vw;bottom:-2vw;z-index:-1;font-style:italic}
+.copy{max-width:34rem;margin-left:clamp(0rem,4vw,5rem)}
+.kicker{font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;opacity:.7;margin-bottom:1.2rem;display:flex;gap:.8rem;align-items:center}
+.kicker::before{content:"";width:2.4rem;height:1px;background:currentColor}
+.copy h2{font-family:var(--serif);font-weight:400;font-size:clamp(2.1rem,5.2vw,4.6rem);line-height:1;letter-spacing:-.025em;margin-bottom:1.4rem}
+.copy p{line-height:1.6;font-size:1.02rem;opacity:.88;margin-bottom:1.6rem}
+.facts{list-style:none;display:grid;gap:.5rem;font-size:.9rem;border-top:1px solid currentColor;padding-top:1rem}
+.facts li{display:flex;justify-content:space-between;gap:1rem}
+.facts span:first-child{opacity:.6}
+.art{justify-self:end;width:min(100%,34rem);aspect-ratio:1/1.05}
+.art svg{width:100%;height:100%;display:block;overflow:visible}
+.art .st{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.p1{--bg:#e6c9a0;--ink:#2a1d16}
+.p2{--bg:#c8481f;--ink:#fbf6ec}
+.p3{--bg:#33402a;--ink:#f1e9dc}
+.p4{--bg:#1a120d;--ink:#e6c9a0}
+.p4 .art{justify-self:start;order:-1}
+.p4 .copy{margin-left:auto}
+.p4 .wrap{grid-template-columns:.9fr 1.1fr}
+.cta{display:inline-block;margin-top:1.8rem;padding:.9rem 1.5rem;border:1px solid currentColor;text-decoration:none;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;transition:background .25s,color .25s}
+.cta:hover{background:var(--ink);color:var(--bg)}
+.outro{background:var(--cream);padding:14vh clamp(1.2rem,6vw,6rem);display:flex;justify-content:space-between;gap:2rem;flex-wrap:wrap;position:relative;z-index:6}
+.outro p{font-family:var(--serif);font-size:clamp(1.6rem,3.4vw,3rem);max-width:20ch;line-height:1.1}
+.outro small{align-self:end;opacity:.6;max-width:30ch;line-height:1.5}
+@media(max-width:760px){
+  .panel .wrap{grid-template-columns:1fr;align-content:center;gap:1.4rem}
+  .art{justify-self:center;width:min(60vw,15rem);order:-1;aspect-ratio:1/.8}
+  .p4 .wrap{grid-template-columns:1fr}.p4 .art{order:-1}
+  .copy{margin-left:0}.copy h2{margin-bottom:.8rem}.copy p{font-size:.95rem;margin-bottom:1rem}
+  .kicker{margin-bottom:.8rem}.facts{font-size:.82rem}.cta{margin-top:1rem}
+  .intro p{margin-right:0}
+}
+@media(prefers-reduced-motion:reduce){.cta{transition:none}}
+</style>
+</head>
+<body>
+<header class="mast"><b>Tarn &amp; Ember</b><span>Roasters, Bristol</span></header>
+
+<section class="intro">
+  <h1>Four hands between the <em>farm</em> and your cup.</h1>
+  <p>We roast in 12 kg batches above a former tannery on Welsh Back. Here is what happens to a bag of coffee before it reaches you, in the order it happens.</p>
+</section>
+
+<section class="panel p1" aria-labelledby="c1">
+  <div class="shade"></div>
+  <div class="num" aria-hidden="true">01</div>
+  <div class="wrap">
+    <div class="copy">
+      <div class="kicker">Sourcing</div>
+      <h2 id="c1">We pay the farm before the harvest.</h2>
+      <p>Each spring we fix a price per kilo with six families around Huila, Colombia, and prepay 40% of it. The money arrives when the cherries are still green, which is when it is actually needed.</p>
+      <ul class="facts"><li><span>Farm-gate price, 2025</span><span>$4.10 / kg green</span></li><li><span>Commodity benchmark</span><span>$2.65 / kg</span></li><li><span>Producers</span><span>6 families</span></li></ul>
+    </div>
+    <div class="art" aria-hidden="true">
+      <svg viewBox="0 0 400 420"><g class="st">
+        <path d="M20 330 Q110 190 200 270 T380 200"/><path d="M20 370 Q120 250 210 320 T380 260"/><path d="M20 290 Q100 140 200 220 T380 140"/>
+        <circle cx="290" cy="90" r="46"/><path d="M290 44v-20M290 156v20M244 90h-20M336 90h20"/>
+        <path d="M120 200c0-30 22-48 22-48s22 18 22 48a22 22 0 0 1-44 0z"/><path d="M142 152v-40"/>
+      </g></svg>
+    </div>
+  </div>
+</section>
+
+<section class="panel p2" aria-labelledby="c2">
+  <div class="shade"></div>
+  <div class="num" aria-hidden="true">02</div>
+  <div class="wrap">
+    <div class="copy">
+      <div class="kicker">Roasting</div>
+      <h2 id="c2">Eleven minutes, watched by a person.</h2>
+      <p>Every batch is profiled by ear and by eye. First crack tells us when to drop the heat; the cooling tray tells us when we got it right. We cup the first and last bag of each day, and we bin the ones that miss.</p>
+      <ul class="facts"><li><span>Batch size</span><span>12 kg</span></li><li><span>Drop temperature</span><span>205 °C</span></li><li><span>Rest before bagging</span><span>5 days</span></li></ul>
+    </div>
+    <div class="art" aria-hidden="true">
+      <svg viewBox="0 0 400 420"><g class="st">
+        <circle cx="200" cy="210" r="140"/><circle cx="200" cy="210" r="96"/><path d="M200 70v-30M200 380v30"/>
+        <path d="M200 210L290 140"/><circle cx="200" cy="210" r="8"/>
+        <path d="M110 130c-16 24-16 56 0 80M290 290c16-24 16-56 0-80" />
+        <path d="M60 330h280"/>
+      </g></svg>
+    </div>
+  </div>
+</section>
+
+<section class="panel p3" aria-labelledby="c3">
+  <div class="shade"></div>
+  <div class="num" aria-hidden="true">03</div>
+  <div class="wrap">
+    <div class="copy">
+      <div class="kicker">Brew lab</div>
+      <h2 id="c3">Recipes you can repeat on a Tuesday.</h2>
+      <p>Each coffee ships with a card: dose, water weight, grind setting for the five grinders we see most often, and a time. If your cup tastes thin, the card tells you which number to change first.</p>
+      <ul class="facts"><li><span>Pour-over ratio</span><span>1 : 16.5</span></li><li><span>Water</span><span>93 °C</span></li><li><span>Total time</span><span>2 min 50</span></li></ul>
+    </div>
+    <div class="art" aria-hidden="true">
+      <svg viewBox="0 0 400 420"><g class="st">
+        <path d="M110 120h180l-36 170h-108z"/><path d="M100 120h200"/><path d="M130 330h140v30a14 14 0 0 1-14 14h-112a14 14 0 0 1-14-14z"/>
+        <path d="M200 296v34"/><path d="M270 330h30a22 22 0 0 1 0 44h-30"/>
+        <path d="M170 70c10-14-10-24 0-40M210 70c10-14-10-24 0-40"/>
+      </g></svg>
+    </div>
+  </div>
+</section>
+
+<section class="panel p4" aria-labelledby="c4">
+  <div class="shade"></div>
+  <div class="num" aria-hidden="true" style="left:auto;right:3vw">04</div>
+  <div class="wrap">
+    <div class="art" aria-hidden="true">
+      <svg viewBox="0 0 400 420"><g class="st">
+        <rect x="90" y="110" width="220" height="250" rx="6"/><path d="M90 160h220"/><path d="M150 110v-30h100v30"/>
+        <path d="M130 220h140M130 252h100M130 284h120"/><circle cx="270" cy="320" r="20"/>
+      </g></svg>
+    </div>
+    <div class="copy">
+      <div class="kicker">Subscription</div>
+      <h2 id="c4">Fresh every fortnight, skip any time.</h2>
+      <p>Bags leave the roastery on a Monday and reach most UK doors by Wednesday. Pause from the link in the email, no account needed. There is no discount for trapping you.</p>
+      <ul class="facts"><li><span>250 g bag</span><span>£11.50</span></li><li><span>Postage</span><span>Free over £20</span></li><li><span>Cancel</span><span>One click</span></li></ul>
+      <a class="cta" href="#top">Pick your first bag</a>
+    </div>
+  </div>
+</section>
+
+<section class="outro"><p>Every bag is dated by roast, not by "best before".</p><small>Tarn &amp; Ember Roasters Ltd, Welsh Back, Bristol. Demo content for a motion pattern.</small></section>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce || !window.gsap || !window.ScrollTrigger) return; // graceful: native sticky stack still works
+  gsap.registerPlugin(ScrollTrigger);
+  var panels = gsap.utils.toArray('.panel');
+  function buildStack(){
+    panels.forEach(function(p, i){
+      var wrap = p.querySelector('.wrap'), shade = p.querySelector('.shade');
+      // entrance: illustration strokes draw in
+      var strokes = p.querySelectorAll('.art .st > *');
+      strokes.forEach(function(s){
+        if (!s.getTotalLength) return;
+        var L = s.getTotalLength();
+        gsap.set(s, {strokeDasharray: L, strokeDashoffset: L});
+      });
+      gsap.to(strokes, {strokeDashoffset: 0, duration: 1.6, ease: 'power2.out', stagger: .12,
+        scrollTrigger: {trigger: p, start: 'top 70%', toggleActions: 'play none none none'}});
+      gsap.from(p.querySelectorAll('.copy > *'), {y: 36, opacity: 0, duration: .9, stagger: .09, ease: 'power3.out',
+        scrollTrigger: {trigger: p, start: 'top 60%', toggleActions: 'play none none none'}});
+      var next = panels[i + 1];
+      if (!next) return;
+      // while the next panel slides in, push this one back
+      var tl = gsap.timeline({scrollTrigger: {trigger: next, start: 'top bottom', end: 'top top', scrub: true}});
+      tl.to(wrap, {scale: .92, rotate: -1.2, yPercent: -3, ease: 'none'}, 0)
+        .to(shade, {opacity: .55, ease: 'none'}, 0);
+    });
+  }
+  buildStack();
+  window.addEventListener('load', function(){ ScrollTrigger.refresh(); });
+})();
+</script>
+</body>
+</html>

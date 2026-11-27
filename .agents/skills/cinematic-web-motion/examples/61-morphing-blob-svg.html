@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>61 · Morphing Blob SVG</title>
+<!--
+PATTERN: Organic SVG blob whose path morphs between shapes on hover and on scroll.
+Motion: Every shape has the same number of cubic points, so the "d" attribute is interpolated
+  point by point (hand-rolled, no paid MorphSVG). Idle loop drifts between shapes; hover
+  pushes to the next shape; scroll progress scrubs through all shapes and rotates the blob.
+Accessibility: SVG is decorative (aria-hidden). prefers-reduced-motion: shape stays static,
+  no idle loop, no scroll scrub (hover swaps shape instantly).
+Adapting: Edit SHAPES (8 points: x,y pairs, closed Catmull-Rom smoothing), COLORS, SPEED.
+  Libraries: none (vanilla JS + requestAnimationFrame).
+-->
+<style>
+:root{--bg:#0d0f14;--fg:#eef0f6;--a:#7c5cff;--b:#ff5ca8}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif}
+section{min-height:100vh;display:grid;place-items:center;padding:10vh 6vw;text-align:center}
+.stage{position:sticky;top:0;height:100vh;display:grid;place-items:center;width:100%}
+svg{width:min(80vmin,640px);height:auto;overflow:visible;cursor:pointer;filter:drop-shadow(0 30px 60px #7c5cff55)}
+h1{position:absolute;font-size:clamp(2rem,7vw,5rem);letter-spacing:-.04em;pointer-events:none;mix-blend-mode:difference}
+small{position:absolute;bottom:6vh;font:500 .75rem ui-monospace,monospace;letter-spacing:.2em;text-transform:uppercase;opacity:.6}
+.track{height:400vh;width:100%}
+@media(max-width:600px){h1{font-size:2.2rem}}
+</style>
+</head>
+<body>
+<div class="track">
+  <div class="stage">
+    <svg viewBox="-100 -100 200 200" aria-hidden="true">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#7c5cff"/><stop offset="1" stop-color="#ff5ca8"/></linearGradient></defs>
+      <path id="blob" fill="url(#g)"/>
+    </svg>
+    <h1>Fluid by design</h1>
+    <small>Hover the blob · scroll to morph</small>
+  </div>
+</div>
+<script>
+(function(){
+  // each shape: 8 radii around the circle (angle = i * 45deg)
+  var SHAPES=[
+    [70,70,70,70,70,70,70,70],
+    [85,55,80,50,85,60,75,55],
+    [60,90,55,85,65,80,60,90],
+    [90,75,50,70,90,70,50,75],
+    [65,80,90,60,65,85,90,55]
+  ];
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var path=document.getElementById("blob");
+  var cur=SHAPES[0].slice(),target=SHAPES[1],idx=1,hover=0,scroll=0,rot=0;
+
+  function draw(r,rotation){
+    var n=r.length,pts=[];
+    for(var i=0;i<n;i++){var a=i/n*Math.PI*2+rotation;pts.push([Math.cos(a)*r[i],Math.sin(a)*r[i]])}
+    var d="M"+pts[0][0].toFixed(2)+","+pts[0][1].toFixed(2);
+    for(i=0;i<n;i++){
+      var p0=pts[(i-1+n)%n],p1=pts[i],p2=pts[(i+1)%n],p3=pts[(i+2)%n];
+      var c1=[p1[0]+(p2[0]-p0[0])/6,p1[1]+(p2[1]-p0[1])/6];
+      var c2=[p2[0]-(p3[0]-p1[0])/6,p2[1]-(p3[1]-p1[1])/6];
+      d+="C"+c1[0].toFixed(2)+","+c1[1].toFixed(2)+" "+c2[0].toFixed(2)+","+c2[1].toFixed(2)+" "+p2[0].toFixed(2)+","+p2[1].toFixed(2);
+    }
+    path.setAttribute("d",d+"Z");
+  }
+  function mix(a,b,t){return a.map(function(v,i){return v+(b[i]-v)*t})}
+
+  if(reduce){draw(SHAPES[0],0);
+    path.addEventListener("click",function(){idx=(idx+1)%SHAPES.length;draw(SHAPES[idx],0)});
+    return;
+  }
+  path.addEventListener("mouseenter",function(){hover=1;idx=(idx+1)%SHAPES.length;target=SHAPES[idx]});
+  path.addEventListener("mouseleave",function(){hover=0});
+  addEventListener("scroll",function(){
+    var max=document.documentElement.scrollHeight-innerHeight;
+    scroll=max>0?scrollY/max:0;
+  },{passive:true});
+
+  var t0=performance.now();
+  (function loop(now){
+    var time=(now-t0)/1000;
+    // scroll scrub picks a pair of shapes; hover/idle blends toward 'target'
+    var f=scroll*(SHAPES.length-1),i0=Math.floor(f),i1=Math.min(i0+1,SHAPES.length-1);
+    var base=mix(SHAPES[i0],SHAPES[i1],f-i0);
+    var goal=mix(base,target,hover?0.6:0);
+    // breathing wobble
+    goal=goal.map(function(v,k){return v+Math.sin(time*1.2+k)*3});
+    cur=mix(cur,goal,0.08);
+    rot+=(scroll*Math.PI*2-rot)*0.05;
+    draw(cur,rot);
+    requestAnimationFrame(loop);
+  })(t0);
+})();
+</script>
+</body>
+</html>

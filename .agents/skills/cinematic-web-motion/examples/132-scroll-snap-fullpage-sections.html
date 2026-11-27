@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>132 · Scroll Snap Fullpage Sections</title>
+<!--
+PATTERN: Full-screen sections with native CSS scroll-snap, a side dot navigation and a staggered entrance per section.
+Motion: scroll-snap-type y proximity keeps each panel aligned; IntersectionObserver toggles .in on the visible panel, which staggers its children (translate + opacity); dots grow on the active panel.
+Accessibility: Snap is "proximity" so long text is never trapped; dots are real links with aria-current; content is visible without JS; reduced motion removes the stagger and smooth scrolling.
+Adapting: Swap panels in the markup, switch to "mandatory" for strict paging, tune --stagger for rhythm.
+Libraries: none (CSS + IntersectionObserver).
+-->
+<style>
+:root{--paper:#efe6d6;--ink:#2a1d16;--kiln:#c4502a;--glaze:#1f4f4a;--ash:#8a7f72;--bone:#f8f2e6;--stagger:90ms}
+*{box-sizing:border-box;margin:0}
+html{scroll-snap-type:y proximity;scroll-behavior:smooth}
+body{background:var(--paper);color:var(--ink);font:400 1.05rem/1.6 "Helvetica Neue",Arial,sans-serif}
+:focus-visible{outline:3px solid var(--kiln);outline-offset:4px}
+.p{min-height:100vh;min-height:100svh;scroll-snap-align:start;display:grid;grid-template-columns:repeat(12,1fr);align-items:center;padding:8vh 8vw 8vh 6vw;gap:0 1.5rem;position:relative}
+.p>div{grid-column:2 / span 7}
+.p .side{grid-column:9 / span 4;align-self:end;border-left:2px solid currentColor;padding-left:1.2rem;font-size:.95rem}
+.k{font:600 .72rem/1 ui-monospace,Consolas,monospace;letter-spacing:.2em;text-transform:uppercase;margin-bottom:1.4rem;color:var(--kiln)}
+h1,h2{font:400 clamp(2.6rem,7.4vw,7rem)/.95 Georgia,"Iowan Old Style",serif;letter-spacing:-.03em;max-width:12ch}
+h2{font-size:clamp(2.3rem,6vw,5.6rem)}
+h1 em,h2 em{font-style:italic;color:var(--kiln)}
+.lead{max-width:36ch;margin-top:1.6rem}
+.p.dark{background:var(--glaze);color:var(--bone)}.p.dark .k,.p.dark h2 em{color:#f0b48e}
+.p.warm{background:var(--kiln);color:var(--bone)}.p.warm .k,.p.warm h2 em{color:var(--ink)}
+.p.ink{background:var(--ink);color:var(--bone)}.p.ink .k,.p.ink h2 em{color:#f0b48e}
+.big{position:absolute;right:5vw;bottom:2vh;font:italic 400 clamp(8rem,26vw,24rem)/.8 Georgia,serif;opacity:.1;pointer-events:none}
+.p [data-in]{opacity:1}
+.js .p [data-in]{opacity:0;transform:translateY(34px);transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .8s cubic-bezier(.2,.7,.2,1);transition-delay:calc(var(--i,0) * var(--stagger))}
+.js .p.in [data-in]{opacity:1;transform:none}
+.dots{position:fixed;right:1.6rem;top:50%;transform:translateY(-50%);z-index:10;display:flex;flex-direction:column;gap:.35rem;list-style:none;padding:0}
+.dots a{display:grid;place-items:center;width:1.6rem;height:1.6rem}
+.dots a::before{content:"";width:.55rem;height:.55rem;border:2px solid var(--ash);background:transparent;transition:transform .3s,background .3s,border-color .3s}
+.dots a[aria-current=true]::before{background:var(--kiln);border-color:var(--kiln);transform:scale(1.7)}
+.dots a:hover::before{border-color:var(--kiln)}
+.dots span{position:absolute;right:2rem;opacity:0;white-space:nowrap;font:600 .7rem/1 ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;background:var(--ink);color:var(--bone);padding:.4rem .6rem;pointer-events:none;transition:opacity .2s}
+.dots a:hover span,.dots a:focus-visible span{opacity:1}
+.dots li{position:relative}
+.stats{display:flex;gap:2.4rem;margin-top:2rem;flex-wrap:wrap}
+.stats b{display:block;font:400 2.6rem/1 Georgia,serif}
+.stats small{font-size:.8rem;letter-spacing:.06em}
+@media (max-width:760px){
+  .p{display:block;padding:12vh 12vw 8vh 7vw}
+  .p .side{margin-top:2rem}
+  .dots{right:.2rem}.dots span{display:none}
+  .dots a{width:1.4rem;height:1.4rem}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .js .p [data-in]{opacity:1;transform:none;transition:none}
+  .dots a::before{transition:none}
+}
+</style>
+</head>
+<body>
+<nav class="dots" aria-label="Sections"><ul style="list-style:none;padding:0;margin:0" id="dots"></ul></nav>
+<main>
+  <section class="p in" id="s1" data-label="Clay">
+    <div><p class="k" data-in style="--i:0">Fieldfare Pottery · Kiln No. 4</p><h1 data-in style="--i:1">Pots fired <em>once</em>, the slow way.</h1><p class="lead" data-in style="--i:2">A four-person workshop in the Calder valley making tableware from local stoneware clay, wood-fired for 38 hours at a time.</p></div>
+    <aside class="side" data-in style="--i:3">Next firing: 14 June<br>Open yard Saturdays, 10 to 4</aside>
+    <span class="big" aria-hidden="true">1</span>
+  </section>
+  <section class="p dark" id="s2" data-label="Throwing">
+    <div><p class="k" data-in style="--i:0">02 · Throwing</p><h2 data-in style="--i:1">Every bowl starts at <em>900 grams</em>.</h2><p class="lead" data-in style="--i:2">Clay is weighed, wedged for four minutes and thrown without a template. Rims are checked with a thumb, not a gauge.</p></div>
+    <aside class="side" data-in style="--i:3"><div class="stats"><div><b>62</b><small>pieces per wheel day</small></div><div><b>7%</b><small>lost in drying</small></div></div></aside>
+    <span class="big" aria-hidden="true">2</span>
+  </section>
+  <section class="p" id="s3" data-label="Glazing">
+    <div><p class="k" data-in style="--i:0">03 · Glazing</p><h2 data-in style="--i:1">Ash from our <em>own</em> fires.</h2><p class="lead" data-in style="--i:2">Beech and ash residue is sieved, washed and mixed into the glaze. Each batch runs slightly greener or browner than the last, and we keep the test tiles.</p></div>
+    <aside class="side" data-in style="--i:3">Cone 10 reduction<br>Fourteen glaze recipes in rotation</aside>
+    <span class="big" aria-hidden="true">3</span>
+  </section>
+  <section class="p warm" id="s4" data-label="Firing">
+    <div><p class="k" data-in style="--i:0">04 · Firing</p><h2 data-in style="--i:1">Thirty-eight hours, <em>no sleep</em> for the stokers.</h2><p class="lead" data-in style="--i:2">Shifts of two feed the firebox every eight minutes. The kiln reaches 1,290 degrees before the door is bricked shut to cool for three days.</p></div>
+    <aside class="side" data-in style="--i:3">Wood used per firing: 1.8 tonnes</aside>
+    <span class="big" aria-hidden="true">4</span>
+  </section>
+  <section class="p ink" id="s5" data-label="Visit">
+    <div><p class="k" data-in style="--i:0">05 · Visit</p><h2 data-in style="--i:1">Unload day is <em>open</em> to everyone.</h2><p class="lead" data-in style="--i:2">Come when the kiln is opened. Pieces are priced on the spot and the seconds shelf is half price.</p></div>
+    <aside class="side" data-in style="--i:3">Fieldfare Pottery<br>Unit 3, Mill Lane Yard<br>Hebden Bridge</aside>
+    <span class="big" aria-hidden="true">5</span>
+  </section>
+</main>
+<script>
+(function(){
+  document.documentElement.classList.add("js");
+  var panels=[].slice.call(document.querySelectorAll(".p")),ul=document.getElementById("dots");
+  var links=panels.map(function(p,i){
+    var li=document.createElement("li"),a=document.createElement("a");
+    a.href="#"+p.id;a.setAttribute("aria-label","Go to section "+(i+1)+": "+p.dataset.label);
+    a.innerHTML="<span aria-hidden='true'>"+p.dataset.label+"</span>";
+    li.appendChild(a);ul.appendChild(li);return a;
+  });
+  function set(i){links.forEach(function(a,j){a.setAttribute("aria-current",j===i?"true":"false")})}
+  set(0);
+  if(!("IntersectionObserver" in window)){panels.forEach(function(p){p.classList.add("in")});return}
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){
+    if(e.isIntersecting){e.target.classList.add("in");set(panels.indexOf(e.target))}
+  })},{threshold:.55});
+  panels.forEach(function(p){io.observe(p)});
+})();
+</script>
+</body>
+</html>

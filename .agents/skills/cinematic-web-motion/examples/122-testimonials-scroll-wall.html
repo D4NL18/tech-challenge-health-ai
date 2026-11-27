@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>122 · Testimonials Scroll Wall</title>
+<!--
+PATTERN: A "wall of quotes" section: four columns of testimonial cards that drift at different
+  speeds and in opposite directions while the page scrolls, with a sticky editorial headline.
+Motion: ScrollTrigger scrub maps section progress to each column's yPercent (cols 1 and 3 travel up,
+  2 and 4 travel down, at different distances) so the grid shears like a loom. Cards fade up as they
+  first enter. Top/bottom CSS mask fades cards into the page colour.
+Accessibility: Quotes are <blockquote> in DOM order, column by column. prefers-reduced-motion or no
+  CDN: columns are static (no transforms) and the section is a normal tall grid. Mobile (390px) shows
+  two columns, hides decorative duplicates via display only (no aria content lost: they are unique).
+Adapting: Edit quotes; change SPEEDS array for travel distance per column; keep columns taller than
+  the viewport so the drift never reveals an empty edge. Libraries: GSAP + ScrollTrigger (CDN, optional).
+-->
+<style>
+:root{--flour:#f4efe6;--rye:#2c2a26;--wheat:#d8b46b;--rust:#a8472a;--oat:#e4dac7;--sage:#5d6b53;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--flour);color:var(--rye);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a:focus-visible{outline:3px solid var(--rust);outline-offset:3px}
+.top{padding:clamp(3rem,10vh,7rem) clamp(1.2rem,6vw,6rem) 0;display:grid;grid-template-columns:1fr 1fr;gap:2rem}
+.top .tag{font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--rust);grid-column:1/-1}
+.top h1{font-family:var(--serif);font-weight:400;font-size:clamp(2.6rem,7.4vw,7rem);line-height:.95;letter-spacing:-.03em;grid-column:1/-1;max-width:14ch}
+.top p{grid-column:2;max-width:38ch;line-height:1.55}
+.runway{margin-top:6vh;background:var(--rye)}
+.wall{position:relative;overflow:hidden;background:var(--rye);color:var(--flour);padding:2rem 0}
+.on .runway{height:240vh}
+.on .wall{position:sticky;top:0;height:100vh;padding:0}
+.on .cols{position:absolute;inset:0 clamp(.8rem,3vw,3rem);margin:0}
+.wall::before,.wall::after{content:"";position:absolute;left:0;right:0;height:18vh;z-index:3;pointer-events:none}
+.wall::before{top:0;background:linear-gradient(var(--rye),transparent)}
+.wall::after{bottom:0;background:linear-gradient(transparent,var(--rye))}
+.cols{position:relative;margin:0 clamp(.8rem,3vw,3rem);display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(.7rem,1.6vw,1.5rem);align-items:start}
+.col{display:grid;gap:clamp(.7rem,1.6vw,1.5rem);will-change:transform}
+blockquote{background:var(--c,#3a3732);padding:clamp(1.1rem,2vw,1.8rem);border-radius:2px;display:grid;gap:1.2rem}
+blockquote p{font-family:var(--serif);font-size:clamp(1.05rem,1.5vw,1.4rem);line-height:1.3}
+blockquote footer{font-size:.78rem;line-height:1.4;opacity:.85}
+blockquote footer b{display:block;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:.72rem}
+.k1{--c:#3a3732}.k2{--c:#a8472a}.k3{--c:#e4dac7;color:var(--rye)}.k4{--c:#4a5641}.k5{--c:#d8b46b;color:var(--rye)}
+.stat{font-family:var(--serif);font-size:clamp(2.6rem,5vw,4.6rem);line-height:.9;letter-spacing:-.03em}
+.after{padding:10vh clamp(1.2rem,6vw,6rem);display:flex;gap:2rem;justify-content:space-between;flex-wrap:wrap;align-items:end}
+.after p{font-family:var(--serif);font-size:clamp(1.4rem,2.6vw,2.4rem);max-width:22ch;line-height:1.1}
+.after a{color:var(--rust);font-size:.85rem;letter-spacing:.12em;text-transform:uppercase}
+@media(max-width:760px){
+  .top{grid-template-columns:1fr}.top p{grid-column:1}
+  .cols{grid-template-columns:repeat(2,1fr)}
+  .col:nth-child(3),.col:nth-child(4){display:none}
+  blockquote p{font-size:1rem}
+}
+</style>
+</head>
+<body>
+<section class="top">
+  <div class="tag">Halden Mill, stone-ground since 1931</div>
+  <h1>What the people who bake with our flour say.</h1>
+  <p>We sell 25 kg sacks to 214 bakeries, pubs and school kitchens across the North of England. These are the notes they sent us unprompted, lightly trimmed.</p>
+</section>
+
+<div class="runway"><section class="wall" aria-label="Customer testimonials">
+  <div class="cols">
+    <div class="col">
+      <blockquote class="k1"><p>"The Type 80 takes four hours less bulk than the supermarket flour we replaced, and the crumb finally opens up the way I draw it."</p><footer><b>Maren Oduya</b>Head baker, Loaf &amp; Larder, Leeds</footer></blockquote>
+      <blockquote class="k2"><div class="stat">9 of 10</div><p>"Nine of our ten sourdough orders are now Halden. The tenth is gluten free."</p><footer><b>Tom Whitcombe</b>Owner, Whitcombe's Bakehouse</footer></blockquote>
+      <blockquote class="k3"><p>"Delivery turned up on a Tuesday, as promised, with a handwritten note about the new wheat lot."</p><footer><b>Ines Calloway</b>Kitchen manager, St Anne's Primary</footer></blockquote>
+      <blockquote class="k4"><p>"Our pizza dough used to fight back. Now it rests, stretches, and holds a leopard spot."</p><footer><b>Davide Rossi</b>Chef, Forno 54, Sheffield</footer></blockquote>
+    </div>
+    <div class="col">
+      <blockquote class="k5"><p>"I rang with a question at six in the morning and the miller answered. That alone is why we stay."</p><footer><b>Priya Nandakumar</b>Baker, Sunday Crust, York</footer></blockquote>
+      <blockquote class="k1"><p>"Our wholemeal loaf went from brick to bread. Customers asked what had changed. Nothing, except the flour."</p><footer><b>Gareth Pugh</b>Baker, Pugh &amp; Daughter, Hexham</footer></blockquote>
+      <blockquote class="k2"><p>"The spec sheets tell you protein, ash, and falling number. I have never had that from a supplier before."</p><footer><b>Hannah Byrne</b>Production lead, Marrow Bakery</footer></blockquote>
+      <blockquote class="k3"><div class="stat">31%</div><p>"Wastage down 31% in the first quarter, mostly from fewer collapsed proves."</p><footer><b>Colm Ferris</b>Operations, Ferris Pies</footer></blockquote>
+    </div>
+    <div class="col">
+      <blockquote class="k4"><p>"We bake for 600 children a day. The flour behaves in a steam oven the same on Monday and on Friday."</p><footer><b>Ruth Adeyemi</b>Catering lead, Eastgate Trust Schools</footer></blockquote>
+      <blockquote class="k5"><p>"Pastry short, flaky, no complaints. I did not expect to write a testimonial for flour."</p><footer><b>Lucien Baptiste</b>Pastry chef, The Brewer's Arms</footer></blockquote>
+      <blockquote class="k1"><p>"The sacks are paper, the pallets come back, and the invoice is one page. Small things, but they add up."</p><footer><b>Fiona McAllister</b>Buyer, Crossgate Deli</footer></blockquote>
+      <blockquote class="k2"><p>"Spelt finally behaves. Two proves, no sulking."</p><footer><b>Jonas Lindqvist</b>Baker, Nordlys, Newcastle</footer></blockquote>
+    </div>
+    <div class="col">
+      <blockquote class="k3"><p>"Third generation baker here. My grandfather would have shaken the miller's hand."</p><footer><b>Arthur Penrose</b>Penrose &amp; Sons, Whitby</footer></blockquote>
+      <blockquote class="k4"><div class="stat">14 yrs</div><p>"Fourteen years, one supplier, and I still check the lot number on every sack."</p><footer><b>Sade Mbeki</b>Owner, Rise Bakery, Bradford</footer></blockquote>
+      <blockquote class="k5"><p>"We run a small cinnamon bun stall. Halden's sweet-dough blend cut my proving time and my stress."</p><footer><b>Kirsty Dunlop</b>Market trader, Hebden Bridge</footer></blockquote>
+      <blockquote class="k2"><p>"Honest flour, honest people. Order again Thursday."</p><footer><b>Wen Zhao</b>Chef-owner, Dumpling Room</footer></blockquote>
+    </div>
+  </div>
+</section></div>
+
+<section class="after"><p>Visit the mill on the first Saturday of any month.</p><a href="#top">Book a tour, 10:00 or 14:00</a></section>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || !window.gsap || !window.ScrollTrigger) return;
+  gsap.registerPlugin(ScrollTrigger);
+  document.documentElement.classList.add('on');
+  var cols = gsap.utils.toArray('.col'), wall = document.querySelector('.wall');
+  function over(c){ return Math.max(0, c.offsetHeight - wall.clientHeight + 80); }
+  cols.forEach(function(col, i){
+    var up = i % 2 === 0; // cols 1,3 travel up; 2,4 travel down
+    gsap.fromTo(col, {y: function(){ return up ? 40 : -over(col); }}, {y: function(){ return up ? -over(col) : 40; }, ease: 'none',
+      scrollTrigger: {trigger: '.runway', start: 'top top', end: 'bottom bottom', scrub: .6, invalidateOnRefresh: true}});
+  });
+  gsap.from('.top h1, .top p, .top .tag', {y: 30, opacity: 0, duration: 1, stagger: .12, ease: 'power3.out'});
+  addEventListener('load', function(){ ScrollTrigger.refresh(); });
+})();
+</script>
+</body>
+</html>

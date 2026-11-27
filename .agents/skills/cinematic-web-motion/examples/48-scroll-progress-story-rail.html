@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<!--
+  Pattern: 3-Act Scroll Progress Story Rail
+  =========================================
+  Luxury Hardware Motion:
+  - A 3-act product launch narrative ("MONOLITH X") featuring a sticky
+    vertical progress rail on the left, editorial copy chapters in the center,
+    and a sticky procedural SVG hardware diagram on the right that morphs,
+    rotates, and illuminates distinct internal subsystems across acts.
+  - Clicking any act on the progress rail smoothly scrolls to that chapter.
+
+  How to Adapt:
+  - Add or edit `.story-act` sections and matching `.rail-step` buttons;
+    the ScrollTrigger loop automatically binds each act to its visual state.
+  - Swap the SVG layers (`#layer-chassis`, `#layer-thermal`, `#layer-dial`)
+    for your own product exploded-view layers or 3D camera keyframes.
+  - `prefers-reduced-motion: reduce` disables Lenis smooth scroll and animated
+    SVG layer transforms while preserving act state highlighting.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MONOLITH X — 3-Act Story Rail</title>
+  <style>
+    :root {
+      --bg: #08090b;
+      --surface: #111318;
+      --border: rgba(255, 255, 255, 0.09);
+      --text: #f4f4f5;
+      --text-muted: #9ca3af;
+      --accent: #f59e0b;
+      --accent-dim: rgba(245, 158, 11, 0.16);
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .intro-band {
+      padding: clamp(4rem, 10vh, 7rem) clamp(1.5rem, 5vw, 4rem) 2rem;
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 0 0 0.6rem;
+    }
+
+    .intro-band h1 {
+      margin: 0;
+      font-size: clamp(2.2rem, 4.8vw, 4rem);
+      font-weight: 500;
+      letter-spacing: -0.03em;
+      line-height: 1.04;
+      max-width: 16ch;
+    }
+
+    .story-layout {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 2rem clamp(1.5rem, 5vw, 4rem) 10vh;
+      display: grid;
+      grid-template-columns: 180px minmax(280px, 1fr) minmax(320px, 1.05fr);
+      gap: clamp(1.5rem, 4vw, 3.5rem);
+      align-items: start;
+    }
+
+    /* Left sticky progress rail */
+    .story-rail {
+      position: sticky;
+      top: 22vh;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      padding-left: 1.25rem;
+      border-left: 1px solid var(--border);
+    }
+
+    .rail-progress-fill {
+      position: absolute;
+      left: -1px;
+      top: 0;
+      width: 2px;
+      height: 0%;
+      background: var(--accent);
+      box-shadow: 0 0 12px var(--accent);
+    }
+
+    .rail-step {
+      appearance: none;
+      background: none;
+      border: 0;
+      padding: 0;
+      text-align: left;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: color 0.25s ease;
+    }
+
+    .rail-step-num {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.14em;
+      margin-bottom: 0.2rem;
+    }
+
+    .rail-step-title {
+      display: block;
+      font-size: 0.92rem;
+      font-weight: 500;
+    }
+
+    .rail-step.is-active {
+      color: var(--text);
+    }
+
+    .rail-step.is-active .rail-step-num {
+      color: var(--accent);
+    }
+
+    /* Center narrative acts */
+    .story-acts {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .story-act {
+      min-height: 78vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 3rem 0;
+      opacity: 0.35;
+      transition: opacity 0.35s ease;
+    }
+
+    .story-act.is-active {
+      opacity: 1;
+    }
+
+    .act-kicker {
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+    }
+
+    .story-act h2 {
+      margin: 0 0 1rem;
+      font-size: clamp(1.65rem, 3vw, 2.4rem);
+      font-weight: 500;
+      letter-spacing: -0.025em;
+      line-height: 1.12;
+    }
+
+    .story-act p {
+      margin: 0 0 1.25rem;
+      color: var(--text-muted);
+      line-height: 1.65;
+      font-size: 1rem;
+      max-width: 44ch;
+    }
+
+    .act-spec-pill {
+      display: inline-flex;
+      align-self: flex-start;
+      padding: 0.45rem 0.85rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text);
+    }
+
+    /* Right sticky product visual */
+    .sticky-visual {
+      position: sticky;
+      top: 12vh;
+      height: 76vh;
+      border-radius: 24px;
+      background:
+        radial-gradient(circle at 50% 45%, var(--accent-dim), transparent 58%),
+        var(--surface);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      overflow: hidden;
+    }
+
+    .visual-svg {
+      width: min(360px, 85%);
+      height: auto;
+      overflow: visible;
+    }
+
+    .visual-caption {
+      margin-top: 1.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 960px) {
+      .story-layout {
+        grid-template-columns: 1fr;
+      }
+      .story-rail {
+        display: none;
+      }
+      .sticky-visual {
+        order: -1;
+        position: sticky;
+        top: 1rem;
+        height: 44vh;
+        z-index: 5;
+      }
+      .story-act {
+        min-height: 55vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <section class="intro-band">
+    <p class="eyebrow">MONOLITH X // REFERENCE DAC</p>
+    <h1>Three acts of silent engineering.</h1>
+  </section>
+
+  <main class="story-layout" id="storyLayout">
+    <aside class="story-rail" aria-label="Story progress">
+      <div class="rail-progress-fill" id="railFill"></div>
+      <button class="rail-step is-active" data-target="#act-1" type="button">
+        <span class="rail-step-num">ACT 01</span>
+        <span class="rail-step-title">Acoustic Chassis</span>
+      </button>
+      <button class="rail-step" data-target="#act-2" type="button">
+        <span class="rail-step-num">ACT 02</span>
+        <span class="rail-step-title">Thermal Matrix</span>
+      </button>
+      <button class="rail-step" data-target="#act-3" type="button">
+        <span class="rail-step-num">ACT 03</span>
+        <span class="rail-step-title">Tactile Dial</span>
+      </button>
+    </aside>
+
+    <div class="story-acts">
+      <article class="story-act is-active" id="act-1" data-act="0">
+        <span class="act-kicker">01 // Acoustic Architecture</span>
+        <h2>Milled from a single 4.2 kg billet.</h2>
+        <p>Zero external fasteners break the perimeter. The unibody aluminum enclosure isolates delicate clock circuitry from structural micro-resonance.</p>
+        <span class="act-spec-pill">6061-T6 Aerospace Billet</span>
+      </article>
+
+      <article class="story-act" id="act-2" data-act="1">
+        <span class="act-kicker">02 // Passive Thermal Matrix</span>
+        <h2>Convection without a single moving fan.</h2>
+        <p>Twenty-four internal micro-fins channel heat directly to the underside plinth, keeping the Class-A output stage thermally locked at 38°C.</p>
+        <span class="act-spec-pill">0 dBA Noise Floor</span>
+      </article>
+
+      <article class="story-act" id="act-3" data-act="2">
+        <span class="act-kicker">03 // Magnetic Detent Interface</span>
+        <h2>0.1 dB steps with optical precision.</h2>
+        <p>Dual ceramic bearings support a weighted brass control ring. Every turn is read optically without mechanical wear.</p>
+        <span class="act-spec-pill">1,024-Step Optical Encoder</span>
+      </article>
+    </div>
+
+    <div class="sticky-visual" aria-hidden="true">
+      <svg class="visual-svg" viewBox="0 0 340 340" fill="none">
+        <defs>
+          <linearGradient id="chassisGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#2c303a" />
+            <stop offset="100%" stop-color="#111318" />
+          </linearGradient>
+        </defs>
+
+        <!-- Layer 1: Outer Billet Chassis -->
+        <g id="layerChassis">
+          <rect x="36" y="64" width="268" height="212" rx="28" fill="url(#chassisGrad)" stroke="rgba(255,255,255,0.22)" stroke-width="1.5" />
+          <rect x="48" y="76" width="244" height="188" rx="20" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+        </g>
+
+        <!-- Layer 2: Internal Thermal Fins -->
+        <g id="layerThermal" opacity="0.28">
+          <line x1="70" y1="104" x2="270" y2="104" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" />
+          <line x1="70" y1="120" x2="270" y2="120" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" />
+          <line x1="70" y1="136" x2="270" y2="136" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" />
+          <line x1="70" y1="204" x2="270" y2="204" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" />
+          <line x1="70" y1="220" x2="270" y2="220" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" />
+          <line x1="70" y1="236" x2="270" y2="236" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" />
+        </g>
+
+        <!-- Layer 3: Center Tactile Dial -->
+        <g id="layerDial" transform-origin="170 170">
+          <circle cx="170" cy="170" r="56" fill="#171920" stroke="rgba(255,255,255,0.25)" stroke-width="1.5" />
+          <circle cx="170" cy="170" r="44" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="6 6" opacity="0.55" />
+          <circle cx="170" cy="170" r="32" fill="#0d0e12" stroke="rgba(255,255,255,0.12)" stroke-width="1" />
+          <circle cx="170" cy="128" r="3.5" fill="#f59e0b" />
+        </g>
+      </svg>
+      <div class="visual-caption" id="visualCaption">VIEW // MONOLITH UNIBODY</div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.min.js"></script>
+  <script>
+    (() => {
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const acts = Array.from(document.querySelectorAll('.story-act'));
+      const railSteps = Array.from(document.querySelectorAll('.rail-step'));
+      const railFill = document.getElementById('railFill');
+      const visualCaption = document.getElementById('visualCaption');
+
+      const layerChassis = document.getElementById('layerChassis');
+      const layerThermal = document.getElementById('layerThermal');
+      const layerDial = document.getElementById('layerDial');
+
+      const captions = [
+        'VIEW // MONOLITH UNIBODY',
+        'VIEW // PASSIVE THERMAL MATRIX',
+        'VIEW // OPTICAL DETENT RING'
+      ];
+
+      gsap.registerPlugin(ScrollTrigger);
+
+      let lenis = null;
+      if (!reducedMotion && window.Lenis) {
+        lenis = new Lenis({ smoothWheel: true, lerp: 0.08 });
+        lenis.on('scroll', ScrollTrigger.update);
+        gsap.ticker.add((time) => lenis.raf(time * 1000));
+      }
+
+      function setActiveAct(idx) {
+        acts.forEach((a, i) => a.classList.toggle('is-active', i === idx));
+        railSteps.forEach((s, i) => s.classList.toggle('is-active', i === idx));
+        visualCaption.textContent = captions[idx] || captions[0];
+
+        const dur = reducedMotion ? 0 : 0.65;
+        if (idx === 0) {
+          gsap.to(layerChassis, { scale: 1, opacity: 1, duration: dur, ease: 'power3.out', transformOrigin: 'center' });
+          gsap.to(layerThermal, { opacity: 0.22, y: 0, duration: dur, ease: 'power3.out' });
+          gsap.to(layerDial, { scale: 1, rotation: 0, duration: dur, ease: 'power3.out' });
+        } else if (idx === 1) {
+          gsap.to(layerChassis, { scale: 1.04, opacity: 0.55, duration: dur, ease: 'power3.out', transformOrigin: 'center' });
+          gsap.to(layerThermal, { opacity: 1, y: -2, duration: dur, ease: 'power3.out' });
+          gsap.to(layerDial, { scale: 0.9, rotation: 45, duration: dur, ease: 'power3.out' });
+        } else {
+          gsap.to(layerChassis, { scale: 0.96, opacity: 0.7, duration: dur, ease: 'power3.out', transformOrigin: 'center' });
+          gsap.to(layerThermal, { opacity: 0.2, y: 0, duration: dur, ease: 'power3.out' });
+          gsap.to(layerDial, { scale: 1.24, rotation: 165, duration: dur, ease: 'power3.out' });
+        }
+      }
+
+      ScrollTrigger.create({
+        trigger: '#storyLayout',
+        start: 'top center',
+        end: 'bottom bottom',
+        onUpdate: (self) => {
+          railFill.style.height = `${Math.round(self.progress * 100)}%`;
+        }
+      });
+
+      acts.forEach((act, idx) => {
+        ScrollTrigger.create({
+          trigger: act,
+          start: 'top center',
+          end: 'bottom center',
+          onEnter: () => setActiveAct(idx),
+          onEnterBack: () => setActiveAct(idx)
+        });
+      });
+
+      railSteps.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const target = document.querySelector(btn.dataset.target);
+          if (!target) return;
+          if (lenis) {
+            lenis.scrollTo(target, { offset: -80 });
+          } else {
+            target.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth' });
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

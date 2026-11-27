@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>137 · Direction-Aware Header Page</title>
+<!--
+PATTERN: Site header that hides when scrolling down, returns on any upward scroll, shrinks after the first screen, and re-themes itself to match whichever section sits underneath it.
+Motion: Scroll direction (with a 6px dead zone) toggles translateY(-100%); a .compact class tightens padding and logo size; each frame the section under the header's centre line is found and its data-theme is applied via CSS custom properties with a colour transition.
+Accessibility: Header is a real <header>/<nav>; it also reveals on keyboard focus (:focus-within) so tabbing never lands on a hidden link; reduced motion removes the slide and colour transitions; skip link included.
+Adapting: Add data-theme="light|dark|accent" to any section, tune HIDE_AFTER and DEAD_ZONE in CONFIG, extend theme tokens in CSS.
+Libraries: none (vanilla JS + IntersectionObserver-free scroll handler).
+-->
+<style>
+:root{--h-bg:#f3ece0;--h-fg:#1e1a16;--h-line:#1e1a16;--cedar:#7a3b24;--forest:#233b30;--sand:#e5d7bd;--ink:#1e1a16;--lime:#c9d36a}
+*{box-sizing:border-box;margin:0}
+html{scroll-padding-top:5rem}
+body{background:var(--sand);color:var(--ink);font:400 1.05rem/1.6 "Helvetica Neue",Arial,sans-serif}
+:focus-visible{outline:3px solid var(--cedar);outline-offset:3px}
+.skip{position:absolute;left:1rem;top:-4rem;background:var(--ink);color:var(--sand);padding:.6rem 1rem;z-index:99}
+.skip:focus{top:1rem}
+header{position:fixed;z-index:50;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:1.5rem 6vw;background:var(--h-bg);color:var(--h-fg);border-bottom:1px solid var(--h-line);transition:transform .45s cubic-bezier(.2,.7,.2,1),padding .35s,background-color .5s,color .5s,border-color .5s}
+header.hide{transform:translateY(-101%)}
+header:focus-within{transform:none}
+header.compact{padding:.6rem 6vw}
+.logo{font:italic 400 1.9rem/1 Georgia,"Iowan Old Style",serif;letter-spacing:-.02em;text-decoration:none;color:inherit;transition:font-size .35s}
+header.compact .logo{font-size:1.3rem}
+nav{display:flex;gap:1.6rem;align-items:center}
+nav a{color:inherit;text-decoration:none;font:600 .74rem/1 ui-monospace,Consolas,monospace;letter-spacing:.16em;text-transform:uppercase;padding:.4rem 0;background:linear-gradient(currentColor,currentColor) 0 100% / 0 2px no-repeat;transition:background-size .3s}
+nav a:hover{background-size:100% 2px}
+.status{font:600 .7rem/1 ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;opacity:.75}
+main section{padding:16vh 6vw;min-height:100vh;display:grid;grid-template-columns:repeat(12,1fr);gap:1.5rem;align-content:center}
+section[data-theme=dark]{background:var(--forest);color:var(--sand)}
+section[data-theme=accent]{background:var(--cedar);color:var(--sand)}
+section[data-theme=lime]{background:var(--lime);color:var(--ink)}
+h1,h2{font:400 clamp(2.6rem,8vw,7.8rem)/.92 Georgia,serif;letter-spacing:-.04em;grid-column:1 / span 9}
+h2{font-size:clamp(2.2rem,6vw,5.4rem)}
+h1 em,h2 em{font-style:italic;color:var(--cedar)}
+[data-theme=dark] h2 em{color:var(--lime)}[data-theme=accent] h2 em{color:var(--ink)}
+.sec p{grid-column:7 / span 5;margin-top:2rem}
+.k{grid-column:1 / -1;font:600 .72rem/1 ui-monospace,monospace;letter-spacing:.2em;text-transform:uppercase}
+.sec ul{grid-column:2 / span 7;list-style:none;margin-top:2rem;padding:0}
+.sec li{padding:1rem 0;border-top:2px solid currentColor;display:flex;justify-content:space-between;gap:1rem}
+.sec li b{font:400 1.7rem/1.1 Georgia,serif}
+@media (max-width:760px){
+  header{padding:1rem 5vw}.status{display:none}nav{gap:1rem}
+  h1,h2,.sec p,.sec ul{grid-column:1 / -1}
+  nav a:nth-child(3){display:none}
+  main section{padding:14vh 7vw}
+}
+@media (prefers-reduced-motion:reduce){header,header *{transition:none!important}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header id="hd">
+  <a class="logo" href="#top">Halden &amp; Rowe</a>
+  <span class="status" id="st">Timber architects</span>
+  <nav aria-label="Primary"><a href="#practice">Practice</a><a href="#work">Work</a><a href="#method">Method</a><a href="#contact">Contact</a></nav>
+</header>
+<main id="main">
+  <section class="sec" id="top" data-theme="light"><p class="k">Est. 2008 · Bergen and Leeds</p><h1>Houses that are <em>grown</em> before they are built.</h1><p>Halden &amp; Rowe design small public buildings in cross-laminated timber: libraries, village halls, school extensions. Every beam is drawn knowing which tree it comes from.</p></section>
+  <section class="sec" id="practice" data-theme="dark"><p class="k">Practice</p><h2>Nine architects, <em>two</em> sawmills.</h2><p>We work directly with two Norwegian sawmills so that cutting lists are agreed before drawings are final. Offcuts return as cladding, shelving and benches.</p></section>
+  <section class="sec" id="work" data-theme="light"><p class="k">Selected work</p><h2>Buildings in <em>use</em>, not in renders.</h2><ul><li><b>Askrigg Village Hall</b><span>2022 · 310 m²</span></li><li><b>Fjære School Library</b><span>2023 · 540 m²</span></li><li><b>Storr Bridge Visitor Hut</b><span>2024 · 96 m²</span></li></ul></section>
+  <section class="sec" id="method" data-theme="accent"><p class="k">Method</p><h2>We <em>weigh</em> every wall.</h2><p>Each project is carbon-counted at three stages and published. Askrigg stores 41 tonnes of CO2 in its frame; the figure is painted inside the entrance.</p></section>
+  <section class="sec" id="contact" data-theme="lime"><p class="k">Contact</p><h2>Tell us about the <em>site</em> first.</h2><p>Send a postcode and a rough budget. We reply within three working days with a half-hour call slot, no deck attached.</p></section>
+</main>
+<script>
+(function(){
+  var CONFIG={hideAfter:140,dead:6,compactAfter:60};
+  var hd=document.getElementById("hd"),st=document.getElementById("st");
+  var secs=[].slice.call(document.querySelectorAll("main section"));
+  var THEMES={light:["#f3ece0","#1e1a16"],dark:["#233b30","#e5d7bd"],accent:["#7a3b24","#e5d7bd"],lime:["#c9d36a","#1e1a16"]};
+  var NAMES={top:"Timber architects",practice:"Practice",work:"Selected work",method:"Method",contact:"Contact"};
+  var last=scrollY,cur="",raf=0;
+  function update(){
+    raf=0;
+    var y=scrollY,d=y-last;
+    hd.classList.toggle("compact",y>CONFIG.compactAfter);
+    if(Math.abs(d)>CONFIG.dead){
+      if(d>0&&y>CONFIG.hideAfter&&!hd.contains(document.activeElement))hd.classList.add("hide");
+      else if(d<0)hd.classList.remove("hide");
+      last=y;
+    }
+    if(y<CONFIG.dead)hd.classList.remove("hide");
+    var line=hd.offsetHeight/2,under=secs[0];
+    secs.forEach(function(s){var r=s.getBoundingClientRect();if(r.top<=line&&r.bottom>line)under=s});
+    var t=under.dataset.theme;
+    if(t!==cur){cur=t;var c=THEMES[t];hd.style.setProperty("background-color",c[0]);hd.style.setProperty("color",c[1]);hd.style.borderBottomColor=c[1]}
+    var nm=NAMES[under.id];if(st.textContent!==nm)st.textContent=nm;
+  }
+  function req(){if(!raf)raf=requestAnimationFrame(update)}
+  addEventListener("scroll",req,{passive:true});addEventListener("resize",req);
+  update();
+})();
+</script>
+</body>
+</html>

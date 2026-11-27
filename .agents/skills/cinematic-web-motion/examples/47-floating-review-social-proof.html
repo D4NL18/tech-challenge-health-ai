@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<!--
+  Pattern: Depth-Layered Floating Review & Spec Social Proof
+  ==========================================================
+  Luxury Hardware Motion:
+  - Centered procedural SVG optical instrument ("SOLIS 35mm f/1.2") surrounded
+    by floating press-quote and technical spec cards positioned at distinct
+    Z/parallax depths (`data-depth`).
+  - Combines staggered scroll entrance, gentle ambient vertical drift, and
+    smooth cursor-reactive parallax (`gsap.quickTo`).
+
+  How to Adapt:
+  - Adjust `data-depth` (0.2 to 1.2) on `.float-card` elements to tune each
+    layer's parallax amplitude.
+  - Replace the central `<svg class="lens-svg">` with your product visual.
+  - `prefers-reduced-motion: reduce` disables ambient drift and cursor parallax,
+    displaying all cards in their settled positions immediately.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SOLIS OPTIC-1 — Depth-Layered Social Proof</title>
+  <style>
+    :root {
+      --bg: #0a0b0e;
+      --surface: rgba(20, 22, 28, 0.78);
+      --border: rgba(255, 255, 255, 0.1);
+      --border-glow: rgba(138, 180, 248, 0.35);
+      --text: #f4f4f5;
+      --text-muted: #9ca3af;
+      --accent: #93c5fd;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    .showcase {
+      position: relative;
+      min-height: 100vh;
+      padding: clamp(3rem, 7vh, 5rem) clamp(1.25rem, 4vw, 3rem);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(circle at 50% 48%, rgba(147, 197, 253, 0.11), transparent 46%),
+        radial-gradient(circle at 20% 25%, rgba(255, 255, 255, 0.03), transparent 40%),
+        var(--bg);
+    }
+
+    .hero-header {
+      text-align: center;
+      max-width: 640px;
+      margin-bottom: clamp(2rem, 5vh, 3.5rem);
+      position: relative;
+      z-index: 3;
+    }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 0 0 0.6rem;
+    }
+
+    h1 {
+      margin: 0 0 0.75rem;
+      font-size: clamp(2rem, 4.4vw, 3.4rem);
+      font-weight: 500;
+      letter-spacing: -0.03em;
+      line-height: 1.06;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 1rem;
+      line-height: 1.55;
+    }
+
+    .depth-stage {
+      position: relative;
+      width: min(1120px, 100%);
+      min-height: 520px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .product-core {
+      position: relative;
+      z-index: 2;
+      width: clamp(240px, 32vw, 360px);
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .lens-svg {
+      width: 100%;
+      height: 100%;
+      filter: drop-shadow(0 32px 60px rgba(0, 0, 0, 0.75));
+    }
+
+    .float-card {
+      position: absolute;
+      width: clamp(210px, 24vw, 270px);
+      padding: 1.1rem 1.2rem;
+      border-radius: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.45);
+      will-change: transform;
+    }
+
+    .float-card[data-depth="0.35"] { z-index: 1; opacity: 0.9; }
+    .float-card[data-depth="0.65"] { z-index: 3; }
+    .float-card[data-depth="0.95"] { z-index: 4; border-color: var(--border-glow); }
+
+    .card-pos-tl { top: 4%; left: 2%; }
+    .card-pos-tr { top: 8%; right: 2%; }
+    .card-pos-bl { bottom: 6%; left: 4%; }
+    .card-pos-br { bottom: 4%; right: 4%; }
+
+    .card-tag {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.45rem;
+      display: block;
+    }
+
+    .card-quote {
+      margin: 0 0 0.65rem;
+      font-size: 0.94rem;
+      line-height: 1.45;
+      color: var(--text);
+    }
+
+    .card-metric {
+      margin: 0 0 0.2rem;
+      font-size: 1.75rem;
+      font-weight: 500;
+      letter-spacing: -0.03em;
+    }
+
+    .card-source {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 860px) {
+      .depth-stage {
+        flex-direction: column;
+        gap: 1.25rem;
+        min-height: auto;
+      }
+      .float-card {
+        position: relative;
+        top: auto;
+        right: auto;
+        bottom: auto;
+        left: auto;
+        width: 100%;
+        max-width: 420px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="showcase" id="showcase">
+    <header class="hero-header">
+      <p class="eyebrow">SOLIS OPTIC-1 // APOCHROMATIC</p>
+      <h1>Glass engineered for zero compromise.</h1>
+      <p class="subtitle">Eleven hand-ground fluorite elements housed in anodized brass. Acclaimed by cinematographers and optical labs worldwide.</p>
+    </header>
+
+    <div class="depth-stage" id="depthStage">
+      <div class="product-core" id="productCore">
+        <svg class="lens-svg" viewBox="0 0 360 360" fill="none" aria-label="SOLIS 35mm Optical Lens">
+          <defs>
+            <radialGradient id="barrelGrad" cx="35%" cy="30%" r="70%">
+              <stop offset="0%" stop-color="#383c47" />
+              <stop offset="55%" stop-color="#171920" />
+              <stop offset="100%" stop-color="#090a0d" />
+            </radialGradient>
+            <radialGradient id="glassGrad" cx="38%" cy="34%" r="65%">
+              <stop offset="0%" stop-color="#93c5fd" stop-opacity="0.55" />
+              <stop offset="35%" stop-color="#1e3a8a" stop-opacity="0.45" />
+              <stop offset="72%" stop-color="#090d1a" />
+              <stop offset="100%" stop-color="#020305" />
+            </radialGradient>
+            <linearGradient id="rimHighlight" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="rgba(255,255,255,0.4)" />
+              <stop offset="50%" stop-color="rgba(255,255,255,0.04)" />
+              <stop offset="100%" stop-color="rgba(147,197,253,0.35)" />
+            </linearGradient>
+          </defs>
+
+          <!-- Outer knurled housing -->
+          <circle cx="180" cy="180" r="164" fill="url(#barrelGrad)" stroke="url(#rimHighlight)" stroke-width="2" />
+          <circle cx="180" cy="180" r="146" fill="#0d0e12" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+          <circle cx="180" cy="180" r="128" fill="#13151c" stroke="rgba(147,197,253,0.22)" stroke-width="1.2" />
+
+          <!-- Inner aperture blades ring -->
+          <circle cx="180" cy="180" r="102" fill="url(#glassGrad)" stroke="rgba(255,255,255,0.14)" stroke-width="1" />
+          <circle cx="180" cy="180" r="70" stroke="rgba(147,197,253,0.28)" stroke-width="0.9" stroke-dasharray="4 6" />
+          <circle cx="180" cy="180" r="42" fill="#03050a" stroke="rgba(255,255,255,0.18)" stroke-width="1" />
+
+          <!-- Specular optical reflections -->
+          <ellipse cx="144" cy="136" rx="28" ry="13" transform="rotate(-32 144 136)" fill="rgba(255,255,255,0.2)" />
+          <circle cx="216" cy="218" r="7" fill="rgba(147,197,253,0.35)" />
+
+          <!-- Engraved ring markings -->
+          <text x="180" y="29" text-anchor="middle" fill="rgba(255,255,255,0.45)" font-family="monospace" font-size="9" letter-spacing="3">SOLIS 35MM F/1.2 APO</text>
+          <text x="180" y="338" text-anchor="middle" fill="rgba(147,197,253,0.55)" font-family="monospace" font-size="8" letter-spacing="2">NO. 0042 / GENEVA</text>
+        </svg>
+      </div>
+
+      <article class="float-card card-pos-tl" data-depth="0.65">
+        <span class="card-tag">Press Review</span>
+        <p class="card-quote">“The sharpest wide-open 35mm rendering we have measured in a decade.”</p>
+        <span class="card-source">— Optical Lab Quarterly</span>
+      </article>
+
+      <article class="float-card card-pos-tr" data-depth="0.95">
+        <span class="card-tag">Light Transmission</span>
+        <p class="card-metric">99.4%</p>
+        <span class="card-source">Multi-layer vapor-deposited AR coat</span>
+      </article>
+
+      <article class="float-card card-pos-bl" data-depth="0.35">
+        <span class="card-tag">Design Award</span>
+        <p class="card-quote">“Tactile damped focus throw that feels carved from solid stone.”</p>
+        <span class="card-source">— Wallpaper* Design Index</span>
+      </article>
+
+      <article class="float-card card-pos-br" data-depth="0.8">
+        <span class="card-tag">Aperture Geometry</span>
+        <p class="card-metric">11 Blades</p>
+        <span class="card-source">Circular bokeh from f/1.2 to f/8</span>
+      </article>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+  <script>
+    (() => {
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const cards = Array.from(document.querySelectorAll('.float-card'));
+      const productCore = document.getElementById('productCore');
+      const showcase = document.getElementById('showcase');
+
+      if (reducedMotion) return;
+
+      gsap.registerPlugin(ScrollTrigger);
+
+      // Staggered entrance
+      gsap.from([productCore, ...cards], {
+        y: 34,
+        opacity: 0,
+        duration: 0.9,
+        stagger: 0.09,
+        ease: 'power3.out',
+        scrollTrigger: {
+          trigger: '#depthStage',
+          start: 'top 82%',
+          once: true
+        }
+      });
+
+      // Gentle ambient drift per card
+      cards.forEach((card, idx) => {
+        gsap.to(card, {
+          yPercent: idx % 2 === 0 ? -5 : 5,
+          duration: 3.2 + idx * 0.45,
+          repeat: -1,
+          yoyo: true,
+          ease: 'sine.inOut'
+        });
+      });
+
+      // Cursor parallax using quickTo on desktop
+      const isFinePointer = window.matchMedia('(pointer: fine)').matches;
+      if (isFinePointer) {
+        const coreX = gsap.quickTo(productCore, 'x', { duration: 0.7, ease: 'power3.out' });
+        const coreY = gsap.quickTo(productCore, 'y', { duration: 0.7, ease: 'power3.out' });
+
+        const cardControllers = cards.map((card) => {
+          const depth = Number(card.dataset.depth || 0.5);
+          return {
+            depth,
+            x: gsap.quickTo(card, 'x', { duration: 0.65, ease: 'power3.out' }),
+            y: gsap.quickTo(card, 'y', { duration: 0.65, ease: 'power3.out' })
+          };
+        });
+
+        showcase.addEventListener('pointermove', (e) => {
+          const rect = showcase.getBoundingClientRect();
+          const nx = (e.clientX - rect.left) / rect.width - 0.5;
+          const ny = (e.clientY - rect.top) / rect.height - 0.5;
+
+          coreX(nx * -16);
+          coreY(ny * -16);
+
+          cardControllers.forEach((ctrl) => {
+            ctrl.x(nx * 44 * ctrl.depth);
+            ctrl.y(ny * 34 * ctrl.depth);
+          });
+        });
+
+        showcase.addEventListener('pointerleave', () => {
+          coreX(0);
+          coreY(0);
+          cardControllers.forEach((ctrl) => {
+            ctrl.x(0);
+            ctrl.y(0);
+          });
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

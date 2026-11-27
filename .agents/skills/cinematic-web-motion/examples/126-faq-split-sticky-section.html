@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>126 · FAQ Split Sticky Section</title>
+<!--
+PATTERN: Split FAQ for a heat pump installer: a sticky intro on the left (title, phone number,
+  live "question N of 8" counter and a progress rule) and a long column of questions and answers on
+  the right where the question nearest the reading line is highlighted and the others recede.
+Motion: One ScrollTrigger per item toggles .is-active when the item crosses 50% of the viewport:
+  opacity 1, a coloured marker grows from the left edge, the question shifts 14px right. The left
+  counter swaps with a vertical text roll; the rule scrubs scaleY with total progress.
+Accessibility: Plain headings + paragraphs in order (not hidden in accordions), so Ctrl+F and screen
+  readers get everything. Active state is visual only (aria untouched). prefers-reduced-motion or no
+  CDN: all items at full opacity, no counter animation. :focus-visible on links. Mobile (390px):
+  the intro stops being sticky and sits above the list.
+Adapting: Add <article class="qa"> blocks; change the 50% reading line via start/end.
+Libraries: GSAP + ScrollTrigger (CDN, optional).
+-->
+<style>
+:root{--cream:#f5efe4;--ink:#1f2326;--teal:#1f5a57;--coral:#d9573a;--sand:#e6d9c0;--mute:#4d5558;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--cream);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a:focus-visible{outline:3px solid var(--coral);outline-offset:3px}
+.page{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(2rem,6vw,7rem);padding:0 clamp(1.2rem,6vw,6rem)}
+.left{position:sticky;top:0;height:100vh;height:100svh;display:flex;flex-direction:column;justify-content:space-between;padding:clamp(2rem,7vh,5rem) 0}
+.left small{letter-spacing:.2em;text-transform:uppercase;font-size:.75rem;color:var(--teal);font-weight:700}
+.left h1{font-family:var(--serif);font-weight:400;font-size:clamp(2.4rem,5.6vw,5.4rem);line-height:.96;letter-spacing:-.03em;margin:1.2rem 0 1.4rem}
+.left p{max-width:32ch;line-height:1.55}
+.left .call{display:inline-block;margin-top:1.4rem;font-family:var(--serif);font-size:1.6rem;color:var(--teal);text-underline-offset:.3em}
+.counter{display:flex;align-items:flex-end;gap:1.4rem}
+.rule{width:3px;height:9rem;background:var(--sand);position:relative}
+.rule i{position:absolute;inset:0;background:var(--coral);transform-origin:50% 0;transform:scaleY(.125)}
+.digits{font-family:var(--serif);font-size:clamp(4rem,9vw,8rem);line-height:.8;letter-spacing:-.05em;overflow:hidden;height:.82em}
+.digits b{display:block;font-weight:400}
+.of{font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);padding-bottom:.4rem}
+.right{padding:22vh 0 30vh}
+.qa{position:relative;padding:0 0 0 1.6rem;margin-bottom:clamp(7rem,28vh,16rem);transition:opacity .5s}
+.qa::before{content:"";position:absolute;left:0;top:.4rem;bottom:.4rem;width:4px;background:var(--coral);transform:scaleY(0);transform-origin:50% 0;transition:transform .6s cubic-bezier(.2,.8,.2,1)}
+.qa h2{font-family:var(--serif);font-weight:400;font-size:clamp(1.8rem,3.4vw,3.2rem);line-height:1.05;letter-spacing:-.02em;margin-bottom:1.3rem;transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+.qa p{line-height:1.65;max-width:54ch;margin-bottom:.9rem;font-size:1.04rem}
+.qa .tag{font-size:.74rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);font-weight:700;display:block;margin-bottom:.8rem}
+.on .qa{opacity:.3}
+.on .qa.is-active{opacity:1}
+.on .qa.is-active::before{transform:scaleY(1)}
+.on .qa.is-active h2{transform:translateX(14px)}
+@media(max-width:820px){
+  .page{grid-template-columns:1fr;gap:0}
+  .left{position:static;height:auto;padding:3rem 0 0}
+  .counter{display:none}
+  .right{padding:10vh 0 14vh}.qa{margin-bottom:12vh}
+  .on .qa{opacity:.4}
+}
+@media(prefers-reduced-motion:reduce){.qa,.qa h2,.qa::before{transition:none}}
+</style>
+</head>
+<body>
+<main class="page">
+  <aside class="left">
+    <div>
+      <small>Greenfield Heat Pumps, Cumbria</small>
+      <h1>Questions people ask before they rip out the boiler.</h1>
+      <p>Straight answers from the engineers who will be standing in your utility room. Not here? Ring and ask for Dee.</p>
+      <a class="call" href="tel:+441539000000">015390 00000</a>
+    </div>
+    <div class="counter" aria-hidden="true">
+      <div class="rule"><i id="rule"></i></div>
+      <div class="digits"><b id="digit">01</b></div>
+      <div class="of">of 08</div>
+    </div>
+  </aside>
+
+  <div class="right">
+    <article class="qa"><span class="tag">Cost</span><h2>How much will it actually cost me?</h2><p>A typical three-bed semi comes to £11,200 before the government grant and £4,200 after it. That includes the heat pump, a new 200 litre cylinder, any radiators we need to swap, and commissioning.</p><p>You get a fixed quote after a one-hour survey. It does not change on the day.</p></article>
+    <article class="qa"><span class="tag">Fit</span><h2>Will it work in a house built in 1930?</h2><p>Usually yes. Insulation helps but is rarely a precondition. We measure heat loss room by room and size the unit from that, not from the age of the house.</p><p>About one in ten surveys ends with "loft insulation first", and we say so even though it means no sale.</p></article>
+    <article class="qa"><span class="tag">Comfort</span><h2>Will my radiators still get hot?</h2><p>They will get warm, around 45 °C instead of 70 °C, and stay that way for longer. Most people notice steadier rooms rather than a hot burst followed by cold.</p></article>
+    <article class="qa"><span class="tag">Running costs</span><h2>Is it cheaper than gas to run?</h2><p>On our standard heat pump tariff, customers in the Lakes average £1,050 a year for heating and hot water, against £1,380 on gas for the same houses in 2024.</p><p>The saving shrinks if you stay on the default electricity tariff. We help you switch.</p></article>
+    <article class="qa"><span class="tag">Install</span><h2>How long are we without heating?</h2><p>Two to three days for most homes. We fit the outdoor unit first, then swap the boiler on day two. We leave you a fan heater and a flask if it is January.</p></article>
+    <article class="qa"><span class="tag">Noise</span><h2>Is the outdoor unit noisy?</h2><p>About 42 decibels at one metre, roughly a quiet fridge. We position it at least a metre from neighbours' windows and show you the planned spot with chalk before drilling.</p></article>
+    <article class="qa"><span class="tag">Grants</span><h2>Who fills in the grant forms?</h2><p>We do. You sign once. The grant is taken off your invoice, so you never front the money and wait for a refund.</p></article>
+    <article class="qa"><span class="tag">Aftercare</span><h2>What if something stops working?</h2><p>Every system has a seven-year warranty and a named engineer. Call before 3 pm and someone is with you the next working day, usually the same one who installed it.</p></article>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce || !window.gsap || !window.ScrollTrigger) return;
+  gsap.registerPlugin(ScrollTrigger);
+  document.documentElement.classList.add('on');
+  var items = gsap.utils.toArray('.qa'), digit = document.getElementById('digit'), cur = 0;
+  function setN(n){
+    if (n === cur) return; var up = n > cur; cur = n;
+    var txt = ('0' + (n + 1)).slice(-2);
+    if (reduce) { digit.textContent = txt; return; }
+    gsap.to(digit, {yPercent: up ? -100 : 100, duration: .2, ease: 'power2.in', overwrite: true, onComplete: function(){
+      digit.textContent = txt; gsap.fromTo(digit, {yPercent: up ? 100 : -100}, {yPercent: 0, duration: .35, ease: 'power3.out'}); }});
+  }
+  items.forEach(function(el, i){
+    ScrollTrigger.create({trigger: el, start: 'top 58%',
+      end: function(){ var n = el.nextElementSibling; return n ? 'top+=' + (n.offsetTop - el.offsetTop) + ' 58%' : 'bottom top'; },
+      onToggle: function(s){ el.classList.toggle('is-active', s.isActive); if (s.isActive) setN(i); }});
+  });
+  gsap.fromTo('#rule', {scaleY: .125}, {scaleY: 1, ease: 'none',
+    scrollTrigger: {trigger: '.right', start: 'top 60%', end: 'bottom 90%', scrub: .4}});
+  addEventListener('load', function(){ ScrollTrigger.refresh(); });
+})();
+</script>
+</body>
+</html>

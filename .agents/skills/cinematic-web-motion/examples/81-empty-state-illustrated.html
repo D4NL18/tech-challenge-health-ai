@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>81 · Illustrated Empty State</title>
+<!--
+PATTERN: A rich empty state: inline SVG illustration (an empty ledger with a pencil), a plain
+  explanation, a primary call-to-action and a secondary link. Replaces blank lists.
+Motion: Illustration loops gently: pencil bobs and sketches a dashed line, a stamp wobbles, a
+  dust mote drifts. Entrance staggers copy in with cubic-bezier(.2,.7,.2,1). CTA slides its arrow on hover.
+Accessibility: SVG is decorative (aria-hidden); the headline and text carry the meaning, so state
+  is never conveyed by art alone. Buttons are real <button>/<a> with :focus-visible rings; CTA adds
+  an entry to prove the flow. prefers-reduced-motion: loops and entrance disabled.
+Adapting: CSS custom properties (--acc, --paper) and the loop durations in CSS. Libraries: none.
+-->
+<style>
+:root{--paper:#efe8da;--ink:#1c1a17;--mute:#574f44;--acc:#a8401d;--line:#c9bfab;--e:cubic-bezier(.2,.7,.2,1)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--paper);color:var(--ink);font:17px/1.6 "Helvetica Neue",Arial,sans-serif;min-height:100vh;padding:10vh 6vw}
+.shell{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:6vw;align-items:center;max-width:1000px;margin-left:4vw}
+.eyebrow{font:700 .72rem ui-monospace,monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--mute);margin-bottom:1rem}
+h1{font:600 clamp(2.2rem,5vw,3.8rem)/1.02 Georgia,"Iowan Old Style",serif;letter-spacing:-.025em;margin-bottom:1.2rem}
+p{max-width:42ch;color:#2f2b26;margin-bottom:2rem}
+.act{display:flex;gap:1.4rem;align-items:center;flex-wrap:wrap}
+.cta{display:inline-flex;gap:.6rem;align-items:center;background:var(--ink);color:var(--paper);border:0;padding:.9rem 1.3rem;font:600 1rem "Helvetica Neue",sans-serif;cursor:pointer;transition:background .25s var(--e)}
+.cta span{display:inline-block;transition:transform .3s var(--e)}
+.cta:hover{background:var(--acc)}.cta:hover span{transform:translateX(5px)}
+.cta:focus-visible,.alt:focus-visible{outline:3px solid var(--acc);outline-offset:3px}
+.alt{color:var(--ink);font-weight:600;text-underline-offset:4px}
+.anim{opacity:0;transform:translateY(14px);animation:in .8s var(--e) forwards}
+.anim:nth-child(2){animation-delay:.08s}.anim:nth-child(3){animation-delay:.16s}.anim:nth-child(4){animation-delay:.24s}
+@keyframes in{to{opacity:1;transform:none}}
+svg{width:100%;height:auto;overflow:visible}
+.pencil{animation:bob 3.2s var(--e) infinite;transform-origin:230px 120px}
+.sketch{stroke-dasharray:6 7;animation:dash 2.4s linear infinite}
+.stamp{animation:wob 4s var(--e) infinite;transform-origin:213px 63px}
+.mote{animation:drift 6s ease-in-out infinite}
+@keyframes bob{50%{transform:translate(6px,-8px) rotate(3deg)}}
+@keyframes dash{to{stroke-dashoffset:-26}}
+@keyframes wob{50%{transform:rotate(-6deg)}}
+@keyframes drift{50%{transform:translate(14px,-12px)}}
+.added{margin-top:1.5rem;font-weight:600}
+@media(max-width:760px){.shell{grid-template-columns:1fr;margin:0}}
+@media (prefers-reduced-motion:reduce){.anim{animation:none;opacity:1;transform:none}.pencil,.sketch,.stamp,.mote{animation:none}.cta,.cta span{transition:none}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div>
+    <div class="eyebrow anim">Invoices / 2026</div>
+    <h1 class="anim">No invoices filed this quarter.</h1>
+    <p class="anim">When you log a supplier invoice, it lands here with its due date and VAT line. Add the first one, or import last quarter's CSV to catch up.</p>
+    <div class="act anim"><button class="cta" id="cta">Log an invoice <span aria-hidden="true">&rarr;</span></button><a class="alt" href="#import">Import a CSV</a></div>
+    <div class="added" id="added" role="status"></div>
+  </div>
+  <svg viewBox="0 0 320 260" aria-hidden="true" focusable="false">
+    <rect x="30" y="40" width="220" height="170" fill="#f8f3e8" stroke="#1c1a17" stroke-width="2.5"/>
+    <rect x="30" y="40" width="22" height="170" fill="#a8401d"/>
+    <g stroke="#cdc2ae" stroke-width="1.5"><path d="M72 80h160M72 105h160M72 130h160M72 155h160"/></g>
+    <path class="sketch" d="M72 180h110" stroke="#a8401d" stroke-width="2.5" fill="none"/>
+    <g class="stamp"><rect x="190" y="52" width="46" height="22" fill="none" stroke="#1c1a17" stroke-width="2" transform="rotate(-8 213 63)"/><text x="196" y="68" font-family="Georgia,serif" font-size="10" fill="#1c1a17" transform="rotate(-8 213 63)">EMPTY</text></g>
+    <g class="pencil"><path d="M230 120l50-50 14 14-50 50-18 4z" fill="#d9a441" stroke="#1c1a17" stroke-width="2"/><path d="M226 138l18-4-22 18z" fill="#1c1a17"/></g>
+    <circle class="mote" cx="270" cy="200" r="3" fill="#a8401d"/><circle class="mote" cx="40" cy="235" r="2.5" fill="#1c1a17" style="animation-delay:-3s"/>
+  </svg>
+</div>
+<script>
+(function(){
+  var CONFIG={MSG:"Draft invoice created. Add the supplier name to continue."};
+  var out=document.getElementById("added");
+  document.getElementById("cta").addEventListener("click",function(){
+    out.textContent="✓ "+CONFIG.MSG;
+  });
+  [].forEach.call(document.querySelectorAll('a[href="#import"]'),function(a){
+    a.addEventListener("click",function(e){e.preventDefault();out.textContent="✓ CSV import opens here."});
+  });
+})();
+</script>
+</body>
+</html>

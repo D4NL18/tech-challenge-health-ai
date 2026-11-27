@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>66 · Split-Screen Scroll Compare</title>
+<!--
+PATTERN: Two-column layout where columns scroll in opposite directions (left up, right down).
+Motion: Both columns are tall stacks inside a fixed-height stage. The page scroll progress p
+  drives left translateY from 0 to -(overflow) and right from -(overflow) to 0, so the content
+  "passes" itself in the middle. Smoothed with Lenis; applied via a lerped transform.
+Accessibility: Content is plain DOM in reading order (Before column, then After column).
+  prefers-reduced-motion (or no Lenis): columns stack normally and scroll natively, no transforms.
+  On narrow screens the layout collapses to one column.
+Adapting: Change the .panel items; tune LERP for smoothness. Libraries: Lenis (CDN, optional).
+-->
+<style>
+:root{--bg:#111;--l:#e8e2d4;--r:#14161c}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);font-family:"Helvetica Neue",Arial,sans-serif}
+.runway{height:400vh}
+.stage{position:sticky;top:0;height:100vh;display:grid;grid-template-columns:1fr 1fr;overflow:hidden}
+.col{overflow:hidden;position:relative}
+.col.l{background:var(--l);color:#111}
+.col.r{background:var(--r);color:#f1efe8}
+.inner{will-change:transform}
+.panel{height:70vh;padding:8vh 6vw;display:flex;flex-direction:column;justify-content:center;gap:1rem;border-bottom:1px solid #8884}
+.panel span{font:500 .75rem ui-monospace,monospace;letter-spacing:.2em;text-transform:uppercase;opacity:.6}
+.panel h2{font-size:clamp(2rem,5vw,4.5rem);letter-spacing:-.04em;line-height:1}
+.panel p{max-width:34ch;line-height:1.5;opacity:.75}
+.divider{position:fixed;top:0;bottom:0;left:50%;width:2px;background:#ff5a36;z-index:3}
+/* Fallback & mobile: simple stack */
+.plain .runway{height:auto}
+.plain .stage{position:static;height:auto;grid-template-columns:1fr}
+.plain .divider{display:none}
+@media(max-width:700px){.stage{grid-template-columns:1fr}.divider{display:none}.runway{height:auto}.stage{position:static;height:auto}}
+</style>
+</head>
+<body>
+<div class="runway" id="runway">
+  <div class="stage">
+    <div class="col l"><div class="inner" id="left">
+      <div class="panel"><span>Before</span><h2>Cluttered<br>workflows</h2><p>Seven tools, five spreadsheets, no single source of truth.</p></div>
+      <div class="panel"><span>Before</span><h2>Slow<br>handoffs</h2><p>Every approval waited days in someone's inbox.</p></div>
+      <div class="panel"><span>Before</span><h2>Blind<br>decisions</h2><p>Reports arrived a month after the facts changed.</p></div>
+      <div class="panel"><span>Before</span><h2>Burnout</h2><p>Teams spent half their week on copy-paste work.</p></div>
+    </div></div>
+    <div class="col r"><div class="inner" id="right">
+      <div class="panel"><span>After</span><h2>One<br>workspace</h2><p>Everything lives in a single, searchable place.</p></div>
+      <div class="panel"><span>After</span><h2>Instant<br>approvals</h2><p>Requests resolve in minutes, with a clear audit trail.</p></div>
+      <div class="panel"><span>After</span><h2>Live<br>insight</h2><p>Dashboards update as the work happens.</p></div>
+      <div class="panel"><span>After</span><h2>Focus</h2><p>Automation handles the routine; people handle the rest.</p></div>
+    </div></div>
+  </div>
+  <div class="divider" aria-hidden="true"></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.9/dist/lenis.min.js"></script>
+<script>
+(function(){
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var narrow=matchMedia("(max-width:700px)");
+  if(reduce){document.body.classList.add("plain");return}
+  if(window.Lenis){
+    var lenis=new Lenis({lerp:.08});
+    (function raf(t){lenis.raf(t);requestAnimationFrame(raf)})(performance.now());
+  }
+  var runway=document.getElementById("runway"),L=document.getElementById("left"),R=document.getElementById("right");
+  var cur=0,LERP=.12;
+  function progress(){
+    var max=runway.offsetHeight-innerHeight,top=-runway.getBoundingClientRect().top;
+    return max>0?Math.min(1,Math.max(0,top/max)):0;
+  }
+  (function loop(){
+    if(narrow.matches){L.style.transform=R.style.transform="";requestAnimationFrame(loop);return}
+    cur+=(progress()-cur)*LERP;
+    var over=Math.max(0,L.offsetHeight-innerHeight);
+    L.style.transform="translate3d(0,"+(-cur*over)+"px,0)";
+    R.style.transform="translate3d(0,"+(-(1-cur)*over)+"px,0)";
+    requestAnimationFrame(loop);
+  })();
+})();
+</script>
+</body>
+</html>

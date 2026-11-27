@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>145 · Preloader To Hero Handoff</title>
+<!--
+PATTERN: A percentage counter fills the screen while assets "load"; at 100 the very same element swaps to the
+  brand word and flies (FLIP) into the hero headline slot, then the curtain lifts and the hero staggers in.
+Motion: counter 0..100 on an eased timeline; swap text; measure First (mark rect in the loader) and Last (hidden
+  placeholder h1 rect); animate transform translate + scale with the Web Animations API (transform-origin 0 0);
+  on finish hide the mark and show the real h1 (no jump because the rects match). Curtain is a clip-path inset.
+Accessibility: scroll is locked only while loading and unlocked even if JS errors (timeout safety). The h1 exists
+  in the DOM from the start (visibility managed), counter has role="status" aria-live="polite" text "Loading".
+  prefers-reduced-motion: loader is skipped entirely; hero is shown immediately.
+Adapting: Edit WORD, DURATION, the hero layout; keep .mark font-size tied to the hero font-size (var --hf).
+  Libraries: none (WAAPI).
+-->
+<style>
+:root{--hf:clamp(4rem,17vw,15rem);--sea:#0f2a2e;--foam:#eee7d5;--coral:#e0623a;--sand:#d7c59d;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--sea)}
+body{font-family:var(--sans);color:var(--foam);background:var(--sea);line-height:1.55;overflow-x:hidden}
+html.loading,html.loading body{overflow:hidden;height:100%}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--coral);outline-offset:4px}
+.word{font:400 var(--hf)/.9 var(--serif);letter-spacing:-.045em;white-space:nowrap}
+/* loader */
+.loader{position:fixed;inset:0;z-index:50;background:var(--coral);color:var(--sea);clip-path:inset(0 0 0 0);will-change:clip-path}
+.loader small{position:absolute;left:clamp(18px,4vw,48px);top:24px;font:600 .72rem var(--sans);letter-spacing:.2em;text-transform:uppercase}
+.loader .bar{position:absolute;left:clamp(18px,4vw,48px);right:clamp(18px,4vw,48px);bottom:28px;height:2px;background:rgba(15,42,46,.25)}
+.loader .bar i{display:block;height:100%;background:var(--sea);transform-origin:left;transform:scaleX(0)}
+.mark{position:fixed;z-index:60;left:0;top:0;margin:0;transform-origin:0 0;color:var(--sea);font:400 calc(var(--hf) * 1.25)/.9 var(--serif);letter-spacing:-.045em;white-space:nowrap;will-change:transform}
+.mark.final{color:var(--foam)}
+/* hero */
+.nav{position:absolute;z-index:5;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:22px clamp(18px,4vw,48px);font-size:.76rem;letter-spacing:.18em;text-transform:uppercase}
+.nav b{font:italic 400 1.2rem var(--serif);text-transform:none;letter-spacing:0}
+.hero{position:relative;min-height:100vh;min-height:100svh;display:flex;flex-direction:column;justify-content:flex-end;padding:0 clamp(18px,4vw,48px) 7vh;overflow:hidden;
+  background:radial-gradient(ellipse at 78% 28%,#1c4a4a 0,transparent 55%),var(--sea)}
+.sun{position:absolute;right:8%;top:14%;width:min(34vw,360px);aspect-ratio:1;border-radius:50%;background:var(--coral);opacity:0;transform:translateY(40px)}
+.waves{position:absolute;left:0;right:0;bottom:0;height:46%;opacity:.5}
+.hero h1{position:relative;visibility:hidden}
+.hero h1.on{visibility:visible}
+.hero .meta{position:relative;display:flex;justify-content:space-between;gap:24px;align-items:flex-end;margin-top:3vh;flex-wrap:wrap}
+.hero .meta p{max-width:34ch;font-size:1.02rem;color:#d8d1bd}
+.hero .meta a{font:600 .78rem var(--sans);letter-spacing:.16em;text-transform:uppercase;text-decoration:none;border-bottom:2px solid var(--coral);padding-bottom:6px}
+.stg{opacity:0;transform:translateY(22px);transition:opacity .9s ease,transform .9s cubic-bezier(.16,1,.3,1)}
+.ready .stg{opacity:1;transform:none}
+.ready .sun{opacity:1;transform:none;transition:opacity 1.2s ease .2s,transform 1.4s cubic-bezier(.16,1,.3,1) .2s}
+.ready .stg:nth-child(1){transition-delay:.1s}.ready .stg:nth-child(2){transition-delay:.25s}
+/* sections */
+.sec{padding:16vh clamp(18px,4vw,48px);display:grid;grid-template-columns:repeat(12,1fr);gap:0 16px;background:var(--foam);color:var(--sea)}
+.sec h2{grid-column:1/8;font:400 clamp(2.2rem,5.6vw,5rem)/.98 var(--serif);letter-spacing:-.03em}
+.sec p{grid-column:8/13;align-self:end;max-width:38ch}
+.sec.dark{background:var(--sea);color:var(--foam)}
+.list{grid-column:1/13;margin-top:8vh;border-top:1px solid currentColor}
+.list div{display:grid;grid-template-columns:90px 1fr auto;gap:16px;padding:18px 0;border-bottom:1px solid rgba(15,42,46,.25);align-items:baseline}
+.list b{font:italic 400 1.3rem var(--serif)}.list span{font-size:.9rem;color:#3d5558}
+@media (max-width:720px){
+  :root{--hf:clamp(3.6rem,18.5vw,9rem)}
+  .mark{font-size:calc(var(--hf) * 1.08)}
+  .sec h2,.sec p{grid-column:1/13}.sec p{margin-top:24px}.list div{grid-template-columns:64px 1fr}.list span{grid-column:2}
+  .sun{width:46vw;top:12%}
+}
+@media (prefers-reduced-motion:reduce){.stg,.sun{opacity:1;transform:none;transition:none}}
+</style>
+</head>
+<body>
+<div class="loader" id="loader" aria-hidden="false">
+  <small>Meridian Charters</small>
+  <div class="bar"><i id="bar"></i></div>
+</div>
+<div class="mark" id="mark" role="status" aria-live="polite" aria-label="Loading">0</div>
+
+<header class="hero" id="hero">
+  <div class="nav"><b>Meridian</b><span>Charters &amp; delivery</span></div>
+  <div class="sun" aria-hidden="true"></div>
+  <svg class="waves" viewBox="0 0 1440 400" preserveAspectRatio="none" aria-hidden="true">
+    <path d="M0 120 Q180 60 360 120 T720 120 T1080 120 T1440 120 V400 H0Z" fill="#17474a"/>
+    <path d="M0 210 Q200 150 400 210 T800 210 T1200 210 T1600 210 V400 H0Z" fill="#0f3639"/>
+    <path d="M0 300 Q240 250 480 300 T960 300 T1440 300 V400 H0Z" fill="#0b2a2d"/>
+  </svg>
+  <h1 class="word" id="h1">Meridian</h1>
+  <div class="meta">
+    <p class="stg">Skippered yacht charters from Lagos, Portugal. Twelve boats, nine skippers, and routes that avoid the crowded bays.</p>
+    <a class="stg" href="#routes">See the routes</a>
+  </div>
+</header>
+
+<section class="sec" id="routes">
+  <h2>Three routes we sail well.</h2>
+  <p>Each charter is planned around the wind forecast two days before departure, not the brochure.</p>
+  <div class="list">
+    <div><b>3 days</b><strong>Lagos to Sagres</strong><span>Cliffs, sea caves</span></div>
+    <div><b>5 days</b><strong>Lagos to Cádiz</strong><span>Border crossing by sea</span></div>
+    <div><b>7 days</b><strong>Algarve to Madeira</strong><span>Overnight passages</span></div>
+  </div>
+</section>
+<section class="sec dark">
+  <h2>Our skippers have 41,000 nautical miles between them.</h2>
+  <p>Hand-picked, all certified, all happy to teach you to trim a sail or leave you to read on the foredeck.</p>
+</section>
+
+<script>
+(function(){
+  var html=document.documentElement,reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var loader=document.getElementById("loader"),mark=document.getElementById("mark"),h1=document.getElementById("h1"),bar=document.getElementById("bar"),hero=document.getElementById("hero");
+  var WORD="Meridian",DURATION=2600;
+  function reveal(){h1.classList.add("on");hero.classList.add("ready");mark.remove();loader.remove();html.classList.remove("loading");}
+  if(reduce){reveal();return;}
+  html.classList.add("loading");
+  var safety=setTimeout(reveal,9000);
+  var cs=getComputedStyle(mark);
+  function centre(){
+    var r=mark.getBoundingClientRect();
+    mark.style.transform="translate("+(innerWidth/2-r.width/2)+"px,"+(innerHeight/2-r.height/2)+"px)";
+  }
+  mark.textContent="000";centre();
+  var t0=performance.now(),ease=function(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2};
+  function step(now){
+    var k=Math.min((now-t0)/DURATION,1),v=Math.round(ease(k)*100);
+    mark.textContent=String(v).padStart(3,"0");centre();bar.style.transform="scaleX("+(v/100)+")";
+    if(k<1)requestAnimationFrame(step);else setTimeout(handoff,260);
+  }
+  requestAnimationFrame(step);
+  function handoff(){
+    mark.setAttribute("aria-label","Meridian");
+    mark.textContent=WORD;mark.classList.add("final");
+    // First: centred rect at loader scale. Last: placeholder h1 rect (needs scroll unlocked & measured at top)
+    var first=mark.getBoundingClientRect();
+    mark.style.transform="translate("+(innerWidth/2-first.width/2)+"px,"+(innerHeight/2-first.height/2)+"px)";
+    first=mark.getBoundingClientRect();
+    var last=h1.getBoundingClientRect();
+    var sx=last.width/first.width;
+    var fromT="translate("+first.left+"px,"+first.top+"px) scale(1)";
+    var toT="translate("+last.left+"px,"+last.top+"px) scale("+sx+")";
+    mark.style.transform=fromT;
+    // curtain lifts while the mark flies
+    loader.animate([{clipPath:"inset(0 0 0 0)"},{clipPath:"inset(0 0 100% 0)"}],{duration:1100,easing:"cubic-bezier(.76,0,.24,1)",delay:150,fill:"forwards"});
+    var a=mark.animate([{transform:fromT,color:cs.color},{transform:toT,color:"#eee7d5"}],{duration:1250,easing:"cubic-bezier(.76,0,.24,1)",fill:"forwards"});
+    a.onfinish=function(){clearTimeout(safety);reveal();};
+  }
+})();
+</script>
+</body>
+</html>

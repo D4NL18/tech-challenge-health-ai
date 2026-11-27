@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>30 · Combobox Multiselect with Tags</title>
+<!--
+  PATTERN: Multi-select combobox (ARIA 1.2 editable combobox + listbox) with removable tag chips, type-to-filter
+           and highlighted matches.
+  Motion: listbox fades/scales 0.97 -> 1 in 120ms; chips pop in (scale .85 -> 1, 140ms) and shrink out (120ms)
+          before removal; option highlight is instant. No spring, no long easing.
+  Accessibility: input has role="combobox", aria-expanded, aria-controls, aria-activedescendant; options are
+          role="option" with aria-selected. Keys: ArrowUp/Down navigate, Enter toggles, Backspace on empty input
+          removes the last tag, Esc closes, Home/End jump. Chips are buttons with aria-label "Remove X".
+          A polite live region announces additions/removals. prefers-reduced-motion disables animation.
+  Adapting: replace OPTIONS with your data (async fetch works the same way: call render() with results),
+          add a "create new" row by pushing a synthetic option when no match exists.
+-->
+<style>
+  :root {
+    --bg:#fafafa; --surface:#fff; --fg:#18181b; --mut:#71717a; --bd:rgba(0,0,0,.08); --bd2:rgba(0,0,0,.2);
+    --acc:#4f46e5; --chip:#f4f4f5; --hover:#f4f4f5; --shadow:0 10px 30px rgba(0,0,0,.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#09090b; --surface:#18181b; --fg:#fafafa; --mut:#a1a1aa; --bd:rgba(255,255,255,.10); --bd2:rgba(255,255,255,.24);
+      --acc:#818cf8; --chip:#27272a; --hover:#27272a; --shadow:0 10px 30px rgba(0,0,0,.5); }
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { min-height:100vh; display:grid; place-items:start center; padding:12vh 1rem; background:var(--bg); color:var(--fg);
+    font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .field { width:min(440px,100%); position:relative; }
+  label { display:block; font-size:12px; color:var(--mut); margin-bottom:6px; }
+  .box { display:flex; flex-wrap:wrap; gap:6px; padding:6px 8px; background:var(--surface); border:1px solid var(--bd2);
+    border-radius:8px; cursor:text; min-height:42px; align-items:center; }
+  .box:focus-within { outline:2px solid var(--acc); outline-offset:1px; }
+  .chip { display:inline-flex; align-items:center; gap:4px; padding:3px 4px 3px 10px; border-radius:999px; background:var(--chip);
+    border:1px solid var(--bd); font-size:13px; animation:pop 140ms ease-out; transition:opacity 120ms, transform 120ms; }
+  .chip.out { opacity:0; transform:scale(.85); }
+  .chip button { width:18px; height:18px; border:0; border-radius:50%; background:none; color:var(--mut); cursor:pointer; line-height:1; }
+  .chip button:hover { background:var(--bd2); color:var(--fg); }
+  .chip button:focus-visible { outline:2px solid var(--acc); }
+  @keyframes pop { from { opacity:0; transform:scale(.85); } to { opacity:1; transform:none; } }
+  input { flex:1; min-width:90px; border:0; outline:0; background:none; color:var(--fg); font:inherit; padding:4px 2px; }
+  .list { position:absolute; left:0; right:0; top:calc(100% + 6px); max-height:240px; overflow:auto; list-style:none; padding:4px;
+    background:var(--surface); border:1px solid var(--bd); border-radius:10px; box-shadow:var(--shadow); z-index:5;
+    transform-origin:top; opacity:0; transform:scale(.97); visibility:hidden; pointer-events:none;
+    transition:opacity 120ms ease, transform 120ms ease, visibility 0s linear 120ms; }
+  .list.open { opacity:1; transform:none; visibility:visible; pointer-events:auto; transition-delay:0s; }
+  [role=option] { display:flex; justify-content:space-between; align-items:center; padding:7px 10px; border-radius:6px; cursor:pointer; }
+  [role=option].active { background:var(--hover); }
+  [role=option][aria-selected=true]::after { content:"✓"; color:var(--acc); }
+  [role=option] mark { background:none; color:var(--acc); font-weight:600; }
+  .empty { padding:12px; color:var(--mut); text-align:center; }
+  .hint { margin-top:8px; font-size:12px; color:var(--mut); }
+  kbd { font:11px ui-monospace,monospace; padding:1px 5px; border:1px solid var(--bd2); border-radius:4px; }
+  .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+  @media (prefers-reduced-motion: reduce) { .chip { animation:none; transition:none; } .list { transition:none; transform:none; } }
+</style>
+</head>
+<body>
+<div class="field">
+  <label id="lbl" for="inp">Assign teammates</label>
+  <div class="box" id="box">
+    <span id="chips" style="display:contents"></span>
+    <input id="inp" role="combobox" aria-labelledby="lbl" aria-expanded="false" aria-controls="list"
+           aria-autocomplete="list" aria-activedescendant="" autocomplete="off" placeholder="Search people…">
+  </div>
+  <ul class="list" id="list" role="listbox" aria-multiselectable="true" aria-labelledby="lbl"></ul>
+  <p class="hint"><kbd>↑</kbd> <kbd>↓</kbd> navigate · <kbd>Enter</kbd> select · <kbd>⌫</kbd> remove last · <kbd>Esc</kbd> close</p>
+  <div class="sr" role="status" aria-live="polite" id="live"></div>
+</div>
+<script>
+(function () {
+  var OPTIONS = ['Ada Lovelace','Alan Turing','Grace Hopper','Linus Torvalds','Margaret Hamilton','Dennis Ritchie',
+    'Barbara Liskov','Ken Thompson','Katherine Johnson','Tim Berners-Lee','Radia Perlman','Donald Knuth'];
+  var selected = ['Grace Hopper'];
+  var active = 0, shown = [];
+  var inp = document.getElementById('inp'), list = document.getElementById('list');
+  var chips = document.getElementById('chips'), live = document.getElementById('live');
+
+  function esc(s) { return s.replace(/[&<>"]/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]; }); }
+  function hl(name, q) {
+    if (!q) return esc(name);
+    var i = name.toLowerCase().indexOf(q.toLowerCase());
+    if (i < 0) return esc(name);
+    return esc(name.slice(0, i)) + '<mark>' + esc(name.slice(i, i + q.length)) + '</mark>' + esc(name.slice(i + q.length));
+  }
+  function renderChips() {
+    chips.innerHTML = selected.map(function (n) {
+      return '<span class="chip" data-n="' + esc(n) + '">' + esc(n) +
+        '<button type="button" aria-label="Remove ' + esc(n) + '">×</button></span>';
+    }).join('');
+  }
+  function renderList() {
+    var q = inp.value.trim();
+    shown = OPTIONS.filter(function (o) { return o.toLowerCase().indexOf(q.toLowerCase()) > -1; });
+    if (active >= shown.length) active = Math.max(0, shown.length - 1);
+    list.innerHTML = shown.length ? shown.map(function (o, i) {
+      return '<li role="option" id="opt' + i + '" data-n="' + esc(o) + '" aria-selected="' + (selected.indexOf(o) > -1) +
+        '" class="' + (i === active ? 'active' : '') + '"><span>' + hl(o, q) + '</span></li>';
+    }).join('') : '<li class="empty" role="presentation">No matches for “' + esc(q) + '”</li>';
+    inp.setAttribute('aria-activedescendant', shown.length ? 'opt' + active : '');
+    var a = document.getElementById('opt' + active);
+    if (a) a.scrollIntoView({ block:'nearest' });
+  }
+  function setOpen(v) {
+    list.classList.toggle('open', v); inp.setAttribute('aria-expanded', String(v));
+    if (v) renderList();
+  }
+  function toggle(name) {
+    var i = selected.indexOf(name);
+    if (i > -1) { selected.splice(i, 1); live.textContent = name + ' removed'; }
+    else { selected.push(name); live.textContent = name + ' added'; }
+    renderChips(); renderList();
+  }
+  function removeAnimated(name) {
+    var el = chips.querySelector('[data-n="' + CSS.escape(name) + '"]');
+    var done = function () { toggle(name); inp.focus(); };
+    if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return done();
+    el.classList.add('out'); setTimeout(done, 120);
+  }
+
+  document.getElementById('box').addEventListener('mousedown', function (e) {
+    if (e.target.closest('.chip button')) return;
+    e.preventDefault(); inp.focus(); setOpen(true);
+  });
+  chips.addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (b) removeAnimated(b.parentNode.dataset.n);
+  });
+  inp.addEventListener('input', function () { active = 0; setOpen(true); });
+  inp.addEventListener('focus', function () { setOpen(true); });
+  list.addEventListener('mousedown', function (e) {
+    e.preventDefault(); var li = e.target.closest('[role=option]'); if (li) toggle(li.dataset.n);
+  });
+  list.addEventListener('mousemove', function (e) {
+    var li = e.target.closest('[role=option]'); if (!li) return;
+    var i = shown.indexOf(li.dataset.n); if (i !== active) { active = i; renderList(); }
+  });
+  inp.addEventListener('keydown', function (e) {
+    var open = list.classList.contains('open');
+    if (e.key === 'ArrowDown') { e.preventDefault(); if (!open) setOpen(true); else { active = (active + 1) % shown.length; renderList(); } }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); active = (active - 1 + shown.length) % shown.length; renderList(); }
+    else if (e.key === 'Home' && open) { e.preventDefault(); active = 0; renderList(); }
+    else if (e.key === 'End' && open) { e.preventDefault(); active = shown.length - 1; renderList(); }
+    else if (e.key === 'Enter' && open && shown[active]) { e.preventDefault(); toggle(shown[active]); inp.value = ''; renderList(); }
+    else if (e.key === 'Escape') { if (open) { e.preventDefault(); setOpen(false); } }
+    else if (e.key === 'Backspace' && !inp.value && selected.length) { removeAnimated(selected[selected.length - 1]); }
+  });
+  document.addEventListener('mousedown', function (e) { if (!e.target.closest('.field')) setOpen(false); });
+  renderChips(); renderList();
+})();
+</script>
+</body>
+</html>

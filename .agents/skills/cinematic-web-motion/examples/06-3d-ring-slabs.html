@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3D Ring of Slabs</title>
+<!--
+  EFFECT: A ring of tilted metallic slabs (BoxGeometry) orbits behind huge headline text. A fixed three.js
+  canvas sits behind the copy; on scroll (Lenis + GSAP ScrollTrigger scrub) the ring rotates around Y,
+  descends through the frame and tightens/loosens, while it also idly spins. Mouse parallax tilts the camera.
+  ADAPT: SLABS (count), RADIUS, TILT (slab lean), SLAB_SIZE, colours in the material; the scroll end values in
+  the timeline (y, rotation, radius). Edit the <h1>/<section> copy freely.
+  Reduced motion: Lenis + idle spin + mouse parallax disabled; scroll scrub is instant, ring still repositions.
+-->
+<style>
+  html,body{margin:0;background:#08080a;color:#f4f4f5;font-family:Inter,system-ui,sans-serif}
+  html.lenis,html.lenis body{height:auto}
+  .lenis.lenis-smooth{scroll-behavior:auto!important}
+  canvas{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+  section{position:relative;z-index:1;min-height:100vh;display:grid;place-items:center;text-align:center;padding:0 6vw;box-sizing:border-box}
+  h1,h2{margin:0;font-weight:900;letter-spacing:-.04em;line-height:.88;text-transform:uppercase;mix-blend-mode:difference;color:#fff}
+  h1{font-size:clamp(4rem,19vw,20rem)}
+  h2{font-size:clamp(3rem,13vw,13rem)}
+  p{max-width:30rem;color:#a1a1aa;line-height:1.6;margin:1.5rem auto 0;mix-blend-mode:normal}
+  .tag{position:fixed;z-index:2;top:4vh;left:4vw;letter-spacing:.3em;font-size:.72rem;text-transform:uppercase;color:#a1a1aa}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+"three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.9/dist/lenis.min.js"></script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="tag">Zero / Ring Study</div>
+<section><div><h1>Zero<br>Gravity</h1><p>Scroll — the ring turns and falls through the page.</p></div></section>
+<section><div><h2>Weight<br>Less</h2></div></section>
+<section><div><h2>Falling<br>Slowly</h2><p>Slabs tilt, orbit and descend, scrubbed to your scroll position.</p></div></section>
+<section><div><h2>Land</h2></div></section>
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const SLABS = 28, RADIUS = 4.2, TILT = .55, SLAB_SIZE = [1.5, 2.3, .12];
+gsap.registerPlugin(ScrollTrigger);
+
+if(!reduce){
+  const lenis = new Lenis({lerp:.08});
+  lenis.on('scroll', ScrollTrigger.update);
+  gsap.ticker.add(t=>lenis.raf(t*1000));
+  gsap.ticker.lagSmoothing(0);
+}
+
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+const scene = new THREE.Scene();
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(),.04).texture;
+const camera = new THREE.PerspectiveCamera(40,1,.1,100);
+const dl = new THREE.DirectionalLight(0xffffff,1.6); dl.position.set(4,6,5); scene.add(dl);
+
+const ring = new THREE.Group(); scene.add(ring);
+const geo = new THREE.BoxGeometry(...SLAB_SIZE);
+const slabs = [];
+for(let i=0;i<SLABS;i++){
+  const mat = new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(.62+i/SLABS*.12,.15,.5),metalness:.95,roughness:.22});
+  const m = new THREE.Mesh(geo,mat), a = i/SLABS*Math.PI*2;
+  const pivot = new THREE.Group();
+  pivot.rotation.y = a; m.position.z = RADIUS; m.rotation.x = TILT;   // lean outward
+  pivot.add(m); ring.add(pivot); slabs.push({pivot,m,a});
+}
+
+const S = {rotY:0, y:3.2, radius:1, rotX:.25, idle:0};
+function layout(){
+  slabs.forEach(s=>{ s.m.position.z = RADIUS*S.radius; });
+  ring.position.y = S.y; ring.rotation.x = S.rotX; ring.rotation.y = S.rotY + S.idle;
+}
+
+let mx=0,my=0,cx=0,cy=0;
+addEventListener('pointermove',e=>{mx=e.clientX/innerWidth-.5;my=e.clientY/innerHeight-.5;});
+
+function resize(){
+  const w=innerWidth,h=innerHeight;
+  renderer.setSize(w,h,false); camera.aspect=w/h;
+  camera.position.set(0,1.2,w/h<.9?17:12); camera.lookAt(0,0,0);
+  camera.updateProjectionMatrix(); ScrollTrigger.refresh(); render();
+}
+addEventListener('resize',resize);
+
+gsap.timeline({scrollTrigger:{trigger:document.body,start:'top top',end:'bottom bottom',scrub:reduce?true:1.2}})
+  .to(S,{rotY:Math.PI*2.5,y:-3.2,radius:1.35,rotX:-.1,ease:'none'});
+
+function render(){
+  layout();
+  if(!reduce){
+    cx += (mx-cx)*.05; cy += (my-cy)*.05;
+    camera.position.x = cx*2; camera.position.y = 1.2 - cy*1.5; camera.lookAt(0,0,0);
+  }
+  renderer.render(scene,camera);
+}
+const clock = new THREE.Clock();
+gsap.ticker.add(()=>{ if(!reduce) S.idle = clock.getElapsedTime()*.12; render(); });
+resize();
+</script>
+</body>
+</html>

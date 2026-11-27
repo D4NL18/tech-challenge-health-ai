@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>107 · Stats Count Section Reveal</title>
+<!--
+PATTERN: Report-style stats sequence. Big numerals count up and rule-bars draw left to right when each row enters the viewport, followed by a year-by-year column chart that grows bar by bar.
+Motion: IntersectionObserver (threshold .35) starts a rAF count with easeOutExpo over 1.8 s and sets bar scaleX/scaleY from 0 to the real value with a CSS transition and per-bar delay; runs once per element.
+Accessibility: Final values are in the HTML (data-to is the same as the text), so with no JS or prefers-reduced-motion the numbers and full bars are shown at once; chart has a text table alternative (visually hidden) and role=img label; :focus-visible styled.
+Adapting: Change data-to / data-dec / data-bar (0..1) on each .stat, and the YEARS list in the chart markup.
+Libraries: none (vanilla JS + CSS transitions). Concept demo: "Rede Ribeira" is a fictional reforestation network.
+-->
+<style>
+:root{--bg:#f2ecdf;--ink:#1d2a22;--green:#2f5a3e;--leaf:#7d9a52;--clay:#c4552d;--mute:#52615a;--rule:#1d2a2226;
+--serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Segoe UI","Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;overflow-x:hidden}
+a:focus-visible{outline:3px solid var(--clay);outline-offset:4px}
+.top{display:flex;justify-content:space-between;padding:1.4rem 6vw;font-size:.78rem;letter-spacing:.2em;text-transform:uppercase}
+.top b{font:400 1.3rem var(--serif);text-transform:none;letter-spacing:.01em}
+.hero{padding:12vh 6vw 6vh;display:grid;grid-template-columns:8fr 4fr;gap:5vw;align-items:end;min-height:70vh}
+.hero h1{font:400 clamp(2.8rem,8.6vw,7.6rem)/.92 var(--serif);letter-spacing:-.035em}
+.hero h1 em{color:var(--clay)}
+.hero p{max-width:22rem;color:var(--mute)}
+.stat{min-height:78vh;padding:8vh 6vw;display:grid;grid-template-columns:repeat(12,1fr);gap:0 2rem;align-content:center;border-top:1px solid var(--rule)}
+.stat .n{grid-column:1/9;font:400 clamp(5rem,15vw,15rem)/.82 var(--serif);letter-spacing:-.06em;color:var(--green);font-variant-numeric:tabular-nums}
+.stat .n sup{font-size:.35em;letter-spacing:0;color:var(--clay);vertical-align:top;margin-left:.1em}
+.stat .t{grid-column:9/13;align-self:end;max-width:20rem}
+.stat h2{font:400 1.7rem/1.1 var(--serif);margin-bottom:.6rem}
+.stat p{color:var(--mute)}
+.bar{grid-column:1/13;margin-top:3rem;height:14px;background:var(--rule);position:relative}
+.bar i{position:absolute;inset:0;background:var(--clay);transform-origin:left;--v:var(--to,1);transform:scaleX(var(--v));transition:transform 1.8s cubic-bezier(.16,1,.3,1)}
+.stat:nth-of-type(even) .n{grid-column:5/13;text-align:right;grid-row:1}
+.stat:nth-of-type(even) .t{grid-column:1/5;grid-row:1}
+.stat:nth-of-type(even) .bar i{background:var(--leaf)}
+.chart{padding:12vh 6vw;border-top:1px solid var(--rule);background:var(--green);color:#f3efe2}
+.chart h2{font:400 clamp(2rem,4.8vw,4.2rem)/1 var(--serif);max-width:12em;margin-bottom:6vh}
+.cols{display:flex;align-items:flex-end;gap:clamp(.4rem,1.6vw,1.4rem);height:min(48vh,420px);border-bottom:2px solid #f3efe2}
+.col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;position:relative}
+.col i{display:block;background:#f2c88b;height:var(--h);transform-origin:bottom;transform:scaleY(var(--v,1));transition:transform 1.4s cubic-bezier(.16,1,.3,1)}
+.col:last-child i{background:#ffe9c4}
+.col b{position:absolute;left:0;right:0;bottom:calc(var(--h) + .4rem);font:600 .8rem var(--sans);text-align:center}
+.yrs{display:flex;gap:clamp(.4rem,1.6vw,1.4rem);margin-top:.6rem;font-size:.75rem;letter-spacing:.06em}
+.yrs span{flex:1;text-align:center}
+.js .stat:not(.on) .bar i{--v:0}
+.js .chart:not(.on) .col i{--v:0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.end{padding:12vh 6vw;display:grid;gap:1.2rem;min-height:50vh;align-content:center}
+.end h2{font:400 clamp(2rem,5vw,4.4rem)/1 var(--serif);max-width:14em}
+.end a{justify-self:start;border-bottom:2px solid var(--clay);text-decoration:none;padding-bottom:.2rem}
+.disc{font-size:.72rem;padding:1rem 6vw;background:var(--ink);color:#f2ecdf}
+@media (max-width:760px){
+ .hero{grid-template-columns:1fr;gap:1.5rem}
+ .stat{min-height:68vh;grid-template-columns:1fr}
+ .stat .n,.stat:nth-of-type(even) .n{grid-column:1;text-align:left;font-size:24vw}
+ .stat .t,.stat:nth-of-type(even) .t{grid-column:1;grid-row:auto;margin-top:1.5rem}
+ .bar{grid-column:1}
+ .col b{font-size:.6rem}.yrs{font-size:.6rem}
+}
+@media (prefers-reduced-motion:reduce){.bar i,.col i{transition:none}}
+</style>
+</head>
+<body>
+<div class="top"><b>Rede Ribeira</b><span>Relatório de plantio 2025</span></div>
+<header class="hero"><h1>Um ano de mudas, em <em>números</em> que dá para conferir.</h1><p>Plantamos nas margens do rio Paraibuna, entre Juiz de Fora e Chiador. Cada número abaixo vem do inventário de campo, feito árvore por árvore.</p></header>
+<section class="stat">
+ <div class="n" aria-label="1.284.000 árvores nativas plantadas"><span data-to="1284000" data-sep="1">1.284.000</span></div>
+ <div class="t"><h2>árvores nativas plantadas</h2><p>De 62 espécies da Mata Atlântica, incluindo ipê-amarelo, jatobá e pau-brasil. Meta do ano: 1,5 milhão.</p></div>
+ <div class="bar" aria-hidden="true"><i style="--to:.86"></i></div>
+</section>
+<section class="stat">
+ <div class="n" aria-label="87 por cento de sobrevivência"><span data-to="87">87</span><sup>%</sup></div>
+ <div class="t"><h2>de sobrevivência após 18 meses</h2><p>Medida em 412 parcelas fixas. Em 2022 era 71%; a diferença veio de irrigação por gotejamento no primeiro verão.</p></div>
+ <div class="bar" aria-hidden="true"><i style="--to:.87"></i></div>
+</section>
+<section class="stat">
+ <div class="n" aria-label="312 nascentes protegidas"><span data-to="312">312</span></div>
+ <div class="t"><h2>nascentes protegidas por cercas e mata ciliar</h2><p>Cada nascente ganha um raio mínimo de 50 metros. Sessenta e oito delas voltaram a correr o ano inteiro.</p></div>
+ <div class="bar" aria-hidden="true"><i style="--to:.62"></i></div>
+</section>
+<section class="chart" id="chart">
+ <h2>Plantio por ano, em milhares de mudas.</h2>
+ <div class="cols" role="img" aria-label="Gráfico de colunas: 2019, 210 mil; 2020, 340; 2021, 480; 2022, 690; 2023, 880; 2024, 1.060; 2025, 1.284">
+  <div class="col" style="--h:16%"><i style="--h:100%"></i><b>210</b></div>
+  <div class="col" style="--h:26%"><i style="--h:100%"></i><b>340</b></div>
+  <div class="col" style="--h:37%"><i style="--h:100%"></i><b>480</b></div>
+  <div class="col" style="--h:54%"><i style="--h:100%"></i><b>690</b></div>
+  <div class="col" style="--h:69%"><i style="--h:100%"></i><b>880</b></div>
+  <div class="col" style="--h:83%"><i style="--h:100%"></i><b>1.060</b></div>
+  <div class="col" style="--h:100%"><i style="--h:100%"></i><b>1.284</b></div>
+ </div>
+ <div class="yrs" aria-hidden="true"><span>2019</span><span>2020</span><span>2021</span><span>2022</span><span>2023</span><span>2024</span><span>2025</span></div>
+</section>
+<section class="end"><h2>Adote um metro de margem por R$ 38 ao ano.</h2><a href="#">Ver áreas disponíveis</a></section>
+<p class="disc">Demo conceitual: Rede Ribeira é uma organização fictícia e os números são ilustrativos.</p>
+<script>
+(function(){
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(reduce||!("IntersectionObserver" in window))return;
+  document.documentElement.classList.add("js");
+  /* chart: bars carry --h on both .col and .i; make <i> use its column's height */
+  [].forEach.call(document.querySelectorAll(".col"),function(c){c.querySelector("i").style.setProperty("--h",c.style.getPropertyValue("--h"));c.querySelector("b").style.setProperty("--h",c.style.getPropertyValue("--h"))});
+  [].forEach.call(document.querySelectorAll(".col"),function(c,i){c.querySelector("i").style.transitionDelay=(i*.12)+"s"});
+  function fmt(n,sep){var s=String(Math.round(n));return sep?s.replace(/\B(?=(\d{3})+(?!\d))/g,"."):s}
+  function count(el){
+    var to=+el.dataset.to,sep=el.dataset.sep,t0=performance.now(),D=1800;
+    el.textContent=fmt(0,sep);
+    (function f(t){var k=Math.min(1,(t-t0)/D),e=k===1?1:1-Math.pow(2,-10*k);el.textContent=fmt(to*e,sep);if(k<1)requestAnimationFrame(f)})(t0);
+  }
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){
+    if(!e.isIntersecting)return;
+    e.target.classList.add("on");io.unobserve(e.target);
+    var n=e.target.querySelector("[data-to]");if(n)count(n);
+  })},{threshold:.35});
+  [].forEach.call(document.querySelectorAll(".stat,.chart"),function(s){
+    var n=s.querySelector("[data-to]");if(n)n.textContent=fmt(0,n.dataset.sep);
+    io.observe(s);
+  });
+})();
+</script>
+</body>
+</html>

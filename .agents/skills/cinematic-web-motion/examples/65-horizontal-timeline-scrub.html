@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>65 · Horizontal Timeline Scrub</title>
+<!--
+PATTERN: Company history as a pinned horizontal timeline scrubbed by vertical scroll.
+Motion: ScrollTrigger pins the section and translates the track horizontally; a progress line
+  fills; each milestone becomes "active" (scale, colour, text lift) when it crosses the centre.
+Accessibility: Milestones are an ordered list in DOM order, so screen readers read them linearly.
+  prefers-reduced-motion (and no-JS/CDN failure): the list is a normal vertical stack, no pin.
+Adapting: Edit the <li> milestones. Change scrub value (1 = 1s smoothing) or the "center"
+  trigger point in updateActive(). Libraries: GSAP 3 + ScrollTrigger (CDN).
+-->
+<style>
+:root{--bg:#0f1012;--fg:#f2f0ea;--mut:#8b8d95;--acc:#3ddc97}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif}
+.intro,.outro{min-height:80vh;display:grid;place-items:center;text-align:center;padding:6vw}
+h1{font-size:clamp(2.5rem,8vw,7rem);letter-spacing:-.04em;line-height:.95}
+.pin{position:relative;overflow:hidden}
+.track{list-style:none;padding:0;display:flex;align-items:center}
+.m{flex:none;width:min(70vw,420px);padding:2rem;opacity:.35;transition:opacity .4s,transform .4s}
+.m .yr{font:700 clamp(3rem,7vw,5.5rem)/1 Georgia,serif;letter-spacing:-.03em;color:var(--mut);transition:color .4s}
+.m h2{font-size:1.4rem;margin:.6rem 0 .4rem}
+.m p{color:var(--mut);line-height:1.5}
+.m.active{opacity:1;transform:translateY(-10px)}
+.m.active .yr{color:var(--acc)}
+.rail{position:absolute;left:0;right:0;bottom:12vh;height:2px;background:#ffffff22}
+.fill{height:100%;width:100%;background:var(--acc);transform-origin:0 50%;transform:scaleX(0)}
+/* Fallback: vertical stack */
+.static .track{flex-direction:column;align-items:stretch}
+.static .m{width:auto;opacity:1}
+.static .rail{display:none}
+@media(max-width:600px){.m{width:80vw;padding:1rem}}
+</style>
+</head>
+<body>
+<div class="intro"><h1>Twelve years,<br>five milestones.</h1></div>
+<section class="pin" id="pin" aria-label="Company timeline">
+  <ol class="track" id="track">
+    <li class="m"><div class="yr">2013</div><h2>Founded</h2><p>Two people, one garage, a shared laptop and an idea.</p></li>
+    <li class="m"><div class="yr">2016</div><h2>First 1,000 customers</h2><p>Word of mouth did the heavy lifting.</p></li>
+    <li class="m"><div class="yr">2019</div><h2>Series A</h2><p>The team grew from eight to forty in a year.</p></li>
+    <li class="m"><div class="yr">2022</div><h2>Global launch</h2><p>Offices in three continents, support in nine languages.</p></li>
+    <li class="m"><div class="yr">2025</div><h2>Carbon neutral</h2><p>Every server and every shipment, accounted for.</p></li>
+  </ol>
+  <div class="rail" aria-hidden="true"><div class="fill" id="fill"></div></div>
+</section>
+<div class="outro"><h1>What's next?</h1></div>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  var pin=document.getElementById("pin"),track=document.getElementById("track"),fill=document.getElementById("fill");
+  var items=[].slice.call(track.children);
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(reduce||!window.gsap||!window.ScrollTrigger){pin.classList.add("static");return}
+  gsap.registerPlugin(ScrollTrigger);
+  pin.style.height="100vh";
+  var pad=function(){return innerWidth/2-items[0].offsetWidth/2};
+  track.style.paddingLeft=pad()+"px";track.style.paddingRight=pad()+"px";
+  var dist=function(){return track.scrollWidth-innerWidth};
+
+  function updateActive(){
+    var c=innerWidth/2,best=null,min=1e9;
+    items.forEach(function(el){
+      var r=el.getBoundingClientRect(),d=Math.abs(r.left+r.width/2-c);
+      if(d<min){min=d;best=el}
+    });
+    items.forEach(function(el){el.classList.toggle("active",el===best)});
+  }
+  gsap.to(track,{
+    x:function(){return -dist()},ease:"none",
+    scrollTrigger:{
+      trigger:pin,start:"top top",end:function(){return "+="+dist()},
+      pin:true,scrub:1,invalidateOnRefresh:true,
+      onUpdate:function(self){gsap.set(fill,{scaleX:self.progress});updateActive()},
+      onRefresh:function(){track.style.paddingLeft=pad()+"px";track.style.paddingRight=pad()+"px";updateActive()}
+    }
+  });
+  updateActive();
+})();
+</script>
+</body>
+</html>

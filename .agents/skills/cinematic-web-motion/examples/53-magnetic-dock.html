@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>53 · Magnetic Dock</title>
+<!--
+PATTERN: macOS-style dock magnification.
+Motion: Icon scale follows a cosine falloff of the pointer's distance, smoothed with requestAnimationFrame lerp.
+Accessibility: Icons are real buttons with labels and keyboard focus; reduced-motion disables magnification (focus still enlarges slightly via outline).
+Adapting: Tune CONFIG.max (peak scale), CONFIG.range (px of influence) and CONFIG.lerp (smoothness); swap the SVG icons.
+-->
+<style>
+:root{--bg:#101014;--fg:#f1ede4}
+*{box-sizing:border-box;margin:0}
+body{min-height:100vh;background:radial-gradient(circle at 50% 20%,#2a2a44,var(--bg) 70%);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif;display:flex;flex-direction:column;justify-content:space-between;align-items:center;padding:4rem 1rem 2rem}
+h1{font-weight:600;letter-spacing:-.03em;font-size:clamp(1.6rem,4vw,3rem);text-align:center}
+.dock{display:flex;align-items:flex-end;gap:10px;padding:10px 14px;border-radius:24px;background:#ffffff1c;border:1px solid #ffffff30;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);max-width:100%}
+.ic{width:56px;height:56px;border:0;border-radius:14px;cursor:pointer;display:grid;place-items:center;transform-origin:50% 100%;position:relative;color:#fff;background:hsl(var(--h) 70% 55%)}
+.ic svg{width:55%;height:55%;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.ic:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.ic::after{content:attr(aria-label);position:absolute;bottom:115%;left:50%;transform:translateX(-50%);font-size:12px;background:#000c;padding:3px 8px;border-radius:6px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s}
+.ic:hover::after,.ic:focus-visible::after{opacity:1}
+@media (max-width:520px){.ic{width:42px;height:42px}.dock{gap:6px}}
+</style>
+</head>
+<body>
+<h1>Hover the dock</h1>
+<nav class="dock" id="dock" aria-label="Dock"></nav>
+<script>
+(function(){
+  var CONFIG={max:1.9,range:150,lerp:.18};
+  var paths=["M4 12l8-8 8 8M6 10v10h12V10","M4 6h16M4 12h16M4 18h10","M12 3v18M3 12h18","M5 5h14v14H5zM9 9h6v6H9z","M12 3a9 9 0 100 18 9 9 0 000-18zM12 7v5l3 2","M4 18l5-6 4 4 7-9"];
+  var names=["Home","Notes","Add","Apps","Clock","Stats"];
+  var dock=document.getElementById("dock"),icons=[];
+  paths.forEach(function(d,i){
+    var b=document.createElement("button");b.className="ic";b.type="button";b.setAttribute("aria-label",names[i]);b.style.setProperty("--h",i*58);
+    b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+d+'"/></svg>';
+    dock.appendChild(b);icons.push({el:b,s:1,t:1});
+  });
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  var mx=null,raf=null;
+  dock.addEventListener("pointermove",function(e){mx=e.clientX;run()});
+  dock.addEventListener("pointerleave",function(){mx=null;run()});
+  function run(){if(!raf)raf=requestAnimationFrame(tick)}
+  function tick(){
+    var busy=false;
+    icons.forEach(function(o){
+      var r=o.el.getBoundingClientRect(),c=r.left+r.width/2;
+      // use unscaled center approx: offsetLeft based, stable while scaling
+      c=dock.getBoundingClientRect().left+o.el.offsetLeft+o.el.offsetWidth/2;
+      var d=mx===null?Infinity:Math.abs(mx-c);
+      o.t=d<CONFIG.range?1+(CONFIG.max-1)*(Math.cos(d/CONFIG.range*Math.PI)+1)/2:1;
+      o.s+=(o.t-o.s)*CONFIG.lerp;
+      if(Math.abs(o.t-o.s)>.001)busy=true;
+      o.el.style.transform="scale("+o.s.toFixed(3)+")";
+    });
+    raf=busy?requestAnimationFrame(tick):null;
+  }
+})();
+</script>
+</body>
+</html>

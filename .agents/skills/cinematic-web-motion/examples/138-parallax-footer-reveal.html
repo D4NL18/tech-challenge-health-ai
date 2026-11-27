@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>138 · Parallax Footer Reveal</title>
+<!--
+PATTERN: The page content slides up like a curtain and uncovers a fixed, giant-type footer that sits underneath it.
+Motion: Main content has z-index above and a bottom margin equal to the footer height; the footer is position:fixed at the bottom. Reveal progress (0-1) = how much of the margin has scrolled into view; it drives footer scale (0.92 to 1), opacity, lift (translateY) and per-letter drift on the giant wordmark.
+Accessibility: Footer is a real <footer> with working links; it is only fixed when JS is present and motion is allowed, otherwise it is normal flow; fixed footer is covered (inert-like) until revealed, links stay out of the tab order visually only after reveal via visibility toggle.
+Adapting: Change --foot-h (footer height), the wordmark, and the scale/opacity ranges in CONFIG.
+Libraries: none (vanilla JS).
+-->
+<style>
+:root{--paper:#efe7d8;--ink:#201a16;--plum:#4a2a32;--mustard:#d9a233;--foot-h:100vh;--olive:#4b5a3a}
+*{box-sizing:border-box;margin:0}
+body{background:var(--ink);color:var(--ink);font:400 1.05rem/1.6 "Helvetica Neue",Arial,sans-serif}
+:focus-visible{outline:3px solid var(--mustard);outline-offset:3px}
+.page{position:relative;z-index:2;background:var(--paper)}
+.js .page{margin-bottom:var(--foot-h)}
+.nav{display:flex;justify-content:space-between;padding:1.4rem 6vw;font:600 .72rem/1 ui-monospace,Consolas,monospace;letter-spacing:.18em;text-transform:uppercase}
+.hero{padding:10vh 6vw 14vh;display:grid;grid-template-columns:repeat(12,1fr);gap:1.5rem;min-height:88vh;align-content:end}
+.hero h1{grid-column:1 / span 10;font:400 clamp(3rem,9.5vw,9.4rem)/.88 Georgia,"Iowan Old Style",serif;letter-spacing:-.045em}
+.hero h1 em{font-style:italic;color:var(--plum)}
+.hero p{grid-column:1 / span 5;margin-top:2rem}
+.rows{padding:6vh 6vw 14vh}
+.rows article{display:grid;grid-template-columns:repeat(12,1fr);gap:1.5rem;padding:2.4rem 0;border-top:2px solid var(--ink)}
+.rows h2{grid-column:1 / span 5;font:400 clamp(1.8rem,3.6vw,3.2rem)/1 Georgia,serif;letter-spacing:-.02em}
+.rows p{grid-column:7 / span 5}
+.rows .n{grid-column:12;font:600 .72rem/1 ui-monospace,monospace;letter-spacing:.14em;text-align:right}
+.band{background:var(--plum);color:var(--paper);padding:14vh 6vw;display:grid;grid-template-columns:repeat(12,1fr);gap:1.5rem}
+.band h2{grid-column:3 / span 9;font:italic 400 clamp(2rem,5vw,4.8rem)/1.02 Georgia,serif;letter-spacing:-.03em}
+.band h2 b{font-style:normal;color:var(--mustard);font-weight:400}
+.spacer{height:12vh;background:var(--paper)}
+footer{background:var(--mustard);color:var(--ink);height:var(--foot-h);padding:10vh 6vw 5vh;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+.js footer{position:fixed;left:0;right:0;bottom:0;z-index:1;visibility:hidden}
+.js footer.live{visibility:visible}
+.fcols{display:flex;gap:4rem;flex-wrap:wrap}
+.fcols h3{font:600 .72rem/1 ui-monospace,monospace;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.8rem}
+.fcols a{display:block;color:inherit;text-decoration:none;font-size:1.15rem;line-height:1.8}
+.fcols a:hover{text-decoration:underline;text-underline-offset:4px}
+.mark{font:400 clamp(4rem,23vw,24rem)/.78 Georgia,serif;letter-spacing:-.06em;white-space:nowrap;display:flex;gap:0;transform-origin:0 100%}
+.mark span{display:inline-block;will-change:transform}
+.fine{display:flex;justify-content:space-between;font:600 .7rem/1 ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;margin-top:1.4rem}
+@media (max-width:760px){
+  .hero h1,.hero p,.rows h2,.rows p,.band h2{grid-column:1 / -1}
+  .rows .n{display:none}.rows p{margin-top:.8rem}
+  .fcols{gap:2rem}
+  .mark{font-size:clamp(3rem,25vw,10rem)}
+}
+@media (prefers-reduced-motion:reduce){
+  .js .page{margin-bottom:0}.js footer{position:static;visibility:visible}
+}
+</style>
+</head>
+<body>
+<div class="page" id="page">
+  <div class="nav"><span>Marrow &amp; Salt Bakery</span><span>Tue to Sun · 7:00</span></div>
+  <header class="hero"><h1>Bread that takes <em>two</em> days.</h1><p>Marrow &amp; Salt mills its own rye on Thursday, builds the starter on Friday and opens the doors on Saturday. The loaf you buy is 36 hours old and still warm.</p></header>
+  <section class="rows" aria-label="Menu">
+    <article><h2>Seeded rye, 900 g</h2><p>Sixty percent wholegrain, soaked sunflower and flax, baked in a steam oven for fifty minutes. Keeps for six days wrapped in linen.</p><span class="n">£6.40</span></article>
+    <article><h2>Country white</h2><p>A wet dough folded four times over three hours, with a blistered crust and an open crumb that holds butter.</p><span class="n">£5.20</span></article>
+    <article><h2>Cardamom knots</h2><p>Laminated with Cumbrian butter and brushed with a pearl sugar glaze. They sell out by ten, so ask for a half dozen early.</p><span class="n">£3.10</span></article>
+  </section>
+  <section class="band"><h2>Every crust is scored by hand, so <b>no two loaves</b> bloom the same way.</h2></section>
+  <div class="spacer"></div>
+</div>
+<footer id="foot">
+  <div class="fcols">
+    <div><h3>Visit</h3><a href="#page">14 Tanner's Row, Leeds</a><a href="#page">Tue to Sun, 7:00 to 15:00</a></div>
+    <div><h3>Order</h3><a href="#page">Weekly loaf subscription</a><a href="#page">Catering for 20 or more</a></div>
+    <div><h3>Follow</h3><a href="#page">Newsletter, monthly</a><a href="#page">Instagram</a></div>
+  </div>
+  <div>
+    <div class="mark" id="mark" aria-label="Marrow and Salt"></div>
+    <div class="fine"><span>Marrow &amp; Salt Bakery Ltd</span><span>Baked in Leeds since 2017</span></div>
+  </div>
+</footer>
+<script>
+(function(){
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)");
+  var foot=document.getElementById("foot"),page=document.getElementById("page"),mark=document.getElementById("mark");
+  var TEXT="Marrow";
+  TEXT.split("").forEach(function(c){var s=document.createElement("span");s.setAttribute("aria-hidden","true");s.textContent=c;mark.appendChild(s)});
+  var letters=[].slice.call(mark.children);
+  if(reduce.matches)return;
+  document.documentElement.classList.add("js");
+  var CONFIG={scale0:.9,opacity0:.2,lift:90};
+  var raf=0;
+  function size(){document.documentElement.style.setProperty("--foot-h",Math.max(innerHeight*.95,520)+"px")}
+  function update(){
+    raf=0;
+    var fh=foot.offsetHeight,pr=page.getBoundingClientRect();
+    var p=Math.max(0,Math.min(1,(innerHeight-pr.bottom)/fh*-1+1));
+    /* revealed height of gap beneath page = innerHeight - pr.bottom (when positive) */
+    var gap=Math.max(0,innerHeight-pr.bottom);
+    p=Math.max(0,Math.min(1,gap/fh));
+    foot.classList.toggle("live",gap>0);
+    var e=1-Math.pow(1-p,2);
+    foot.style.opacity=(CONFIG.opacity0+(1-CONFIG.opacity0)*e).toFixed(3);
+    foot.style.transform="translate3d(0,"+((1-e)*CONFIG.lift).toFixed(1)+"px,0) scale("+(CONFIG.scale0+(1-CONFIG.scale0)*e).toFixed(4)+")";
+    foot.style.transformOrigin="50% 100%";
+    letters.forEach(function(l,i){var d=Math.max(0,Math.min(1,p*1.5-i*.1));l.style.transform="translate3d(0,"+((1-d)*60).toFixed(1)+"%,0)";l.style.opacity=(.2+.8*d).toFixed(2)});
+  }
+  function req(){if(!raf)raf=requestAnimationFrame(update)}
+  size();addEventListener("scroll",req,{passive:true});addEventListener("resize",function(){size();req()});
+  update();
+})();
+</script>
+</body>
+</html>

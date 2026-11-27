@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>103 · Sticky Split Text + Media</title>
+<!--
+PATTERN: Split layout. Left column (copy) is position:sticky; right column holds tall media panels. The copy paragraph and counter swap as each panel crosses the viewport middle.
+Motion: ScrollTrigger per panel toggles the active paragraph (cross-fade + 16px lift) and scrubs a slow scale/clip on each panel art; counter and progress line follow.
+Accessibility: Every paragraph stays in the DOM; without GSAP or prefers-reduced-motion all paragraphs are listed (no stacking, no scrub); panels have role=img + aria-label; :focus-visible styled.
+Adapting: Add a .panel and a matching <p> in .copy-stack; panels and paragraphs are matched by index.
+Libraries: gsap 3.12.5 + ScrollTrigger (jsdelivr CDN). Concept demo: "Atelier Quina" is a fictional ceramics studio.
+-->
+<style>
+:root{--bg:#f1e9dc;--ink:#231c17;--mute:#625549;--clay:#b4532e;--moss:#5b6b3d;--bone:#e2d4bd;
+--serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Segoe UI","Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;overflow-x:hidden}
+a:focus-visible{outline:3px solid var(--clay);outline-offset:4px}
+.top{display:flex;justify-content:space-between;padding:1.4rem 6vw;font-size:.78rem;letter-spacing:.2em;text-transform:uppercase}
+.top b{font:400 1.3rem var(--serif);letter-spacing:.01em;text-transform:none}
+.lead{padding:10vh 6vw 6vh}
+.lead h1{font:400 clamp(2.6rem,8vw,7rem)/.95 var(--serif);letter-spacing:-.03em;max-width:11em}
+.lead h1 em{color:var(--clay)}
+.split{display:grid;grid-template-columns:5fr 7fr;gap:5vw;padding:0 6vw 10vh;align-items:start}
+.copy{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;justify-content:center;gap:1.4rem}
+.copy .k{font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--clay);display:flex;gap:1rem;align-items:center}
+.copy .k i{flex:1;height:2px;background:#231c1726;display:block;position:relative}
+.copy .k i b{position:absolute;inset:0;background:var(--clay);transform-origin:left;transform:scaleX(.25)}
+.copy-stack{display:block}
+.copy-stack>div{margin-bottom:2.2rem}
+.copy-stack h2{font:400 clamp(1.8rem,3.4vw,3rem)/1.05 var(--serif);letter-spacing:-.02em;margin-bottom:.8rem}
+.copy-stack p{color:var(--mute);max-width:28rem}
+.panels{display:grid;gap:12vh;padding-top:10vh}
+.panel{height:78vh;position:relative;overflow:hidden;display:flex;align-items:flex-end}
+.panel .art{position:absolute;inset:0}
+.panel figcaption{position:relative;z-index:1;margin:1.2rem;padding:.4rem .7rem;background:var(--bg);font-size:.75rem;letter-spacing:.14em;text-transform:uppercase}
+.p1 .art{background:radial-gradient(ellipse 42% 28% at 50% 62%,#7a3418 0 62%,transparent 63%),radial-gradient(ellipse 36% 22% at 50% 58%,#c97a47 0 60%,transparent 62%),linear-gradient(#d9c7a8,#bfa57e)}
+.p2 .art{background:repeating-radial-gradient(circle at 50% 120%,#4a5530 0 22px,#5b6b3d 22px 44px)}
+.p3 .art{background:linear-gradient(90deg,transparent 0 46%,#231c17 46% 47%,transparent 47%),conic-gradient(from 200deg at 50% 50%,#d9c7a8,#b4532e,#8a3a1d,#d9c7a8)}
+.p4 .art{background:radial-gradient(circle at 30% 70%,#f1e9dc 0 12%,transparent 12.5%),radial-gradient(circle at 62% 40%,#f1e9dc 0 18%,transparent 18.5%),radial-gradient(circle at 78% 76%,#f1e9dc 0 9%,transparent 9.5%),#5b6b3d}
+.foot{background:var(--ink);color:var(--bg);padding:12vh 6vw;display:grid;gap:1.4rem;min-height:60vh;align-content:center}
+.foot h2{font:400 clamp(2rem,5vw,4.4rem)/1 var(--serif);max-width:14em}
+.foot a{color:var(--bg);border-bottom:2px solid var(--clay);justify-self:start;text-decoration:none;padding-bottom:.2rem}
+.disc{font-size:.72rem;padding:1rem 6vw;background:var(--ink);color:var(--bg);opacity:.85}
+/* animated: stack paragraphs in one grid cell */
+.anim .copy-stack{display:grid}
+.anim .copy-stack>div{grid-area:1/1;margin:0;opacity:0;transform:translateY(16px);transition:opacity .5s,transform .5s;pointer-events:none}
+.anim .copy-stack>div.on{opacity:1;transform:none;pointer-events:auto}
+@media (max-width:760px){
+ .split{grid-template-columns:1fr;gap:0;padding-bottom:6vh}
+ .copy{height:auto;min-height:0;padding:1rem 0;background:var(--bg);z-index:5;gap:.7rem;border-bottom:1px solid #231c1722}
+ .copy .k{display:none}
+ .copy-stack h2{font-size:1.5rem}.copy-stack p{font-size:.92rem}
+ .panels{padding-top:4vh;gap:5vh}.panel{height:60vh}
+ .anim .copy{height:auto}
+}
+@media (prefers-reduced-motion:reduce){.copy-stack>div{transition:none}}
+</style>
+</head>
+<body>
+<div class="top"><b>Atelier Quina</b><span>Cerâmica de alta temperatura · Paraty</span></div>
+<header class="lead"><h1>Do barro cru ao <em>esmalte</em> em quatro queimas.</h1></header>
+<main class="split">
+ <aside class="copy" aria-label="Texto do processo">
+  <div class="k"><span id="cnt">01 / 04</span><i aria-hidden="true"><b id="fill"></b></i><span>Processo</span></div>
+  <div class="copy-stack" id="stack">
+   <div class="on"><h2>Argila do rio Perequê</h2><p>Coletamos a argila nas margens, peneiramos e deixamos curtir por 40 dias. O barro envelhece e fica mais plástico, o que evita trincas na secagem.</p></div>
+   <div><h2>Torno e três dedos</h2><p>Cada peça é levantada em cinco puxadas. Uma tigela de 900 ml leva uns 14 minutos; depois seca ao ar por uma semana, virando a cada dia.</p></div>
+   <div><h2>Biscoito a 980 °C</h2><p>A primeira queima tira a água química do barro. A peça sai porosa, clara e ainda frágil, pronta para receber o esmalte sem escorrer.</p></div>
+   <div><h2>Esmalte de cinzas</h2><p>Misturamos cinza de madeira de demolição, feldspato e uma pitada de ferro. A segunda queima chega a 1.260 °C e cada fornada muda um pouco o verde.</p></div>
+  </div>
+ </aside>
+ <div class="panels">
+  <figure class="panel p1" role="img" aria-label="Peças de argila crua sobre bancada"><div class="art"></div><figcaption>Argila curtida, 40 dias</figcaption></figure>
+  <figure class="panel p2" role="img" aria-label="Sulcos concêntricos de uma peça no torno"><div class="art"></div><figcaption>Torno, cinco puxadas</figcaption></figure>
+  <figure class="panel p3" role="img" aria-label="Peça de biscoito rachada ao meio"><div class="art"></div><figcaption>Biscoito, 980 °C</figcaption></figure>
+  <figure class="panel p4" role="img" aria-label="Manchas de esmalte verde de cinzas"><div class="art"></div><figcaption>Esmalte, 1.260 °C</figcaption></figure>
+ </div>
+</main>
+<section class="foot"><h2>A próxima fornada abre para encomendas em 12 de dezembro.</h2><a href="#">Entrar na lista de espera</a></section>
+<p class="disc">Demo conceitual: Atelier Quina é uma marca fictícia criada apenas para ilustrar o padrão.</p>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches||!window.gsap||!window.ScrollTrigger)return;
+  gsap.registerPlugin(ScrollTrigger);
+  document.documentElement.classList.add("anim");
+  var items=gsap.utils.toArray("#stack>div"),panels=gsap.utils.toArray(".panel"),cnt=document.getElementById("cnt");
+  var mobile=matchMedia("(max-width:760px)").matches;
+  panels.forEach(function(p,i){
+    ScrollTrigger.create({trigger:p,start:mobile?"top 45%":"top 55%",end:mobile?"bottom 45%":"bottom 55%",
+      onToggle:function(s){if(s.isActive){items.forEach(function(el,j){el.classList.toggle("on",i===j)});cnt.textContent="0"+(i+1)+" / 0"+panels.length}}});
+    gsap.fromTo(p.querySelector(".art"),{scale:1.25},{scale:1,ease:"none",scrollTrigger:{trigger:p,start:"top bottom",end:"bottom top",scrub:true}});
+    gsap.fromTo(p,{clipPath:"inset(10% 6% 10% 6%)"},{clipPath:"inset(0% 0% 0% 0%)",ease:"none",scrollTrigger:{trigger:p,start:"top 95%",end:"top 35%",scrub:true}});
+  });
+  gsap.to("#fill",{scaleX:1,ease:"none",scrollTrigger:{trigger:".panels",start:"top center",end:"bottom center",scrub:true}});
+})();
+</script>
+</body>
+</html>

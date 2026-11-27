@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>128 · Gallery Masonry Parallax</title>
+<!--
+PATTERN: Masonry gallery of glaze test tiles from a ceramics studio. Three columns of tiles with
+  different aspect ratios; each column drifts at its own speed (parallax) and every tile is revealed
+  with a clip-path wipe plus an inner scale-down as it enters. Images are procedural CSS gradients.
+Motion: ScrollTrigger scrub on each column (y from +A to -A with different A), per-tile ScrollTrigger
+  once: clip-path inset(100% 0 0 0) -> inset(0), inner .art scale 1.25 -> 1. Captions fade up.
+Accessibility: Tiles are <figure> with <figcaption>; the decorative art is aria-hidden and the
+  caption carries the information. prefers-reduced-motion or no CDN: static masonry, all tiles
+  visible, no transforms. :focus-visible on the footer link. Mobile (390px): two columns, the third
+  column's tiles are redistributed with CSS order, no horizontal overflow.
+Adapting: Replace .art backgrounds with <img loading="lazy" width height>; edit the SPEEDS list.
+Libraries: GSAP + ScrollTrigger (CDN, optional).
+-->
+<style>
+:root{--bone:#efe9df;--ink:#1b1a18;--cobalt:#2b4c7e;--celadon:#a9c4ad;--rust:#a7512e;--ash:#bdb7ab;--honey:#d9a441;--plum:#5c3340;--sea:#3e7c78;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bone);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a:focus-visible{outline:3px solid var(--rust);outline-offset:3px}
+.head{padding:clamp(3rem,12vh,8rem) clamp(1.2rem,6vw,6rem) 6vh;display:grid;grid-template-columns:repeat(12,1fr);gap:1rem;align-items:end}
+.head h1{grid-column:1/9;font-family:var(--serif);font-weight:400;font-size:clamp(2.6rem,7.4vw,7.2rem);line-height:.92;letter-spacing:-.03em}
+.head p{grid-column:9/-1;line-height:1.55;max-width:30ch}
+.gal{overflow:hidden;padding:4vh clamp(1.2rem,6vw,6rem) 18vh}
+.cols{display:grid;grid-template-columns:1fr 1.25fr .9fr;gap:clamp(.8rem,2vw,2rem);align-items:start}
+.col{display:grid;gap:clamp(.8rem,2vw,2rem);will-change:transform}
+.col:nth-child(2){margin-top:12vh}.col:nth-child(3){margin-top:4vh}
+figure{display:grid;gap:.6rem}
+.frame{overflow:hidden;aspect-ratio:var(--ar,4/5)}
+.art{width:100%;height:100%;background:var(--bg);transform-origin:50% 60%}
+figcaption{display:flex;justify-content:space-between;gap:1rem;font-size:.78rem;line-height:1.35}
+figcaption b{font-family:var(--serif);font-weight:400;font-size:1.05rem}
+figcaption span{opacity:.75;text-align:right;white-space:nowrap}
+/* procedural glaze tiles */
+.t1{--ar:4/5;--bg:radial-gradient(circle at 30% 25%,#e8efe6 0 8%,transparent 9%),radial-gradient(circle at 70% 70%,#6f9a8b 0 22%,transparent 23%),linear-gradient(160deg,#a9c4ad,#3e7c78)}
+.t2{--ar:1/1;--bg:repeating-radial-gradient(circle at 50% 50%,#2b4c7e 0 14px,#d7dde8 15px 18px,#2b4c7e 19px 34px)}
+.t3{--ar:3/4;--bg:linear-gradient(180deg,#a7512e 0 38%,#d9a441 38% 41%,#5c3340 41% 100%)}
+.t4{--ar:5/4;--bg:conic-gradient(from 210deg at 40% 60%,#d9a441,#a7512e,#5c3340,#d9a441)}
+.t5{--ar:4/5;--bg:radial-gradient(ellipse at 50% 120%,#1b1a18 0 30%,transparent 31%),repeating-linear-gradient(90deg,#bdb7ab 0 22px,#e1ddd3 22px 24px)}
+.t6{--ar:1/1.25;--bg:radial-gradient(circle at 60% 40%,#f2d98e 0 12%,#d9a441 13% 28%,#a7512e 29% 55%,#3a1e16 56%)}
+.t7{--ar:6/5;--bg:linear-gradient(115deg,#2b4c7e 0 30%,transparent 30% 34%,#a9c4ad 34% 64%,transparent 64% 68%,#efe9df 68%),linear-gradient(#2b4c7e,#2b4c7e)}
+.t8{--ar:3/4;--bg:radial-gradient(circle at 25% 80%,#d9a441 0 10%,transparent 11%),radial-gradient(circle at 75% 20%,#efe9df 0 6%,transparent 7%),linear-gradient(200deg,#5c3340,#1b1a18 70%)}
+.t9{--ar:1/1;--bg:repeating-conic-gradient(from 0deg at 50% 50%,#3e7c78 0 15deg,#a9c4ad 15deg 30deg)}
+.t10{--ar:4/5;--bg:linear-gradient(0deg,#efe9df 0 18%,#bdb7ab 18% 20%,#a7512e 20% 62%,#8a3e22 62% 64%,#d9a441 64%)}
+.t11{--ar:5/6;--bg:radial-gradient(circle at 20% 30%,#a9c4ad 0 24%,transparent 25%),radial-gradient(circle at 80% 70%,#2b4c7e 0 30%,transparent 31%),#efe9df}
+.t12{--ar:1/1;--bg:radial-gradient(circle,#efe9df 0 6%,#5c3340 7% 24%,#d9a441 25% 27%,#5c3340 28% 52%,#1b1a18 53%)}
+.foot{padding:0 clamp(1.2rem,6vw,6rem) 14vh;display:flex;gap:2rem;flex-wrap:wrap;justify-content:space-between;align-items:end}
+.foot p{font-family:var(--serif);font-size:clamp(1.4rem,2.8vw,2.4rem);max-width:22ch;line-height:1.1}
+.foot a{font-size:.85rem;letter-spacing:.12em;text-transform:uppercase;text-underline-offset:.4em;color:var(--cobalt)}
+@media(max-width:760px){
+  .head h1,.head p{grid-column:1/-1}
+  .cols{grid-template-columns:1fr 1fr}
+  .col:nth-child(3){display:contents}
+  .col:nth-child(3) figure:nth-child(odd){grid-column:1}.col:nth-child(3) figure:nth-child(even){grid-column:2}
+  .col:nth-child(2){margin-top:6vh}
+  figcaption{flex-direction:column;gap:.1rem}figcaption span{text-align:left}
+}
+</style>
+</head>
+<body>
+<section class="head"><h1>Four hundred test tiles, ten we kept.</h1><p>Every glaze at Lindqvist Ceramics starts as a three-inch tile fired in the same kiln, at cone 10. These are this year's survivors.</p></section>
+
+<section class="gal" aria-label="Glaze test tile gallery">
+  <div class="cols" id="cols">
+    <div class="col">
+      <figure><div class="frame"><div class="art t1" aria-hidden="true"></div></div><figcaption><b>Celadon Drift</b><span>Cone 10, reduction</span></figcaption></figure>
+      <figure><div class="frame"><div class="art t4" aria-hidden="true"></div></div><figcaption><b>Honey Pool</b><span>Cone 6, oxidation</span></figcaption></figure>
+      <figure><div class="frame"><div class="art t7" aria-hidden="true"></div></div><figcaption><b>Cobalt Bands</b><span>Slip over bisque</span></figcaption></figure>
+      <figure><div class="frame"><div class="art t10" aria-hidden="true"></div></div><figcaption><b>Shino Edge</b><span>Soda fired</span></figcaption></figure>
+    </div>
+    <div class="col">
+      <figure><div class="frame"><div class="art t2" aria-hidden="true"></div></div><figcaption><b>Pond Rings</b><span>Wax resist</span></figcaption></figure>
+      <figure><div class="frame"><div class="art t5" aria-hidden="true"></div></div><figcaption><b>Ash Terrace</b><span>Wood ash, cone 9</span></figcaption></figure>
+      <figure><div class="frame"><div class="art t8" aria-hidden="true"></div></div><figcaption><b>Night Plum</b><span>Iron saturate</span></figcaption></figure>
+      <figure><div class="frame"><div class="art t11" aria-hidden="true"></div></div><figcaption><b>Two Moons</b><span>Double dip</span></figcaption></figure>
+    </div>
+    <div class="col">
+      <figure><div class="frame"><div class="art t3" aria-hidden="true"></div></div><figcaption><b>Tenmoku Strata</b><span>Cone 10</span></figcaption></figure>
+      <figure><div class="frame"><div class="art t6" aria-hidden="true"></div></div><figcaption><b>Kiln Sun</b><span>Copper red</span></figcaption></figure>
+      <figure><div class="frame"><div class="art t9" aria-hidden="true"></div></div><figcaption><b>Sea Spokes</b><span>Stencil, cone 6</span></figcaption></figure>
+      <figure><div class="frame"><div class="art t12" aria-hidden="true"></div></div><figcaption><b>Plum Eye</b><span>Trailed slip</span></figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section class="foot"><p>The next glaze firing opens on the first of March.</p><a href="#top">Order a test set of six</a></section>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || !window.gsap || !window.ScrollTrigger) return;
+  gsap.registerPlugin(ScrollTrigger);
+  var small = matchMedia('(max-width:760px)').matches;
+  var SPEEDS = small ? [90, 150, 0] : [110, 210, 150]; // px of parallax travel per column
+  gsap.utils.toArray('.col').forEach(function(col, i){
+    if (SPEEDS[i]) gsap.fromTo(col, {y: SPEEDS[i] / 2}, {y: -SPEEDS[i] / 2, ease: 'none',
+      scrollTrigger: {trigger: '.gal', start: 'top bottom', end: 'bottom top', scrub: .6}});
+  });
+  gsap.utils.toArray('figure').forEach(function(fig){
+    var frame = fig.querySelector('.frame'), art = fig.querySelector('.art'), cap = fig.querySelector('figcaption');
+    gsap.set(frame, {clipPath: 'inset(100% 0 0 0)'}); gsap.set(art, {scale: 1.3}); gsap.set(cap, {opacity: 0, y: 12});
+    gsap.timeline({scrollTrigger: {trigger: fig, start: 'top 88%', once: true}})
+      .to(frame, {clipPath: 'inset(0% 0 0 0)', duration: 1.1, ease: 'power4.inOut'})
+      .to(art, {scale: 1, duration: 1.4, ease: 'power3.out'}, 0)
+      .to(cap, {opacity: 1, y: 0, duration: .6, ease: 'power2.out'}, .7);
+  });
+  gsap.from('.head > *', {y: 30, opacity: 0, duration: 1, stagger: .12, ease: 'power3.out'});
+  addEventListener('load', function(){ ScrollTrigger.refresh(); });
+})();
+</script>
+</body>
+</html>

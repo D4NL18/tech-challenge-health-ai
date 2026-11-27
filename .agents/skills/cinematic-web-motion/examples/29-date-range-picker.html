@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>29 · Date Range Picker</title>
+<!--
+  PATTERN: Date range picker popover with a month grid (ARIA grid), hover-preview of the range and quick presets.
+  Motion: popover scales 0.96 -> 1 from the trigger (140ms); day cells fade background in 100ms; range band
+          updates instantly on hover. Nothing exceeds 200ms because pickers are used constantly.
+  Accessibility: trigger is aria-haspopup="dialog" + aria-expanded; grid uses role="grid", arrow keys move focus
+          (Left/Right = day, Up/Down = week, PageUp/PageDown = month), Enter/Space selects, Esc closes and
+          returns focus. Selected state is exposed with aria-selected. prefers-reduced-motion removes transitions.
+  Adapting: swap the `fmt` formatter for your locale, add min/max by disabling cells, change presets in PRESETS,
+          wire onChange(start, end) to your filter state. Tokens live in :root (zinc, light/dark automatic).
+-->
+<style>
+  :root {
+    --bg:#fafafa; --surface:#ffffff; --fg:#18181b; --mut:#71717a; --bd:rgba(0,0,0,.08); --bd2:rgba(0,0,0,.18);
+    --acc:#4f46e5; --acc-soft:rgba(79,70,229,.12); --hover:#f4f4f5; --shadow:0 10px 30px rgba(0,0,0,.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#09090b; --surface:#18181b; --fg:#fafafa; --mut:#a1a1aa; --bd:rgba(255,255,255,.10); --bd2:rgba(255,255,255,.22);
+      --acc:#818cf8; --acc-soft:rgba(129,140,248,.18); --hover:#27272a; --shadow:0 10px 30px rgba(0,0,0,.5); }
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { min-height:100vh; display:grid; place-items:start center; padding:12vh 1rem 2rem; background:var(--bg); color:var(--fg);
+    font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .wrap { position:relative; width:max-content; max-width:100%; }
+  label.cap { display:block; font-size:12px; color:var(--mut); margin-bottom:6px; }
+  .trigger { display:flex; align-items:center; gap:10px; min-width:260px; padding:8px 12px; background:var(--surface);
+    border:1px solid var(--bd2); border-radius:8px; color:var(--fg); font:inherit; cursor:pointer; text-align:left; }
+  .trigger:hover { background:var(--hover); }
+  :focus-visible { outline:2px solid var(--acc); outline-offset:2px; }
+  .pop { position:absolute; top:calc(100% + 6px); left:0; z-index:5; display:flex; background:var(--surface);
+    border:1px solid var(--bd); border-radius:12px; box-shadow:var(--shadow); transform-origin:top left;
+    opacity:0; transform:scale(.96); visibility:hidden; pointer-events:none;
+    transition:opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms; }
+  .pop.open { opacity:1; transform:none; visibility:visible; pointer-events:auto; transition-delay:0s; }
+  .presets { display:flex; flex-direction:column; gap:2px; padding:10px; border-right:1px solid var(--bd); min-width:130px; }
+  .presets button { background:none; border:0; text-align:left; padding:6px 10px; border-radius:6px; color:var(--fg);
+    font:inherit; cursor:pointer; transition:background 100ms; }
+  .presets button:hover { background:var(--hover); }
+  .cal { padding:12px; width:280px; }
+  .head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .head b { font-weight:600; }
+  .nav { width:28px; height:28px; border-radius:6px; border:1px solid var(--bd); background:none; color:var(--fg); cursor:pointer; }
+  .nav:hover { background:var(--hover); }
+  table { border-collapse:collapse; width:100%; }
+  th { font-weight:500; font-size:11px; color:var(--mut); padding:4px 0; }
+  td { padding:1px 0; text-align:center; }
+  .day { width:36px; height:32px; border:0; background:none; color:var(--fg); font:inherit; border-radius:6px; cursor:pointer;
+    transition:background 100ms; }
+  .day:hover { background:var(--hover); }
+  .day.out { color:var(--mut); opacity:.5; }
+  .day.today { box-shadow:inset 0 0 0 1px var(--bd2); }
+  .day.inrange { background:var(--acc-soft); border-radius:0; }
+  .day.edge { background:var(--acc); color:#fff; }
+  .foot { display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:8px;
+    border-top:1px solid var(--bd); color:var(--mut); font-size:12px; }
+  .apply { background:var(--fg); color:var(--bg); border:0; border-radius:6px; padding:6px 12px; font:inherit; cursor:pointer; }
+  .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+  @media (max-width:560px) { .presets { display:none; } .trigger { min-width:0; width:100%; } }
+  @media (prefers-reduced-motion: reduce) { .pop, .day, .presets button { transition:none; } .pop { transform:none; } }
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <label class="cap" id="cap">Reporting period</label>
+  <button class="trigger" id="trigger" aria-haspopup="dialog" aria-expanded="false" aria-labelledby="cap val">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+    <span id="val">Select dates</span>
+  </button>
+  <div class="pop" id="pop" role="dialog" aria-label="Choose date range">
+    <div class="presets" id="presets"></div>
+    <div class="cal">
+      <div class="head">
+        <button class="nav" id="prev" aria-label="Previous month">‹</button>
+        <b id="title" aria-live="polite"></b>
+        <button class="nav" id="next" aria-label="Next month">›</button>
+      </div>
+      <table role="grid" aria-labelledby="title"><thead><tr id="dow"></tr></thead><tbody id="body"></tbody></table>
+      <div class="foot"><span id="hint">Pick a start date</span><button class="apply" id="apply">Apply</button></div>
+    </div>
+  </div>
+  <div class="sr" role="status" id="live"></div>
+</div>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var fmt = new Intl.DateTimeFormat('en', { month:'short', day:'numeric', year:'numeric' });
+  var mfmt = new Intl.DateTimeFormat('en', { month:'long', year:'numeric' });
+  var dfmt = new Intl.DateTimeFormat('en', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+  var today = new Date(); today.setHours(0,0,0,0);
+  var view = new Date(today.getFullYear(), today.getMonth(), 1);
+  var start = null, end = null, hover = null, focusDate = new Date(today);
+  var PRESETS = [['Today',0],['Last 7 days',6],['Last 30 days',29],['This month',-1]];
+  var pop = $('pop'), trigger = $('trigger'), body = $('body');
+
+  function same(a, b) { return a && b && a.getTime() === b.getTime(); }
+  function addDays(d, n) { var r = new Date(d); r.setDate(r.getDate() + n); return r; }
+  function bounds() {
+    var e = end || hover; if (!start) return [null, null];
+    if (!e) return [start, start];
+    return e < start ? [e, start] : [start, e];
+  }
+  function render() {
+    $('title').textContent = mfmt.format(view);
+    var first = new Date(view), offset = first.getDay(), b = bounds(), html = '';
+    var cursor = addDays(first, -offset);
+    for (var w = 0; w < 6; w++) {
+      html += '<tr>';
+      for (var i = 0; i < 7; i++) {
+        var d = new Date(cursor), cls = 'day';
+        if (d.getMonth() !== view.getMonth()) cls += ' out';
+        if (same(d, today)) cls += ' today';
+        var edge = same(d, b[0]) || same(d, b[1]);
+        if (b[0] && d >= b[0] && d <= b[1]) cls += edge ? ' edge' : ' inrange';
+        html += '<td role="gridcell"><button class="' + cls + '" data-t="' + d.getTime() + '" tabindex="' +
+          (same(d, focusDate) ? 0 : -1) + '" aria-selected="' + (!!(b[0] && d >= b[0] && d <= b[1] && (end || edge))) +
+          '" aria-label="' + dfmt.format(d) + '">' + d.getDate() + '</button></td>';
+        cursor = addDays(cursor, 1);
+      }
+      html += '</tr>';
+    }
+    body.innerHTML = html;
+    $('hint').textContent = !start ? 'Pick a start date' : !end ? 'Pick an end date' : Math.round((end - start) / 864e5 + 1) + ' days';
+  }
+  function label() {
+    $('val').textContent = start && end ? fmt.format(start) + ' – ' + fmt.format(end) : 'Select dates';
+  }
+  function pick(d) {
+    if (!start || end) { start = d; end = null; }
+    else if (d < start) { end = start; start = d; }
+    else end = d;
+    hover = null; render(); focusCell();
+    if (end) $('live').textContent = 'Range ' + fmt.format(start) + ' to ' + fmt.format(end);
+  }
+  function focusCell() {
+    var el = body.querySelector('[tabindex="0"]'); if (el) el.focus();
+  }
+  function move(d) {
+    focusDate = d;
+    if (d.getMonth() !== view.getMonth() || d.getFullYear() !== view.getFullYear()) view = new Date(d.getFullYear(), d.getMonth(), 1);
+    if (start && !end) hover = d;
+    render(); focusCell();
+  }
+  function open() {
+    pop.classList.add('open'); trigger.setAttribute('aria-expanded', 'true');
+    render(); focusCell();
+  }
+  function close(ret) {
+    pop.classList.remove('open'); trigger.setAttribute('aria-expanded', 'false');
+    if (ret) trigger.focus();
+  }
+
+  $('dow').innerHTML = ['Su','Mo','Tu','We','Th','Fr','Sa'].map(function (x) { return '<th scope="col">' + x + '</th>'; }).join('');
+  $('presets').innerHTML = PRESETS.map(function (p, i) { return '<button data-i="' + i + '">' + p[0] + '</button>'; }).join('');
+  $('presets').addEventListener('click', function (e) {
+    var i = e.target.dataset.i; if (i === undefined) return;
+    var n = PRESETS[i][1];
+    if (n === -1) { start = new Date(today.getFullYear(), today.getMonth(), 1); end = new Date(today); }
+    else { start = addDays(today, -n); end = new Date(today); }
+    view = new Date(end.getFullYear(), end.getMonth(), 1); focusDate = new Date(end); render();
+  });
+  trigger.addEventListener('click', function () { pop.classList.contains('open') ? close(true) : open(); });
+  $('apply').addEventListener('click', function () { label(); close(true); });
+  $('prev').addEventListener('click', function () { view = new Date(view.getFullYear(), view.getMonth() - 1, 1); render(); });
+  $('next').addEventListener('click', function () { view = new Date(view.getFullYear(), view.getMonth() + 1, 1); render(); });
+  body.addEventListener('click', function (e) { var b = e.target.closest('.day'); if (b) { focusDate = new Date(+b.dataset.t); pick(focusDate); } });
+  body.addEventListener('mouseover', function (e) {
+    var b = e.target.closest('.day'); if (!b || !start || end) return;
+    hover = new Date(+b.dataset.t); render();
+  });
+  body.addEventListener('keydown', function (e) {
+    var map = { ArrowLeft:-1, ArrowRight:1, ArrowUp:-7, ArrowDown:7 };
+    if (map[e.key]) { e.preventDefault(); move(addDays(focusDate, map[e.key])); }
+    else if (e.key === 'PageUp' || e.key === 'PageDown') {
+      e.preventDefault(); var d = new Date(focusDate); d.setMonth(d.getMonth() + (e.key === 'PageUp' ? -1 : 1)); move(d);
+    }
+  });
+  pop.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.stopPropagation(); close(true); } });
+  document.addEventListener('mousedown', function (e) { if (!$('wrap').contains(e.target)) close(false); });
+})();
+</script>
+</body>
+</html>

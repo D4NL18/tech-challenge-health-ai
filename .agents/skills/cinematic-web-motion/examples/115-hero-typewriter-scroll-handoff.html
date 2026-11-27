@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>115 · Hero Typewriter Scroll Handoff</title>
+<!--
+  PATTERN: Manchete que se digita sozinha e, ao rolar, é "entregue" à seção seguinte. A seção fica pinada (sticky);
+           o mesmo bloco de texto encolhe e sobe até a posição do título de seção, enquanto o título real da
+           seção (h2) assume por cross-fade e a estante de livros entra linha a linha. Nada recarrega ou salta:
+           a manchete vira o cabeçalho do que vem depois.
+  Motion: 1) typewriter temporal (setTimeout com ritmo irregular + pausa em pontuação, cursor piscante);
+          2) scroll progress 0..1 (stage sticky em 260vh): transform translate/scale da manchete,
+          opacidade dos metadados do hero, stagger das linhas da estante por limiar de progresso.
+  Accessibility: o texto completo existe num span sr-only desde o início (leitores de tela não ouvem letra a
+          letra); a versão digitada é aria-hidden. prefers-reduced-motion: texto completo imediatamente, sem
+          cursor, e a seção vira duas telas empilhadas em fluxo normal (sem pin). :focus-visible nos links.
+  Adapting: troque TEXT e as linhas de .shelf li. Velocidade em SPEED_MS. Limiares da entrega: HANDOFF_FROM/
+          HANDOFF_TO. A posição final do título é controlada por --title-y e --title-scale.
+  Libraries: nenhuma.
+-->
+<style>
+  :root{
+    --paper:#f2ece0; --ink:#1c1a17; --oxblood:#7a2430; --moss:#2d4a3a; --rule:#b9ad97; --muted:#5b5446;
+    --title-y:-31vh; --title-scale:.4;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:"Gill Sans","Trebuchet MS","Segoe UI",system-ui,sans-serif;
+    --mono:"Courier New",Courier,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);overflow-x:hidden}
+  a{color:inherit}
+  a:focus-visible{outline:3px solid var(--oxblood);outline-offset:4px}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+  .runway{position:relative;height:270vh}
+  .stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--paper)}
+  .bar{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;padding:clamp(1rem,3vw,2.2rem);font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;z-index:3}
+  .bar b{font-family:var(--serif);font-size:1.2rem;letter-spacing:0;text-transform:none}
+
+  .hero{position:absolute;left:clamp(1.2rem,5vw,5rem);right:clamp(1.2rem,5vw,5rem);top:50%;
+    transform:translate3d(0,calc(-50% + var(--ty,0px)),0) scale(var(--sc,1));transform-origin:0 50%;will-change:transform}
+  .hero .kick{font-family:var(--mono);font-size:.85rem;letter-spacing:.1em;color:var(--oxblood);margin:0 0 1.2rem}
+  .hero h1{font-family:var(--serif);font-weight:700;font-size:clamp(2.9rem,9.2vw,9.4rem);line-height:.95;letter-spacing:-.035em;margin:0;max-width:14ch;min-height:2.85em}
+  .caret{display:inline-block;width:.07em;height:.82em;margin-left:.06em;background:var(--oxblood);vertical-align:-.06em;animation:blink 1s steps(1) infinite}
+  .caret.done{animation:blink 1s steps(1) 3}
+  @keyframes blink{50%{opacity:0}}
+  .meta{position:absolute;left:clamp(1.2rem,5vw,5rem);right:clamp(1.2rem,5vw,5rem);bottom:clamp(1.4rem,6vh,3.4rem);display:flex;justify-content:space-between;align-items:flex-end;gap:1.5rem;z-index:2}
+  .meta p{margin:0;max-width:24rem;line-height:1.5}
+  .meta a{font-size:.8rem;letter-spacing:.16em;text-transform:uppercase;text-decoration:none;border-bottom:2px solid currentColor;padding-bottom:.2rem}
+
+  /* título real da seção: ocupa o lugar final da manchete encolhida */
+  .section-title{position:absolute;left:clamp(1.2rem,5vw,5rem);top:clamp(5rem,12vh,7rem);margin:0;font-family:var(--serif);font-weight:700;font-size:clamp(1.9rem,4vw,3.8rem);letter-spacing:-.02em;line-height:1;opacity:0;z-index:2}
+  .section-title small{display:block;font-family:var(--mono);font-weight:400;font-size:.8rem;letter-spacing:.1em;color:var(--oxblood);margin-bottom:.7rem}
+
+  .shelf{position:absolute;left:clamp(1.2rem,5vw,5rem);right:clamp(1.2rem,5vw,5rem);bottom:clamp(1.4rem,6vh,3.4rem);top:clamp(12rem,32vh,19rem);margin:0;padding:0;list-style:none;display:grid;grid-template-columns:7fr 5fr;gap:0 clamp(1.5rem,5vw,5rem);align-content:start}
+  .shelf li{display:grid;grid-template-columns:2.6rem 1fr auto;gap:1rem;padding:.85rem 0;border-bottom:1px solid var(--rule);align-items:baseline;opacity:0;transform:translateY(24px)}
+  .shelf li:nth-child(odd){grid-column:1}
+  .shelf li:nth-child(even){grid-column:2;margin-top:2.2rem}
+  .shelf .n{font-family:var(--mono);font-size:.8rem;color:var(--oxblood)}
+  .shelf .t{font-family:var(--serif);font-size:1.25rem}
+  .shelf .t span{display:block;font-family:var(--sans);font-size:.85rem;color:var(--muted);margin-top:.15rem}
+  .shelf .p{font-family:var(--mono);font-size:.9rem}
+
+  .after{background:var(--moss);color:var(--paper);padding:clamp(4rem,9vw,8rem) clamp(1.2rem,6vw,6rem)}
+  .after .grid{max-width:76rem;margin:0 auto;display:grid;grid-template-columns:5fr 7fr;gap:clamp(1.5rem,5vw,5rem)}
+  .after h2{font-family:var(--serif);font-size:clamp(1.9rem,4vw,3.4rem);line-height:1.05;margin:0}
+  .after p{font-size:1.1rem;line-height:1.65;margin:0 0 1.1rem;max-width:36rem}
+  .end{background:var(--ink);color:var(--paper);padding:clamp(3rem,7vw,6rem) clamp(1.2rem,6vw,6rem);min-height:50vh}
+  .end p{max-width:34rem;line-height:1.6}
+
+  @media (max-width:700px){
+    :root{--title-y:-30vh;--title-scale:.42}
+    .shelf{grid-template-columns:1fr;top:clamp(10.5rem,26vh,14rem);overflow:hidden}
+    .shelf li:nth-child(even){grid-column:1;margin-top:0}
+    .shelf li:nth-child(n+6){display:none}
+    .meta{flex-direction:column;align-items:flex-start}
+    .after .grid{grid-template-columns:1fr}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .runway{height:auto}
+    .stage{position:relative;height:auto;min-height:100svh;padding-bottom:3rem}
+    .hero{position:relative;left:auto;right:auto;top:auto;transform:none;padding:7rem clamp(1.2rem,5vw,5rem) 2rem}
+    .meta{position:relative;left:auto;right:auto;bottom:auto;padding:0 clamp(1.2rem,5vw,5rem)}
+    .section-title{position:relative;left:auto;top:auto;opacity:1;padding:3rem clamp(1.2rem,5vw,5rem) 0}
+    .shelf{position:relative;left:auto;right:auto;top:auto;bottom:auto;padding:1rem clamp(1.2rem,5vw,5rem) 0}
+    .shelf li{opacity:1;transform:none}
+    .caret{display:none}
+  }
+</style>
+</head>
+<body>
+<section class="runway" id="runway">
+  <div class="stage" id="stage">
+    <div class="bar"><b>Livraria Rascunho</b><span>Sebo e novos · Porto Alegre</span></div>
+
+    <div class="hero" id="hero">
+      <p class="kick" id="kick">// 1.482 livros na casa, 312 relidos por quem vende</p>
+      <h1 id="h1"><span class="sr" id="full">Livros que alguém já releu duas vezes.</span><span id="typed" aria-hidden="true"></span><span class="caret" id="caret" aria-hidden="true"></span></h1>
+    </div>
+
+    <h2 class="section-title" id="sectitle"><small>Estante da casa</small>Os mais relidos do mês</h2>
+
+    <ol class="shelf" id="shelf">
+      <li><span class="n">01</span><span class="t">A hora da estrela<span>Clarice Lispector · exemplar de 1998</span></span><span class="p">R$ 28</span></li>
+      <li><span class="n">02</span><span class="t">Dois irmãos<span>Milton Hatoum · capa dura</span></span><span class="p">R$ 42</span></li>
+      <li><span class="n">03</span><span class="t">O som do rugido da onça<span>Micheliny Verunschk</span></span><span class="p">R$ 36</span></li>
+      <li><span class="n">04</span><span class="t">Torto arado<span>Itamar Vieira Junior · anotado a lápis</span></span><span class="p">R$ 30</span></li>
+      <li><span class="n">05</span><span class="t">Vidas secas<span>Graciliano Ramos · edição de bolso</span></span><span class="p">R$ 18</span></li>
+      <li><span class="n">06</span><span class="t">Memórias póstumas<span>Machado de Assis · 2 volumes</span></span><span class="p">R$ 24</span></li>
+    </ol>
+
+    <div class="meta" id="meta">
+      <p>Compramos sua estante inteira ou só aquele livro que você não vai reler. Avaliação em dois dias úteis.</p>
+      <a href="#sobre">Como funciona</a>
+    </div>
+  </div>
+</section>
+
+<section class="after" id="sobre">
+  <div class="grid">
+    <h2>Quem vende lê antes de precificar.</h2>
+    <div>
+      <p>Cada exemplar usado passa pela mesa de leitura: folhas soltas, marcas de umidade e anotações a lápis são descritas na etiqueta. Anotação boa aumenta o preço; mofo derruba.</p>
+      <p>Pagamos em dinheiro ou em crédito de livros, com 30% a mais no crédito.</p>
+    </div>
+  </div>
+</section>
+<section class="end">
+  <p>Rua José Bonifácio, 412. Terça a sábado, das 10h às 19h. Cachorros são bem-vindos; não prometemos que ficarão longe das caixas de promoção.</p>
+  <p><a href="#runway">Voltar ao início</a></p>
+</section>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const TEXT = 'Livros que alguém já releu duas vezes.';
+  const SPEED_MS = 62, HANDOFF_FROM = 0.12, HANDOFF_TO = 0.55;
+  const typed = document.getElementById('typed');
+  const caret = document.getElementById('caret');
+  const hero = document.getElementById('hero');
+  const kick = document.getElementById('kick');
+  const sectitle = document.getElementById('sectitle');
+  const runway = document.getElementById('runway');
+  const items = [...document.querySelectorAll('#shelf li')];
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+  if (reduce) { typed.textContent = TEXT; return; }
+
+  // 1) typewriter com ritmo humano
+  let i = 0;
+  const type = () => {
+    typed.textContent = TEXT.slice(0, ++i);
+    if (i < TEXT.length) {
+      const ch = TEXT[i - 1];
+      const pause = /[.,]/.test(ch) ? 420 : ch === ' ' ? SPEED_MS * 1.4 : SPEED_MS + Math.random() * 50;
+      setTimeout(type, pause);
+    } else { caret.classList.add('done'); }
+  };
+  setTimeout(type, 500);
+
+  // 2) entrega por scroll
+  const ease = t => t * t * (3 - 2 * t);
+  let cur = 0, target = 0;
+  const tick = () => {
+    const r = runway.getBoundingClientRect();
+    target = clamp(-r.top / (r.height - innerHeight), 0, 1);
+    cur += (target - cur) * 0.12;
+    const cs = getComputedStyle(document.documentElement);
+    const h = clamp((cur - HANDOFF_FROM) / (HANDOFF_TO - HANDOFF_FROM), 0, 1);
+    const e = ease(h);
+    const scaleEnd = parseFloat(cs.getPropertyValue('--title-scale')) || 0.4;
+    const yEnd = (innerWidth < 700 ? -0.3 : -0.31) * innerHeight;
+    hero.style.setProperty('--sc', (1 + (scaleEnd - 1) * e).toFixed(4));
+    hero.style.setProperty('--ty', (yEnd * e).toFixed(1) + 'px');
+    hero.style.opacity = (1 - clamp((h - 0.7) / 0.3, 0, 1)).toFixed(3);
+    kick.style.opacity = (1 - clamp(h * 3, 0, 1)).toFixed(3);
+    sectitle.style.opacity = clamp((h - 0.75) / 0.25, 0, 1).toFixed(3);
+    items.forEach((li, n) => {
+      const a = clamp((cur - 0.5 - n * 0.045) / 0.1, 0, 1);
+      li.style.opacity = a.toFixed(3);
+      li.style.transform = `translateY(${((1 - a) * 24).toFixed(1)}px)`;
+    });
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

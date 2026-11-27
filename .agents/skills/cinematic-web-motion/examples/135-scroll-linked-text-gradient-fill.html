@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>135 · Scroll-Linked Text Gradient Fill</title>
+<!--
+PATTERN: Reading-progress typography: a manifesto fills with colour word by word, and a second statement fills line by line with a scrubbed hard-edge gradient.
+Motion: Each block gets a progress 0-1 from its position between 85% and 35% of the viewport; words switch via per-word interpolation (colour mix), lines use background-clip:text with a --p custom property driving the gradient stop.
+Accessibility: Text is real DOM text (spans are aria-hidden copies behind an sr-only original), dim colour still meets 4.5:1 on the background, reduced motion shows the fully filled colour.
+Adapting: Change the START/END in CONFIG, the DIM/FILL colours in :root, or add class .fill-words / .fill-lines to other paragraphs.
+Libraries: none (vanilla JS).
+-->
+<style>
+:root{--bg:#1c2420;--dim:#7d8a80;--fill:#f3ead3;--acc:#e0a03a;--rose:#d9765a}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--fill);font:400 1.05rem/1.6 "Helvetica Neue",Arial,sans-serif}
+:focus-visible{outline:3px solid var(--acc);outline-offset:3px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.bar{position:fixed;top:0;left:0;height:4px;background:var(--acc);width:100%;transform-origin:0 50%;transform:scaleX(0);z-index:9}
+.intro{min-height:88vh;padding:16vh 7vw 6vh;display:grid;align-content:end}
+.intro .k,.k{font:600 .72rem/1 ui-monospace,Consolas,monospace;letter-spacing:.2em;text-transform:uppercase;color:var(--acc);margin-bottom:1.5rem}
+.intro h1{font:400 clamp(2.8rem,9vw,8.6rem)/.92 Georgia,"Iowan Old Style",serif;letter-spacing:-.04em;max-width:11ch}
+.intro h1 em{color:var(--acc);font-style:italic}
+.blk{padding:18vh 7vw;display:grid;grid-template-columns:repeat(12,1fr);gap:1.5rem}
+.blk .k{grid-column:1 / span 3}
+.words,.lines{grid-column:4 / span 9;font:400 clamp(1.7rem,4vw,3.7rem)/1.18 Georgia,serif;letter-spacing:-.02em}
+.w{color:var(--dim);transition:none;display:inline}
+.line{display:block;color:transparent;background:linear-gradient(90deg,var(--fill) 0 var(--p,0%),var(--dim) var(--p,0%) 100%);-webkit-background-clip:text;background-clip:text}
+.band{background:var(--rose);color:#2b1510;padding:14vh 7vw;display:grid;grid-template-columns:repeat(12,1fr);gap:1.5rem}
+.band .k{color:#2b1510;grid-column:1 / span 3}
+.band .lines{--dim:#8a3b25;--fill:#2b1510}
+.band .lines .line{background:linear-gradient(90deg,#2b1510 0 var(--p,0%),#8d3d27 var(--p,0%) 100%);-webkit-background-clip:text;background-clip:text}
+.end{padding:14vh 7vw 18vh}
+.end p{max-width:34ch}
+.end a{display:inline-block;margin-top:1.6rem;padding:.9rem 1.4rem;border:2px solid var(--fill);color:var(--fill);text-decoration:none;font-weight:600;transition:background .2s,color .2s}
+.end a:hover{background:var(--fill);color:var(--bg)}
+@media (max-width:760px){
+  .blk,.band{display:block;padding:13vh 7vw}
+  .blk .k,.band .k{margin-bottom:1.2rem}
+}
+@media (prefers-reduced-motion:reduce){
+  .w{color:var(--fill)}
+  .line{background:none;color:var(--fill)}
+  .band .line{color:#2b1510}
+  .bar{display:none}
+}
+</style>
+</head>
+<body>
+<div class="bar" id="bar" aria-hidden="true"></div>
+<header class="intro"><p class="k">Ledgerwood Housing Co-op · Annual letter</p><h1>What a roof <em>actually</em> costs.</h1></header>
+
+<section class="blk">
+  <p class="k">I · Why we exist</p>
+  <p class="words fill-words">Ledgerwood buys tired terraced houses, repairs them to a standard we would live in ourselves, and rents them to members at a third of the local market rate. We do not sell, we do not flip, and nobody is asked to leave because the area got fashionable.</p>
+</section>
+
+<section class="blk">
+  <p class="k">II · The numbers</p>
+  <p class="lines fill-lines">We now own 63 homes across four streets. The average repair bill was 41,800 pounds per house. Rent covers every penny of upkeep, and a quarter of last year's surplus went into insulation.</p>
+</section>
+
+<section class="band">
+  <p class="k">III · A promise</p>
+  <p class="lines fill-lines">If a boiler fails in January it is replaced within five days. If a member loses work, rent is paused for six months. If we cannot keep a promise, we say so in the next letter.</p>
+</section>
+
+<section class="blk">
+  <p class="k">IV · Next year</p>
+  <p class="words fill-words">In spring we will start work on Number 12 Alder Row, a forty-year-old laundry with space for nine flats, a shared drying room, and a bike store that is not a cupboard under the stairs.</p>
+</section>
+
+<footer class="end"><p>Members meet on the first Thursday of the month at the Alder Row community room. Anyone on the waiting list is welcome to sit in.</p><a href="#bar">Read the full accounts</a></footer>
+
+<script>
+(function(){
+  var CONFIG={start:.85,end:.35};
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var clamp=function(v){return Math.max(0,Math.min(1,v))};
+  var wordBlocks=[],lineBlocks=[];
+
+  document.querySelectorAll(".fill-words").forEach(function(p){
+    var text=p.textContent.trim();
+    var sr=document.createElement("span");sr.className="sr";sr.textContent=text;
+    p.textContent="";p.appendChild(sr);
+    var spans=text.split(/\s+/).map(function(t){var s=document.createElement("span");s.className="w";s.setAttribute("aria-hidden","true");s.textContent=t+" ";p.appendChild(s);return s});
+    wordBlocks.push({el:p,spans:spans});
+  });
+
+  function mix(a,b,t){return a.map(function(v,i){return Math.round(v+(b[i]-v)*t)})}
+  var DIM=[125,138,128],FILL=[243,234,211];
+
+  function buildLines(){
+    lineBlocks=[];
+    document.querySelectorAll(".fill-lines").forEach(function(p){
+      if(!p.dataset.text)p.dataset.text=p.textContent.trim();
+      p.textContent="";
+      var sr=document.createElement("span");sr.className="sr";sr.textContent=p.dataset.text;p.appendChild(sr);
+      var probes=p.dataset.text.split(/\s+/).map(function(t){var s=document.createElement("span");s.textContent=t+" ";s.style.display="inline";p.appendChild(s);return s});
+      var groups=[],lastTop=null;
+      probes.forEach(function(s){var t=s.offsetTop;if(lastTop===null||Math.abs(t-lastTop)>4){groups.push([]);lastTop=t}groups[groups.length-1].push(s.textContent)});
+      probes.forEach(function(s){p.removeChild(s)});
+      var els=groups.map(function(g){var l=document.createElement("span");l.className="line";l.setAttribute("aria-hidden","true");l.textContent=g.join("").trim();p.appendChild(l);return l});
+      lineBlocks.push({el:p,lines:els});
+    });
+  }
+  buildLines();
+
+  function prog(el){var r=el.getBoundingClientRect(),vh=innerHeight;var a=vh*CONFIG.start,b=vh*CONFIG.end;
+    /* progress runs while the block's top travels from start line to end line, extended by its height */
+    var s=a-r.top,len=(a-b)+r.height*.6;return clamp(s/len)}
+
+  function update(){
+    document.getElementById("bar").style.transform="scaleX("+clamp(scrollY/(document.documentElement.scrollHeight-innerHeight))+")";
+    if(reduce)return;
+    wordBlocks.forEach(function(b){
+      var p=prog(b.el),n=b.spans.length,x=p*(n+3);
+      b.spans.forEach(function(s,i){var t=clamp(x-i);s.style.color="rgb("+mix(DIM,FILL,t).join(",")+")"});
+    });
+    lineBlocks.forEach(function(b){
+      var p=prog(b.el),n=b.lines.length,x=p*(n+.4);
+      b.lines.forEach(function(l,i){l.style.setProperty("--p",(clamp(x-i)*100).toFixed(1)+"%")});
+    });
+  }
+  var raf=0;function req(){if(!raf)raf=requestAnimationFrame(function(){raf=0;update()})}
+  addEventListener("scroll",req,{passive:true});
+  var rt;addEventListener("resize",function(){clearTimeout(rt);rt=setTimeout(function(){buildLines();req()},150)});
+  update();
+})();
+</script>
+</body>
+</html>

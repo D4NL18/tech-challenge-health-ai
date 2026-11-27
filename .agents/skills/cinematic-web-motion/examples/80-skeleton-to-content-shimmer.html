@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>80 · Skeleton to Content Shimmer</title>
+<!--
+PATTERN: Skeleton placeholders with a shimmer sweep that cross-fade into real content, with the
+  skeleton shaped exactly like the content to avoid layout shift. A button reloads the demo.
+Motion: A light band sweeps across each block via a moving background-position (1.4s loop).
+  After DELAY ms the skeleton layer fades out and content fades/rises in with staggered delays,
+  all with cubic-bezier(.2,.7,.2,1).
+Accessibility: Container uses aria-busy while loading and a polite live region announces
+  "Loaded 3 shipments"; the reload button has visible text and :focus-visible ring. Loading state
+  is also stated in text ("Fetching shipments"). prefers-reduced-motion: shimmer stops, swap is instant.
+Adapting: DELAY and STAGGER in the CONFIG; skeleton block sizes match .card fields. Libraries: none.
+-->
+<style>
+:root{--paper:#f1ebde;--ink:#1c1a17;--mute:#574f44;--acc:#a8401d;--line:#cdc2ae;--sk:#ddd3bf;--e:cubic-bezier(.2,.7,.2,1)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--paper);color:var(--ink);font:16px/1.5 "Helvetica Neue",Arial,sans-serif;padding:9vh 6vw}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;max-width:880px;margin-left:5vw;margin-bottom:2rem;flex-wrap:wrap}
+h1{font:600 clamp(2rem,4.5vw,3.2rem)/1.05 Georgia,"Iowan Old Style",serif;letter-spacing:-.02em}
+.btn{border:1px solid var(--ink);background:none;padding:.6rem 1rem;font:600 .9rem "Helvetica Neue",sans-serif;cursor:pointer;color:var(--ink);transition:background .25s var(--e),color .25s var(--e)}
+.btn:hover{background:var(--ink);color:var(--paper)}
+.btn:focus-visible{outline:3px solid var(--acc);outline-offset:3px}
+.status{max-width:880px;margin:0 0 1rem 5vw;font:600 .75rem ui-monospace,monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.list{max-width:880px;margin-left:5vw;display:grid;gap:0;border-top:1px solid var(--line)}
+.card{position:relative;display:grid;grid-template-columns:88px 1fr 120px;gap:1.2rem;align-items:center;padding:1.2rem 0;border-bottom:1px solid var(--line);min-height:104px}
+.layer{display:contents}
+.real{display:contents}
+.real>*{opacity:0;transform:translateY(8px);transition:opacity .5s var(--e),transform .6s var(--e);transition-delay:var(--d,0ms)}
+.loaded .real>*{opacity:1;transform:none}
+.sk{position:absolute;inset:1.2rem 0;display:grid;grid-template-columns:88px 1fr 120px;gap:1.2rem;align-items:center;transition:opacity .35s var(--e);pointer-events:none}
+.loaded .sk{opacity:0}
+.b{height:14px;background:linear-gradient(100deg,var(--sk) 30%,#efe7d5 50%,var(--sk) 70%) 200% 0/250% 100%;animation:sh 1.4s linear infinite}
+.b.sq{height:64px}.b.w{width:70%}.b.s{width:45%;margin-top:.6rem}
+@keyframes sh{to{background-position:-50% 0}}
+.id{font:700 .85rem ui-monospace,monospace;border:1px solid var(--ink);padding:.5rem .3rem;text-align:center;white-space:nowrap}
+.card h2{font:600 1.15rem Georgia,serif}
+.card p{color:var(--mute);font-size:.9rem}
+.state{font-weight:700;font-size:.85rem}
+.state::before{content:attr(data-i) " "}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media(max-width:560px){.card,.sk{grid-template-columns:84px 1fr}.card .state,.sk .b:last-child{display:none}}
+@media (prefers-reduced-motion:reduce){.b{animation:none}.real>*,.sk{transition:none}.real>*{transform:none}}
+</style>
+</head>
+<body>
+<div class="top"><h1>Today's inbound shipments</h1><button class="btn" id="reload">Reload shipments</button></div>
+<div class="status" id="status">Fetching shipments</div>
+<div class="list" id="list" aria-busy="true">
+  <div class="card"><div class="sk" aria-hidden="true"><div class="b sq"></div><div><div class="b w"></div><div class="b s"></div></div><div class="b"></div></div>
+    <div class="real"><span class="id">PT-4471</span><div><h2>Olive oil, 24 pallets</h2><p>Dock 3, arriving 06:40 from Évora</p></div><span class="state" data-i="&#9650;">On time</span></div></div>
+  <div class="card"><div class="sk" aria-hidden="true"><div class="b sq"></div><div><div class="b w"></div><div class="b s"></div></div><div class="b"></div></div>
+    <div class="real"><span class="id">ES-0932</span><div><h2>Citrus crates, 40 pallets</h2><p>Dock 1, arriving 08:15 from Valencia</p></div><span class="state" data-i="&#9888;">Delayed 35 min</span></div></div>
+  <div class="card"><div class="sk" aria-hidden="true"><div class="b sq"></div><div><div class="b w"></div><div class="b s"></div></div><div class="b"></div></div>
+    <div class="real"><span class="id">PT-4488</span><div><h2>Glass jars, 12 pallets</h2><p>Dock 5, arriving 10:00 from Marinha Grande</p></div><span class="state" data-i="&#9650;">On time</span></div></div>
+</div>
+<div class="sr" role="status" aria-live="polite" id="live"></div>
+<script>
+(function(){
+  var CONFIG={DELAY:1800,STAGGER:120};
+  var list=document.getElementById("list"),st=document.getElementById("status"),live=document.getElementById("live"),btn=document.getElementById("reload"),timer;
+  [].forEach.call(list.querySelectorAll(".card"),function(c,i){
+    [].forEach.call(c.querySelector(".real").children,function(el,j){el.style.setProperty("--d",(i*CONFIG.STAGGER+j*50)+"ms")});
+  });
+  function load(){
+    clearTimeout(timer);list.classList.remove("loaded");list.setAttribute("aria-busy","true");
+    st.textContent="Fetching shipments";live.textContent="";btn.disabled=true;
+    timer=setTimeout(function(){
+      list.classList.add("loaded");list.setAttribute("aria-busy","false");
+      st.textContent="3 shipments, updated just now";live.textContent="Loaded 3 shipments";btn.disabled=false;
+    },CONFIG.DELAY);
+  }
+  btn.addEventListener("click",load);
+  load();
+})();
+</script>
+</body>
+</html>

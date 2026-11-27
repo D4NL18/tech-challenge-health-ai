@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>71 · Command Palette (cmdk)</title>
+<!--
+PATTERN: Ctrl/Cmd+K command palette. One single highlight element glides between results
+  instead of each row changing its own background (ref: Rauno Freiberg's cmdk).
+Motion: The highlight is absolutely positioned and moved with transform: translateY(row.offsetTop).
+  The panel enters with opacity + scale + translateY on cubic-bezier(.2,.7,.2,1).
+  Filtering rebuilds the list and the highlight snaps to the first match.
+Accessibility: role=dialog + combobox/listbox with aria-activedescendant; ArrowUp/Down, Enter, Escape;
+  Tab is held inside the dialog; focus returns to the trigger on close. Active row also shows a
+  "Enter" key hint and a left bar (not colour only). prefers-reduced-motion: no transitions.
+Adapting: ITEMS, DURATION in CONFIG. Libraries: none.
+-->
+<style>
+:root{--bg:#efe9dc;--fg:#1d1a16;--mut:#5b5348;--acc:#b5421f;--panel:#fbf8f1;--line:#cfc6b4;--ease:cubic-bezier(.2,.7,.2,1)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:"Segoe UI",Helvetica,sans-serif;min-height:100vh;display:grid;grid-template-columns:minmax(1.5rem,1fr) minmax(0,38rem) 2fr;align-content:center}
+main{grid-column:2;padding:12vh 0}
+h1{font-family:Georgia,"Iowan Old Style",serif;font-weight:400;font-size:clamp(2.4rem,6vw,4.4rem);line-height:1;letter-spacing:-.03em;margin-bottom:1.2rem}
+p{color:var(--mut);line-height:1.55;margin-bottom:1.6rem;max-width:42ch}
+button{font:inherit;cursor:pointer}
+#open{display:inline-flex;gap:.8rem;align-items:center;background:var(--fg);color:var(--bg);border:0;padding:.7rem 1rem;border-radius:3px;transition:transform .3s var(--ease)}
+#open:hover{transform:translateX(4px)}
+kbd{font:600 .75rem ui-monospace,monospace;border:1px solid currentColor;border-radius:3px;padding:.05rem .35rem}
+:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+#ov{position:fixed;inset:0;background:rgba(29,26,22,.45);display:none;align-items:flex-start;justify-content:center;padding-top:14vh}
+#ov.on{display:flex}
+#box{width:min(34rem,92vw);background:var(--panel);border:1px solid var(--line);border-radius:6px;box-shadow:0 24px 60px rgba(29,26,22,.3);opacity:0;transform:translateY(8px) scale(.97);transition:opacity .25s var(--ease),transform .25s var(--ease)}
+#ov.vis #box{opacity:1;transform:none}
+#q:focus-visible{outline-offset:-4px;border-radius:6px}
+#q{width:100%;font:inherit;font-size:1.05rem;padding:1rem 1.1rem;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--fg);border-radius:6px 6px 0 0}
+#list{list-style:none;padding:.4rem;position:relative;max-height:18rem;overflow:auto}
+#hl{position:absolute;left:.4rem;right:.4rem;top:0;height:0;background:#e6dcc6;border-left:3px solid var(--acc);border-radius:3px;transition:transform .2s var(--ease),height .2s var(--ease);pointer-events:none}
+li{position:relative;display:flex;justify-content:space-between;padding:.65rem .8rem;cursor:pointer;border-radius:3px}
+li span:last-child{font-size:.75rem;color:var(--mut)}
+li[aria-selected=true] span:last-child::before{content:"Enter ↵ · "}
+.none{padding:1rem;color:var(--mut)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Jump anywhere in the ledger.</h1>
+  <p>Press the shortcut to find an invoice, a client or a report without leaving the keyboard.</p>
+  <button id="open" type="button">Open palette <kbd>Ctrl K</kbd></button>
+</main>
+<div id="ov"><div id="box" role="dialog" aria-modal="true" aria-label="Command palette">
+  <input id="q" role="combobox" aria-expanded="true" aria-controls="list" aria-autocomplete="list" placeholder="Search invoices, clients, reports" autocomplete="off">
+  <ul id="list" role="listbox" aria-label="Results"><li id="hl" aria-hidden="true" style="padding:0"></li></ul>
+</div></div>
+<script>
+(function(){
+  var CONFIG={ITEMS:[["Invoice #2041 · Alder &amp; Finch","Invoice"],["Invoice #2042 · Hollis Print Co.","Invoice"],["Client · Marisol Quintana","Client"],["Client · Northgate Bakery","Client"],["Report · Q3 receivables aging","Report"],["Report · VAT summary, October","Report"],["Settings · Payment reminders","Settings"]]};
+  var ov=document.getElementById("ov"),q=document.getElementById("q"),list=document.getElementById("list"),hl=document.getElementById("hl"),opener=document.getElementById("open");
+  var rows=[],idx=0;
+  function render(){
+    var term=q.value.toLowerCase().trim();
+    [].slice.call(list.querySelectorAll("li:not(#hl),.none")).forEach(function(n){n.remove()});
+    rows=[];
+    CONFIG.ITEMS.forEach(function(it,i){
+      if(it[0].toLowerCase().indexOf(term)<0)return;
+      var li=document.createElement("li");li.id="opt"+i;li.setAttribute("role","option");
+      li.innerHTML="<span>"+it[0]+"</span><span>"+it[1]+"</span>";
+      li.addEventListener("mousemove",function(){set(rows.indexOf(li))});
+      li.addEventListener("click",pick);
+      list.appendChild(li);rows.push(li);
+    });
+    if(!rows.length){var n=document.createElement("li");n.className="none";n.textContent="No matches. Try a client name or an invoice number.";n.style.cursor="default";list.appendChild(n)}
+    idx=0;set(0);
+  }
+  function set(i){
+    if(!rows.length){hl.style.height="0";return}
+    idx=(i+rows.length)%rows.length;
+    rows.forEach(function(r,k){r.setAttribute("aria-selected",k===idx)});
+    var r=rows[idx];
+    hl.style.height=r.offsetHeight+"px";hl.style.transform="translateY("+r.offsetTop+"px)";
+    q.setAttribute("aria-activedescendant",r.id);
+    r.scrollIntoView({block:"nearest"});
+  }
+  function pick(){if(rows[idx]){close()}}
+  function open(){ov.classList.add("on");q.value="";render();q.focus();requestAnimationFrame(function(){ov.classList.add("vis");set(0)})}
+  function close(){ov.classList.remove("vis");setTimeout(function(){ov.classList.remove("on")},180);opener.focus()}
+  opener.addEventListener("click",open);
+  ov.addEventListener("mousedown",function(e){if(e.target===ov)close()});
+  q.addEventListener("input",render);
+  document.addEventListener("keydown",function(e){
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();ov.classList.contains("on")?close():open();return}
+    if(!ov.classList.contains("on"))return;
+    if(e.key==="Escape")close();
+    else if(e.key==="ArrowDown"){e.preventDefault();set(idx+1)}
+    else if(e.key==="ArrowUp"){e.preventDefault();set(idx-1)}
+    else if(e.key==="Enter"){e.preventDefault();pick()}
+    else if(e.key==="Tab")e.preventDefault();
+  });
+})();
+</script>
+</body>
+</html>

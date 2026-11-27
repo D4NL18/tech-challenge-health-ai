@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>129 · Timeline Vertical Draw</title>
+<!--
+PATTERN: Company history for a family brewery, 1887 to 2024. A vertical SVG-free line draws down
+  the page with scroll; a dot lights up as each year reaches the reading line and an entry card slides
+  in from its side. Cards alternate left and right with deliberately different widths and offsets.
+Motion: The line's scaleY is scrubbed over the whole list; a "head" marker rides the line tip. Each
+  entry has its own ScrollTrigger (top 70%): the dot scales and fills, the year numerals clip-reveal,
+  and the card translates from +-60px with opacity. Leaving upward reverses it.
+Accessibility: Semantic <ol> with <time> per entry. Without JS / with prefers-reduced-motion the
+  line is fully drawn and all entries are visible with no movement. :focus-visible on link.
+  Mobile (390px): line sits at the left edge, entries stack in one column.
+Adapting: Add <li class="ev"> entries (set --w for card width and class l/r for side).
+Libraries: GSAP + ScrollTrigger (CDN, optional).
+-->
+<style>
+:root{--malt:#f0e6d2;--stout:#241c17;--hop:#6c7a3a;--amber:#c67a1f;--brick:#8e3b26;--steam:#d7ccb4;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--malt);color:var(--stout);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a:focus-visible{outline:3px solid var(--brick);outline-offset:3px}
+.hero{padding:clamp(3rem,12vh,8rem) clamp(1.2rem,6vw,6rem) 8vh;display:grid;grid-template-columns:1fr auto;gap:2rem;align-items:end}
+.hero small{grid-column:1/-1;letter-spacing:.2em;text-transform:uppercase;font-size:.75rem;color:var(--hop);font-weight:700}
+.hero h1{font-family:var(--serif);font-weight:400;font-size:clamp(2.6rem,8vw,8rem);line-height:.92;letter-spacing:-.03em;max-width:11ch}
+.hero p{max-width:30ch;line-height:1.55}
+.tl{overflow-x:clip;position:relative;margin:0 clamp(1.2rem,6vw,6rem);padding:4vh 0 10vh}
+.axis{position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;background:#241c1726}
+.axis i{position:absolute;inset:0;background:var(--stout);transform-origin:50% 0}
+.list{list-style:none}
+.ev{position:relative;display:grid;grid-template-columns:1fr 1fr;min-height:48vh;align-items:center}
+.dot{position:absolute;left:50%;top:50%;width:20px;height:20px;margin:-10px 0 0 -10px;border:2px solid var(--stout);background:var(--malt);border-radius:50%;z-index:2;display:grid;place-items:center}
+.dot::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--amber);transform:scale(var(--on,1))}
+.on .ev{--on:0}.on .ev.live{--on:1}
+.card{width:var(--w,78%);padding:clamp(1.2rem,2.4vw,2rem);background:var(--c,#fbf5e7);border:1px solid var(--stout);position:relative}
+.ev time{display:block;font-family:var(--serif);font-size:clamp(3.4rem,8vw,7.4rem);line-height:.85;letter-spacing:-.05em;color:var(--brick)}
+.ev h2{font-family:var(--serif);font-weight:400;font-size:clamp(1.4rem,2.2vw,2rem);letter-spacing:-.01em;line-height:1.1;margin:.9rem 0 .6rem}
+.ev p{line-height:1.55;font-size:.98rem}
+.ev .fig{display:inline-block;margin-top:1rem;font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;border-top:1px solid currentColor;padding-top:.6rem}
+.l .card{grid-column:1;justify-self:end;margin-right:clamp(1.8rem,5vw,5rem)}
+.r .card{grid-column:2;justify-self:start;margin-left:clamp(1.8rem,5vw,5rem)}
+.r.up .card{margin-top:-6vh}.l.down .card{margin-top:6vh}
+.dark{--c:#2f241d;color:var(--malt)}.dark time{color:var(--amber)}.dark .fig{color:var(--steam)}
+.hop{--c:#dfe0b9}.amb{--c:#f0cf99}
+.end{padding:0 clamp(1.2rem,6vw,6rem) 14vh;display:flex;justify-content:space-between;flex-wrap:wrap;gap:2rem;align-items:end}
+.end p{font-family:var(--serif);font-size:clamp(1.5rem,3vw,2.6rem);max-width:20ch;line-height:1.1}
+.end a{color:var(--brick);font-size:.85rem;letter-spacing:.12em;text-transform:uppercase;text-underline-offset:.4em}
+@media(max-width:760px){
+  .hero{grid-template-columns:1fr}
+  .axis{left:1.1rem}
+  .ev{grid-template-columns:1fr;min-height:auto;padding:0 0 3rem 3rem}
+  .dot{left:1.1rem;top:1.2rem}
+  .l .card,.r .card{grid-column:1;justify-self:stretch;width:100%;margin:0!important}
+}
+</style>
+</head>
+<body>
+<section class="hero"><small>Marrowby Brewing Co., Yorkshire</small><h1>One hundred and thirty-seven years of the same well.</h1><p>Seven moments that decided what ends up in your glass, in the order they happened.</p></section>
+
+<div class="tl" id="tl">
+  <div class="axis" aria-hidden="true"><i id="axis"></i></div>
+  <ol class="list">
+    <li class="ev l"><span class="dot" aria-hidden="true"></span><div class="card" style="--w:74%"><time datetime="1887">1887</time><h2>Josiah Marrowby digs a well.</h2><p>A tanner by trade, he strikes soft water at 40 feet behind the Plough and starts brewing for the men who work the mill. The first batch is 8 barrels of mild.</p><span class="fig">8 barrels / week</span></div></li>
+    <li class="ev r up"><span class="dot" aria-hidden="true"></span><div class="card hop" style="--w:88%"><time datetime="1921">1921</time><h2>Daughters take over.</h2><p>Josiah's three granddaughters inherit after the war and rename the pale ale "Lass". It outsells the mild by 1924, and the pub signs are repainted.</p><span class="fig">Lass Pale Ale, first brewed</span></div></li>
+    <li class="ev l down"><span class="dot" aria-hidden="true"></span><div class="card dark" style="--w:92%"><time datetime="1944">1944</time><h2>The brewhouse becomes a bomb shelter.</h2><p>For nineteen months the copper room doubles as a shelter for forty families. Barrels are stacked as benches. Production halves but never stops.</p><span class="fig">40 families sheltered</span></div></li>
+    <li class="ev r"><span class="dot" aria-hidden="true"></span><div class="card amb" style="--w:70%"><time datetime="1978">1978</time><h2>First export, to Rotterdam.</h2><p>A Dutch importer tastes the stout at a trade fair and orders 600 cases on the spot. It is the first beer to leave Yorkshire in a shipping container.</p><span class="fig">600 cases</span></div></li>
+    <li class="ev l up"><span class="dot" aria-hidden="true"></span><div class="card" style="--w:80%"><time datetime="1996">1996</time><h2>We nearly close.</h2><p>Supermarket pricing and a failed expansion leave the brewery eleven weeks from receivership. Forty-three regulars buy shares at £500 each to keep the doors open.</p><span class="fig">43 regulars, £21,500</span></div></li>
+    <li class="ev r down"><span class="dot" aria-hidden="true"></span><div class="card hop" style="--w:96%"><time datetime="2011">2011</time><h2>Solar roof and a new mash tun.</h2><p>The old copper is replaced with stainless, and 280 panels go on the barn. The brewery now generates about 60% of the power it burns.</p><span class="fig">280 panels</span></div></li>
+    <li class="ev l"><span class="dot" aria-hidden="true"></span><div class="card dark" style="--w:68%"><time datetime="2024">2024</time><h2>Fifth generation at the bench.</h2><p>Josiah's great-great-granddaughter Nell brews her first solo batch, a 4.1% session bitter, from the same well. The recipe is on the label.</p><span class="fig">Same well, same water</span></div></li>
+  </ol>
+</div>
+<section class="end"><p>Tours run every Saturday at 11 and 2.</p><a href="#top">Book a tour and a half</a></section>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || !window.gsap || !window.ScrollTrigger) return;
+  gsap.registerPlugin(ScrollTrigger);
+  document.documentElement.classList.add('on');
+  gsap.fromTo('#axis', {scaleY: 0}, {scaleY: 1, ease: 'none',
+    scrollTrigger: {trigger: '#tl', start: 'top 60%', end: 'bottom 60%', scrub: .5}});
+  gsap.utils.toArray('.ev').forEach(function(ev){
+    var left = ev.classList.contains('l'), card = ev.querySelector('.card'), year = ev.querySelector('time');
+    gsap.set(card, {opacity: 0, x: left ? -60 : 60});
+    gsap.set(year, {clipPath: 'inset(0 100% 0 0)'});
+    var tl = gsap.timeline({paused: true})
+      .to(card, {opacity: 1, x: 0, duration: .9, ease: 'power3.out'})
+      .to(year, {clipPath: 'inset(0 0% 0 0)', duration: .9, ease: 'power3.inOut'}, .1)
+      .fromTo(ev.querySelector('.dot'), {scale: .6}, {scale: 1, duration: .5, ease: 'back.out(3)'}, 0);
+    ScrollTrigger.create({trigger: ev, start: 'top 68%',
+      onEnter: function(){ ev.classList.add('live'); tl.play(); },
+      onLeaveBack: function(){ ev.classList.remove('live'); tl.reverse(); }});
+  });
+  addEventListener('load', function(){ ScrollTrigger.refresh(); });
+})();
+</script>
+</body>
+</html>

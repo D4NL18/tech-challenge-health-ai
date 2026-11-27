@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>140 · CSS Animation-Timeline Sections</title>
+<!--
+PATTERN: Whole page choreographed in pure CSS with scroll-driven animations: animation-timeline: scroll(root) for the progress bar and hero zoom, animation-timeline: view() with animation-range for each section's entrance and parallax.
+Motion: @keyframes are authored once and bound to the scroll/view timelines (no JS per frame, runs off the main thread); ranges "entry 0% cover 40%" etc. decide when each effect plays.
+Accessibility: Inside @supports not (animation-timeline: view()) an IntersectionObserver adds .in and plain transitions play instead; content is visible if JS is blocked via <noscript> rule; prefers-reduced-motion disables all of it.
+Adapting: Change animation-range per rule, swap keyframes, or add class .reveal / .drift to any element.
+Libraries: none (CSS, with a ~10 line IntersectionObserver fallback).
+-->
+<noscript><style>.reveal{opacity:1!important;transform:none!important}</style></noscript>
+<style>
+:root{--paper:#f1e9d9;--ink:#1f1b17;--sage:#5c6f4f;--berry:#8a2f3c;--straw:#e3bd5d;--bark:#3a2b22}
+*{box-sizing:border-box;margin:0}
+body{background:var(--paper);color:var(--ink);font:400 1.05rem/1.6 "Helvetica Neue",Arial,sans-serif;overflow-x:hidden}
+:focus-visible{outline:3px solid var(--berry);outline-offset:3px}
+.prog{position:fixed;top:0;left:0;right:0;height:5px;background:var(--berry);transform-origin:0 50%;transform:scaleX(0);z-index:20}
+.hero{min-height:120vh;padding:14vh 6vw;display:grid;grid-template-columns:repeat(12,1fr);gap:1.5rem;align-content:start;position:relative}
+.hero .k,.k{font:600 .72rem/1 ui-monospace,Consolas,monospace;letter-spacing:.2em;text-transform:uppercase;color:var(--berry);grid-column:1 / -1}
+.hero h1{grid-column:1 / span 10;font:400 clamp(3rem,10vw,10rem)/.88 Georgia,"Iowan Old Style",serif;letter-spacing:-.045em;margin-top:2rem;transform-origin:0 0}
+.hero h1 em{font-style:italic;color:var(--sage)}
+.hero p{grid-column:1 / span 5;margin-top:2rem}
+.fruit{position:absolute;right:6vw;top:34vh;width:min(34vw,26rem);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 35% 30%,#d56a52,var(--berry) 60%,#5a1b27)}
+.sec{padding:14vh 6vw;display:grid;grid-template-columns:repeat(12,1fr);gap:1.5rem;align-items:start}
+.sec h2{grid-column:1 / span 6;font:400 clamp(2.2rem,5.4vw,5rem)/.98 Georgia,serif;letter-spacing:-.035em}
+.sec h2 em{font-style:italic;color:var(--berry)}
+.sec .body{grid-column:8 / span 5;margin-top:3rem}
+.sec .body p+p{margin-top:1rem}
+.dark{background:var(--bark);color:var(--paper)}.dark h2 em{color:var(--straw)}.dark .k{color:var(--straw)}
+.cards{grid-column:1 / -1;display:grid;grid-template-columns:2fr 1fr 1.4fr;gap:1.5rem;margin-top:3rem;align-items:end}
+.card{padding:1.6rem;border:2px solid currentColor;min-height:14rem;display:flex;flex-direction:column;justify-content:space-between}
+.card b{font:400 3.2rem/1 Georgia,serif;color:var(--straw)}
+.card:nth-child(2){min-height:18rem;background:var(--straw);color:var(--ink);border-color:var(--straw)}
+.card:nth-child(2) b{color:var(--berry)}
+.card small{font-size:.9rem}
+.pull{padding:16vh 6vw;display:grid;grid-template-columns:repeat(12,1fr)}
+.pull blockquote{grid-column:3 / span 9;font:italic 400 clamp(1.9rem,4.8vw,4.4rem)/1.08 Georgia,serif;letter-spacing:-.02em}
+.pull cite{grid-column:3 / span 9;margin-top:1.6rem;font:600 .72rem/1 ui-monospace,monospace;letter-spacing:.18em;text-transform:uppercase;font-style:normal}
+.foot{padding:12vh 6vw 16vh;background:var(--sage);color:var(--paper)}
+.foot h2{font:400 clamp(2.4rem,6vw,5.6rem)/1 Georgia,serif;letter-spacing:-.03em;max-width:12ch}
+.foot a{display:inline-block;margin-top:1.8rem;padding:.9rem 1.4rem;border:2px solid currentColor;color:inherit;text-decoration:none;font-weight:600;transition:background .2s,color .2s}
+.foot a:hover{background:var(--paper);color:var(--sage)}
+.reveal{opacity:1}
+
+@keyframes grow{to{transform:scaleX(1)}}
+@keyframes hero-out{to{transform:scale(.82) translateY(-6vh);opacity:.2}}
+@keyframes rise{from{opacity:0;transform:translateY(60px)}to{opacity:1;transform:none}}
+@keyframes slide-l{from{opacity:0;transform:translateX(-60px)}to{opacity:1;transform:none}}
+@keyframes drift{from{transform:translateY(12vh)}to{transform:translateY(-12vh)}}
+@keyframes fruit{from{transform:translateY(0) scale(1)}to{transform:translateY(30vh) scale(1.5)}}
+@keyframes unclip{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+
+@supports (animation-timeline: view()){
+  .prog{animation:grow linear both;animation-timeline:scroll(root)}
+  .hero h1{animation:hero-out linear both;animation-timeline:view();animation-range:exit 10% exit 90%}
+  .fruit{animation:fruit linear both;animation-timeline:scroll(root);animation-range:0 90vh}
+  .reveal{animation:rise cubic-bezier(.2,.7,.2,1) both;animation-timeline:view();animation-range:entry 0% cover 38%}
+  .reveal.left{animation-name:slide-l}
+  .drift{animation:drift linear both;animation-timeline:view();animation-range:cover 0% cover 100%}
+  .wipe{animation:unclip linear both;animation-timeline:view();animation-range:entry 10% cover 45%}
+}
+@supports not (animation-timeline: view()){
+  .js .reveal{opacity:0;transform:translateY(48px);transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .8s cubic-bezier(.2,.7,.2,1)}
+  .js .reveal.left{transform:translateX(-48px)}
+  .js .reveal.in{opacity:1;transform:none}
+  .js .wipe{clip-path:inset(0 100% 0 0);transition:clip-path 1s cubic-bezier(.2,.7,.2,1)}
+  .js .wipe.in{clip-path:inset(0 0 0 0)}
+}
+@media (max-width:760px){
+  .hero h1,.hero p,.sec h2,.sec .body,.pull blockquote,.pull cite{grid-column:1 / -1}
+  .sec .body{margin-top:1.5rem}
+  .cards{grid-template-columns:1fr}
+  .fruit{width:44vw;top:auto;bottom:6vh}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+  .reveal,.wipe{opacity:1!important;transform:none!important;clip-path:none!important}
+  .prog{display:none}
+}
+</style>
+</head>
+<body>
+<div class="prog" aria-hidden="true"></div>
+<header class="hero">
+  <p class="k">Wyvern Hill Orchard Co-op · Harvest Journal</p>
+  <h1>Two hundred <em>apples</em> nobody sells.</h1>
+  <p class="reveal">Forty growers in Herefordshire keep the old cider varieties alive: Foxwhelp, Kingston Black, Slack-ma-Girdle. None of them look good in a supermarket and all of them taste of something.</p>
+  <div class="fruit" aria-hidden="true"></div>
+</header>
+
+<section class="sec" id="trees">
+  <p class="k reveal">01 · Trees</p>
+  <h2 class="reveal left">Standards, not <em>dwarfs</em>.</h2>
+  <div class="body drift"><p class="reveal">Our trees are full-size standards, grafted onto seedling rootstock and left to grow for twelve years before the first useful crop. Sheep graze underneath; the grass is mown only once, in August.</p><p class="reveal">That slowness is the point. A standard tree lives eighty years and supports lichen, bats and a dozen kinds of beetle that a dwarf orchard never sees.</p></div>
+</section>
+
+<section class="sec dark" id="numbers">
+  <p class="k reveal">02 · Season in numbers</p>
+  <h2 class="reveal left">A harvest in <em>three</em> weeks.</h2>
+  <div class="cards">
+    <div class="card reveal"><b>212</b><small>named varieties across member orchards</small></div>
+    <div class="card reveal"><b>41</b><small>tonnes pressed, 2024</small></div>
+    <div class="card reveal"><b>9</b><small>days the press runs without a break</small></div>
+  </div>
+</section>
+
+<section class="pull">
+  <blockquote class="wipe">"You taste the year in it. Dry spring, wet August, a late frost, all in the glass."</blockquote>
+  <cite class="reveal">Tomos Hale · Foxwhelp grower, Bromyard</cite>
+</section>
+
+<section class="sec" id="press">
+  <p class="k reveal">03 · Pressing</p>
+  <h2 class="reveal left">Slow juice, <em>fast</em> neighbours.</h2>
+  <div class="body"><p class="reveal">On pressing weekends the yard fills with trailers. Apples are washed, milled, stacked in cloth and pressed under a 19th-century beam press that needs three people to lock.</p><p class="reveal">Juice leaves in food-grade tanks within the hour. Members take back a share in bottles or crates, depending on whether they came to help.</p></div>
+</section>
+
+<footer class="foot">
+  <h2 class="reveal">Join us for the next pressing.</h2>
+  <p class="reveal">Weekends in October, 9:00 to 17:00. Wellies, gloves and an empty bottle recommended.</p>
+  <a class="reveal" href="#trees">Book a press slot</a>
+</footer>
+<script>
+(function(){
+  if(window.CSS&&CSS.supports&&CSS.supports("animation-timeline: view()"))return;
+  document.documentElement.classList.add("js");
+  var els=[].slice.call(document.querySelectorAll(".reveal,.wipe"));
+  if(!("IntersectionObserver" in window)){els.forEach(function(e){e.classList.add("in")});return}
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target)}})},{threshold:.2});
+  els.forEach(function(e){io.observe(e)});
+  /* fallback progress bar */
+  var bar=document.querySelector(".prog");
+  addEventListener("scroll",function(){bar.style.transform="scaleX("+(scrollY/(document.documentElement.scrollHeight-innerHeight))+")"},{passive:true});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>79 · Sticky TOC Scrollspy</title>
+<!--
+PATTERN: Sticky table of contents that tracks the section in view and slides a marker to it.
+Motion: IntersectionObserver (rootMargin trims the viewport to a reading band) picks the active
+  section; a single absolutely positioned marker translates to the active link with
+  cubic-bezier(.2,.7,.2,1); link colour/weight shift in step. Clicks scroll smoothly.
+Accessibility: Real <nav aria-label> with anchor links; active link gets aria-current="location" and
+  a bold weight plus the marker (not colour alone). Focus ring on links; keyboard Tab/Enter works
+  natively. prefers-reduced-motion: marker jumps, scroll is instant.
+Adapting: BAND (rootMargin) in the CONFIG; add sections with id and a matching nav link. Libraries: none.
+-->
+<style>
+:root{--paper:#f1ebde;--ink:#1c1a17;--mute:#574f44;--acc:#a8401d;--line:#cdc2ae;--e:cubic-bezier(.2,.7,.2,1)}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth}
+body{background:var(--paper);color:var(--ink);font:17px/1.65 "Helvetica Neue",Arial,sans-serif}
+.wrap{display:grid;grid-template-columns:230px minmax(0,62ch);gap:8vw;padding:10vh 6vw 30vh;margin-left:4vw}
+nav{position:sticky;top:10vh;align-self:start}
+nav b{display:block;font:700 .7rem ui-monospace,monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--mute);margin-bottom:1rem}
+.list{position:relative;border-left:1px solid var(--line)}
+.list a{display:block;padding:.45rem 0 .45rem 1.1rem;color:var(--mute);text-decoration:none;font-size:.92rem;transition:color .3s var(--e),padding .3s var(--e)}
+.list a:hover{color:var(--ink)}
+.list a:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.list a[aria-current]{color:var(--ink);font-weight:700;padding-left:1.4rem}
+.mark{position:absolute;left:-2px;top:0;width:3px;height:2rem;background:var(--acc);transition:transform .45s var(--e),height .45s var(--e)}
+h1{font:600 clamp(2.2rem,5vw,3.6rem)/1.05 Georgia,"Iowan Old Style",serif;letter-spacing:-.02em;margin-bottom:3rem}
+section{margin-bottom:6rem;scroll-margin-top:10vh}
+h2{font:600 1.8rem Georgia,serif;margin-bottom:.8rem}
+p{margin-bottom:1rem;color:#2c2924}
+@media(max-width:760px){.wrap{grid-template-columns:1fr;margin:0}nav{position:static}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.mark,.list a{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav aria-label="On this page"><b>Field manual</b>
+  <div class="list" id="list"><span class="mark" id="mark" aria-hidden="true"></span>
+    <a href="#cold">Cold chain basics</a><a href="#intake">Intake checks</a><a href="#storage">Storage zones</a><a href="#dispatch">Dispatch window</a><a href="#recall">Recall procedure</a></div></nav>
+<main>
+<h1>Running a cold store without losing a pallet.</h1>
+<section id="cold"><h2>Cold chain basics</h2><p>Chilled goods live between 0 and 4 degrees. Every handover is logged with a probe reading, not a glance at the dashboard.</p><p>A door open for ninety seconds costs more stock than most spills. Train the night shift on that first.</p><p>Keep the dock curtain intact; replace strips at the first tear, not at the quarterly audit.</p></section>
+<section id="intake"><h2>Intake checks</h2><p>Check seal numbers against the waybill before the driver leaves. Photograph any mismatch while the truck is still on the bay.</p><p>Reject anything above 6 degrees at core. Write the reading on the pallet label so the dispute has evidence.</p><p>Two people sign: the receiver and the driver. One signature is a rumour.</p></section>
+<section id="storage"><h2>Storage zones</h2><p>Dairy sits nearest the evaporators, produce in the middle aisle, and frozen behind the second door. Never mix allergens on one rack level.</p><p>Rotate by expiry date, first expired first out, and mark the shelf edge with a coloured tape plus a printed week number.</p><p>Walk the floor with a torch once per shift. Sensors miss the corner by the pillar.</p></section>
+<section id="dispatch"><h2>Dispatch window</h2><p>Loads leave between 05:00 and 07:30 to beat city restrictions. Pick lists freeze at 04:00; late orders go on the next run.</p><p>Pre-cool the trailer for thirty minutes and log the start temperature before loading begins.</p><p>Drivers confirm door seals by number, and the dispatcher keeps the carbon copy.</p></section>
+<section id="recall"><h2>Recall procedure</h2><p>Quarantine by batch code the minute a supplier calls. Tag, move to the red cage, and log who touched it.</p><p>Notify affected customers within the hour, in writing, with batch numbers and delivery dates.</p><p>Close the recall only when the supplier reply and the destruction certificate are both filed.</p></section>
+</main>
+</div>
+<script>
+(function(){
+  var CONFIG={BAND:"-35% 0px -55% 0px"};
+  var links=[].slice.call(document.querySelectorAll("#list a")),mark=document.getElementById("mark");
+  var map={};
+  links.forEach(function(a){map[a.getAttribute("href").slice(1)]=a});
+  function activate(id){
+    var a=map[id];if(!a)return;
+    links.forEach(function(l){l.removeAttribute("aria-current")});
+    a.setAttribute("aria-current","location");
+    mark.style.height=a.offsetHeight+"px";
+    mark.style.transform="translateY("+a.offsetTop+"px)";
+  }
+  var io=new IntersectionObserver(function(es){
+    es.forEach(function(e){if(e.isIntersecting)activate(e.target.id)});
+  },{rootMargin:CONFIG.BAND,threshold:0});
+  [].forEach.call(document.querySelectorAll("section[id]"),function(s){io.observe(s)});
+  activate("cold");
+  addEventListener("resize",function(){var c=document.querySelector("[aria-current]");if(c)activate(c.getAttribute("href").slice(1))});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>68 · Audio Visualizer Bars</title>
+<!--
+PATTERN: Simulated audio-reactive equalizer bars on canvas with a play/pause toggle.
+Motion: No real audio (no files, no permissions). A fake spectrum is generated from layered
+  sine waves plus a beat envelope (~120 BPM); each bar eases toward its target height, with
+  falling peak caps and a glow that pulses on the beat.
+Accessibility: Real <button aria-pressed> toggles playback (Space also works). Canvas is
+  aria-hidden; status text is announced via aria-live. prefers-reduced-motion: starts paused
+  and, when "played", renders a calm low-amplitude, slow-moving version.
+Adapting: BARS, BPM, palette in hsl(); to use real audio swap simulate() for an AnalyserNode
+  getByteFrequencyData() array. Libraries: none.
+-->
+<style>
+:root{--bg:#0a0a10;--fg:#f0f0f8;--acc:#00e5ff}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif}
+main{min-height:100%;display:grid;grid-template-rows:auto 1fr auto;gap:2vh;padding:5vh 5vw}
+h1{font-size:clamp(1.6rem,4vw,3rem);letter-spacing:-.03em}
+h1 small{display:block;font:500 .75rem ui-monospace,monospace;letter-spacing:.2em;text-transform:uppercase;color:var(--acc);margin-top:.5rem}
+canvas{width:100%;height:100%;min-height:240px;display:block}
+.bar{display:flex;align-items:center;gap:1rem}
+button{width:64px;height:64px;border-radius:50%;border:2px solid var(--acc);background:transparent;color:var(--acc);cursor:pointer;display:grid;place-items:center}
+button:hover{background:#00e5ff22}
+button:focus-visible{outline:3px solid #fff;outline-offset:3px}
+button svg{width:26px;height:26px;fill:currentColor}
+.pause{display:none}
+button[aria-pressed="true"] .play{display:none}
+button[aria-pressed="true"] .pause{display:block}
+#status{font:500 .8rem ui-monospace,monospace;letter-spacing:.15em;text-transform:uppercase;color:#9a9ab0}
+</style>
+</head>
+<body>
+<main>
+  <h1>Night Signal<small>Simulated spectrum · no audio</small></h1>
+  <canvas id="c" aria-hidden="true"></canvas>
+  <div class="bar">
+    <button id="btn" aria-pressed="false" aria-label="Play visualizer">
+      <svg class="play" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg>
+      <svg class="pause" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+    </button>
+    <span id="status" aria-live="polite">Paused</span>
+  </div>
+</main>
+<script>
+(function(){
+  var BARS=48,BPM=120;
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var cv=document.getElementById("c"),ctx=cv.getContext("2d"),btn=document.getElementById("btn"),st=document.getElementById("status");
+  var vals=new Array(BARS).fill(0),peaks=new Array(BARS).fill(0);
+  var playing=false,time=0,last=0,W,H,dpr;
+
+  function resize(){
+    dpr=Math.min(devicePixelRatio||1,2);
+    W=cv.clientWidth;H=cv.clientHeight;
+    cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  function simulate(t){
+    var beatT=(t*BPM/60)%1,beat=Math.pow(1-beatT,3);   // sharp attack, decay
+    var amp=reduce?.35:1,speed=reduce?.4:1;
+    var out=[];
+    for(var i=0;i<BARS;i++){
+      var f=i/BARS;
+      var body=.5+.5*Math.sin(t*speed*2+i*.5)*Math.cos(t*speed*1.3-i*.2);
+      var tilt=Math.pow(1-f,1.4);                       // louder lows
+      var v=(body*.55+beat*(1-f)*.6+Math.random()*.06)*tilt*amp;
+      out.push(Math.max(.02,Math.min(1,v+.05)));
+    }
+    return {bars:out,beat:beat};
+  }
+  function draw(beat){
+    ctx.clearRect(0,0,W,H);
+    var gap=Math.max(2,W/BARS*.25),bw=W/BARS-gap,base=H;
+    for(var i=0;i<BARS;i++){
+      var h=vals[i]*H*.95,x=i*(bw+gap)+gap/2;
+      var hue=180+i/BARS*140;
+      ctx.shadowColor="hsla("+hue+",100%,60%,"+(.3+beat*.6)+")";ctx.shadowBlur=8+beat*18;
+      ctx.fillStyle="hsl("+hue+",90%,"+(55+beat*10)+"%)";
+      ctx.fillRect(x,base-h,bw,h);
+      ctx.shadowBlur=0;
+      ctx.fillStyle="#fff";ctx.fillRect(x,base-peaks[i]*H*.95-4,bw,3);
+    }
+  }
+  function frame(now){
+    var dt=Math.min(.05,(now-last)/1000||0);last=now;
+    var beat=0;
+    if(playing){
+      time+=dt;var s=simulate(time);beat=s.beat;
+      for(var i=0;i<BARS;i++)vals[i]+=(s.bars[i]-vals[i])*.3;
+    }else{
+      for(i=0;i<BARS;i++)vals[i]+=(.02-vals[i])*.1;
+    }
+    for(i=0;i<BARS;i++){peaks[i]=Math.max(vals[i],peaks[i]-dt*.4)}
+    draw(beat);
+    requestAnimationFrame(frame);
+  }
+  function toggle(){
+    playing=!playing;
+    btn.setAttribute("aria-pressed",playing);
+    btn.setAttribute("aria-label",playing?"Pause visualizer":"Play visualizer");
+    st.textContent=playing?"Playing":"Paused";
+  }
+  btn.addEventListener("click",toggle);
+  addEventListener("resize",resize);
+  resize();requestAnimationFrame(function(n){last=n;frame(n)});
+})();
+</script>
+</body>
+</html>

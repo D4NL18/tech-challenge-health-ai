@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>32 · Popover & Hovercard with Origin-aware Scale</title>
+<!--
+  PATTERN: Two overlay types sharing one positioning engine: a click Popover (settings panel) and a hover/focus
+           Hovercard (profile preview). Both flip to the side with room and animate from the trigger.
+  Motion: scale .95 -> 1 + opacity in 140ms with transform-origin computed from the trigger anchor point, so the
+          overlay visibly grows out of its trigger. Hovercard opens after 300ms intent delay, closes after 150ms
+          grace (so the pointer can travel into the card). Exits are faster (100ms).
+  Accessibility: popover trigger uses aria-expanded + aria-controls, Esc closes and restores focus, Tab leaves
+          naturally; hovercard also opens on keyboard focus and is linked with aria-describedby. Content is
+          reachable by pointer and keyboard. prefers-reduced-motion drops scale and keeps a plain fade-free swap.
+  Adapting: set data-placement="top|bottom" as preference; positioning uses getBoundingClientRect and flips when
+          there is not enough space. Replace card markup in CARDS for real data.
+-->
+<style>
+  :root { --bg:#fafafa; --surface:#fff; --fg:#18181b; --mut:#71717a; --bd:rgba(0,0,0,.08); --bd2:rgba(0,0,0,.18);
+    --acc:#4f46e5; --hover:#f4f4f5; --shadow:0 12px 32px rgba(0,0,0,.12); }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#09090b; --surface:#18181b; --fg:#fafafa; --mut:#a1a1aa; --bd:rgba(255,255,255,.10); --bd2:rgba(255,255,255,.22);
+      --acc:#818cf8; --hover:#27272a; --shadow:0 12px 32px rgba(0,0,0,.6); }
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { min-height:100vh; padding:3rem 1.5rem; background:var(--bg); color:var(--fg); font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  main { max-width:560px; margin:0 auto; display:grid; gap:2rem; }
+  h1 { font-size:18px; font-weight:600; }
+  p { color:var(--mut); }
+  a.mention { color:var(--fg); font-weight:500; text-decoration:underline; text-decoration-color:var(--bd2); text-underline-offset:3px; }
+  a.mention:hover { text-decoration-color:var(--acc); }
+  .btn { padding:7px 12px; border:1px solid var(--bd2); border-radius:8px; background:var(--surface); color:var(--fg); font:inherit; cursor:pointer; }
+  .btn:hover { background:var(--hover); }
+  :focus-visible { outline:2px solid var(--acc); outline-offset:2px; border-radius:4px; }
+  .row { display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+  .ov { position:fixed; z-index:30; background:var(--surface); border:1px solid var(--bd); border-radius:12px; box-shadow:var(--shadow);
+    opacity:0; transform:scale(.95); visibility:hidden; pointer-events:none;
+    transition:opacity 100ms ease, transform 100ms ease, visibility 0s linear 100ms; }
+  .ov.show { opacity:1; transform:none; visibility:visible; pointer-events:auto; transition-duration:140ms; transition-delay:0s; }
+  .pop { width:260px; padding:14px; display:grid; gap:10px; }
+  .pop label { display:flex; justify-content:space-between; align-items:center; }
+  .pop input[type=checkbox] { width:16px; height:16px; accent-color:var(--acc); }
+  .card { width:280px; padding:14px; }
+  .card .top { display:flex; gap:10px; align-items:center; margin-bottom:8px; }
+  .av { width:40px; height:40px; border-radius:50%; display:grid; place-items:center; font-weight:600; color:#fff; background:linear-gradient(135deg,#71717a,#27272a); }
+  .card b { display:block; }
+  .card small { color:var(--mut); }
+  .stats { display:flex; gap:16px; margin-top:10px; font-size:13px; color:var(--mut); }
+  .stats strong { color:var(--fg); }
+  @media (prefers-reduced-motion: reduce) { .ov { transition:none; transform:none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Overlay origin demo</h1>
+  <p>Reviewed by <a class="mention" href="#ada" data-card="ada" aria-describedby="hc">@ada</a> and
+     <a class="mention" href="#linus" data-card="linus" aria-describedby="hc">@linus</a>. Hover or focus a name to preview the profile.</p>
+  <div class="row">
+    <button class="btn" id="b1" aria-expanded="false" aria-controls="pop" aria-haspopup="dialog">Display options</button>
+    <button class="btn" id="b2" aria-expanded="false" aria-controls="pop" aria-haspopup="dialog" style="margin-left:auto">Right-aligned ▾</button>
+  </div>
+</main>
+
+<div class="ov pop" id="pop" role="dialog" aria-label="Display options">
+  <label>Compact rows <input type="checkbox"></label>
+  <label>Show avatars <input type="checkbox" checked></label>
+  <label>Group by status <input type="checkbox"></label>
+  <button class="btn" id="done">Done</button>
+</div>
+<div class="ov card" id="hc" role="tooltip"></div>
+
+<script>
+(function () {
+  var CARDS = {
+    ada:   { n:'Ada Lovelace', h:'@ada', bio:'Wrote the first algorithm. Reviews numerical code.', a:'AL', f:'12.4k', r:'38' },
+    linus: { n:'Linus Torvalds', h:'@linus', bio:'Maintains the kernel. Strong opinions about commit messages.', a:'LT', f:'98.1k', r:'7' }
+  };
+  var pop = document.getElementById('pop'), hc = document.getElementById('hc');
+  var openTrig = null, hcTrig = null, tIn, tOut;
+
+  function position(ov, trig) {
+    var r = trig.getBoundingClientRect(), gap = 8;
+    ov.style.left = '0px'; ov.style.top = '0px';
+    var w = ov.offsetWidth, h = ov.offsetHeight;
+    var below = innerHeight - r.bottom >= h + gap + 8 || r.top < h + gap + 8;
+    var top = below ? r.bottom + gap : r.top - h - gap;
+    var left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8);
+    ov.style.left = left + 'px'; ov.style.top = top + 'px';
+    var ox = Math.min(Math.max(r.left + r.width / 2 - left, 0), w);
+    ov.style.transformOrigin = ox + 'px ' + (below ? '0' : '100%');
+  }
+  function showPop(btn) {
+    if (openTrig === btn) return hidePop(true);
+    openTrig && openTrig.setAttribute('aria-expanded', 'false');
+    openTrig = btn; btn.setAttribute('aria-expanded', 'true');
+    position(pop, btn); pop.classList.add('show');
+    pop.querySelector('input').focus({ preventScroll:true });
+  }
+  function hidePop(ret) {
+    pop.classList.remove('show');
+    if (openTrig) { openTrig.setAttribute('aria-expanded', 'false'); if (ret) openTrig.focus(); }
+    openTrig = null;
+  }
+  function showCard(a) {
+    clearTimeout(tOut);
+    if (hcTrig === a && hc.classList.contains('show')) return;
+    clearTimeout(tIn);
+    tIn = setTimeout(function () {
+      var c = CARDS[a.dataset.card]; hcTrig = a;
+      hc.innerHTML = '<div class="top"><div class="av" aria-hidden="true">' + c.a + '</div><div><b>' + c.n + '</b><small>' + c.h + '</small></div></div>' +
+        '<p>' + c.bio + '</p><div class="stats"><span><strong>' + c.f + '</strong> followers</span><span><strong>' + c.r + '</strong> repos</span></div>';
+      position(hc, a); hc.classList.add('show');
+    }, hc.classList.contains('show') ? 0 : 300);
+  }
+  function hideCard() {
+    clearTimeout(tIn); clearTimeout(tOut);
+    tOut = setTimeout(function () { hc.classList.remove('show'); hcTrig = null; }, 150);
+  }
+
+  ['b1', 'b2'].forEach(function (id) {
+    document.getElementById(id).addEventListener('click', function (e) { e.stopPropagation(); showPop(e.currentTarget); });
+  });
+  document.getElementById('done').addEventListener('click', function () { hidePop(true); });
+  document.addEventListener('click', function (e) { if (!pop.contains(e.target)) hidePop(false); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (pop.classList.contains('show')) hidePop(true);
+    if (hc.classList.contains('show')) { hc.classList.remove('show'); hcTrig = null; }
+  });
+  document.querySelectorAll('.mention').forEach(function (a) {
+    a.addEventListener('mouseenter', function () { showCard(a); });
+    a.addEventListener('focus', function () { showCard(a); });
+    a.addEventListener('mouseleave', hideCard);
+    a.addEventListener('blur', hideCard);
+    a.addEventListener('click', function (e) { e.preventDefault(); });
+  });
+  hc.addEventListener('mouseenter', function () { clearTimeout(tOut); });
+  hc.addEventListener('mouseleave', hideCard);
+  addEventListener('resize', function () { hidePop(false); hc.classList.remove('show'); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>72 · Sliding Pill Tabs</title>
+<!--
+PATTERN: A single pill slides and resizes between tabs instead of each tab toggling its own
+  background (ref: Motion Primitives tabs / shared-layout animation).
+Motion: The pill is positioned with transform: translateX(tab.offsetLeft) and width = tab.offsetWidth,
+  both transitioned on cubic-bezier(.2,.7,.2,1). Panel content fades up on change.
+  Pill is measured again on resize and when fonts load.
+Accessibility: WAI-ARIA tabs (tablist/tab/tabpanel), roving tabindex, ArrowLeft/Right, Home/End.
+  Selected tab is also underlined-weight bold (not colour only). prefers-reduced-motion: pill jumps, no fade.
+Adapting: DURATION in CONFIG, pill radius/colour in CSS vars. Libraries: none.
+-->
+<style>
+:root{--bg:#f1ece0;--fg:#211d17;--mut:#5a5246;--pill:#2f4a3a;--pillfg:#f6f1e4;--line:#cdc3af;--ease:cubic-bezier(.2,.7,.2,1);--d:.35s}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:"Segoe UI",Helvetica,sans-serif;min-height:100vh;padding:10vh 7vw;display:grid;grid-template-columns:1fr 2fr;gap:4rem;align-items:start}
+h1{font-family:Georgia,"Iowan Old Style",serif;font-weight:400;font-size:clamp(2.2rem,5vw,3.8rem);line-height:1;letter-spacing:-.03em}
+.kicker{font:600 .72rem ui-monospace,monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--mut);margin-bottom:1rem}
+[role=tablist]{position:relative;display:inline-flex;gap:.25rem;padding:.3rem;border:1px solid var(--line);border-radius:999px}
+.pill{position:absolute;top:.3rem;left:0;height:calc(100% - .6rem);background:var(--pill);border-radius:999px;transition:transform var(--d) var(--ease),width var(--d) var(--ease)}
+[role=tab]{position:relative;z-index:1;font:inherit;background:none;border:0;padding:.55rem 1.1rem;border-radius:999px;color:var(--fg);cursor:pointer;transition:color var(--d) var(--ease)}
+[role=tab][aria-selected=true]{color:var(--pillfg);font-weight:700}
+[role=tab]:hover:not([aria-selected=true]){text-decoration:underline;text-underline-offset:4px}
+:focus-visible{outline:3px solid #b5421f;outline-offset:2px}
+[role=tabpanel]{margin-top:2rem;max-width:46ch;line-height:1.6}
+[role=tabpanel] h2{font-family:Georgia,serif;font-weight:400;font-size:1.6rem;margin-bottom:.6rem}
+[role=tabpanel]:not([hidden]){animation:up var(--d) var(--ease)}
+@keyframes up{from{opacity:0;transform:translateY(8px)}}
+@media (max-width:720px){body{grid-template-columns:1fr;gap:2rem}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header><p class="kicker">Tide Table · Falmouth</p><h1>Read the water before you sail.</h1></header>
+<main>
+  <div role="tablist" aria-label="Forecast range" id="tabs"><span class="pill" aria-hidden="true"></span>
+    <button role="tab" id="t1" aria-controls="p1" aria-selected="true">Today</button>
+    <button role="tab" id="t2" aria-controls="p2" aria-selected="false" tabindex="-1">This week</button>
+    <button role="tab" id="t3" aria-controls="p3" aria-selected="false" tabindex="-1">Spring tides</button>
+  </div>
+  <div role="tabpanel" id="p1" aria-labelledby="t1"><h2>High water 14:12</h2><p>Southwesterly 12 knots, easing after dusk. Slip is clear from 12:30 to 16:00.</p></div>
+  <div role="tabpanel" id="p2" aria-labelledby="t2" hidden><h2>Settled until Thursday</h2><p>A ridge holds through midweek, then a front brings rain and a 20 knot gust on Friday morning.</p></div>
+  <div role="tabpanel" id="p3" aria-labelledby="t3" hidden><h2>Range of 5.4 m on the 28th</h2><p>Expect strong streams in the narrows. Plan crossings for slack water, one hour either side of high.</p></div>
+</main>
+<script>
+(function(){
+  var CONFIG={};
+  var list=document.getElementById("tabs"),pill=list.querySelector(".pill"),tabs=[].slice.call(list.querySelectorAll("[role=tab]"));
+  function place(){var t=list.querySelector("[aria-selected=true]");pill.style.width=t.offsetWidth+"px";pill.style.transform="translateX("+t.offsetLeft+"px)"}
+  function select(i,focus){
+    tabs.forEach(function(t,k){
+      var on=k===i;t.setAttribute("aria-selected",on);t.tabIndex=on?0:-1;
+      document.getElementById(t.getAttribute("aria-controls")).hidden=!on;
+    });
+    if(focus)tabs[i].focus();
+    place();
+  }
+  tabs.forEach(function(t,i){
+    t.addEventListener("click",function(){select(i)});
+    t.addEventListener("keydown",function(e){
+      var n=tabs.length,k=e.key==="ArrowRight"?(i+1)%n:e.key==="ArrowLeft"?(i+n-1)%n:e.key==="Home"?0:e.key==="End"?n-1:-1;
+      if(k>=0){e.preventDefault();select(k,true)}
+    });
+  });
+  addEventListener("resize",place);
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(place);
+  place();
+})();
+</script>
+</body>
+</html>

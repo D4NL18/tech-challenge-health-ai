@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>19 · Pinned Horizontal Scroll Gallery</title>
+<!--
+  EFFECT: Vertical scroll drives a pinned, horizontally translating gallery (GSAP ScrollTrigger pin + scrub),
+  with a progress bar, a counter, and per-card parallax on the inner artwork (containerAnimation).
+  Lenis provides smooth scrolling and is synced to ScrollTrigger.
+
+  HOW TO ADAPT:
+  - Replace .art gradients with <img> elements (object-fit: cover) inside each .card.
+  - Add/remove <article class="card"> items; scroll distance is computed from track width automatically.
+  - Tune `scrub` (1 = 1s smoothing) and the `end` value ("+=" + distance) for speed.
+  - Reduced motion: native scrolling horizontal strip (overflow-x: auto) replaces the pinned effect.
+-->
+<style>
+  :root { --bg:#0c0b0f; --fg:#f2eee6; --mut:#8d8896; --acc:#ff6a3d; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html.lenis { height:auto; } .lenis.lenis-smooth { scroll-behavior:auto; }
+  body { background:var(--bg); color:var(--fg); font-family:"Helvetica Neue",Arial,sans-serif; -webkit-font-smoothing:antialiased; }
+  .intro, .outro { min-height:100vh; display:grid; place-content:center; text-align:center; padding:2rem; }
+  h1 { font-size:clamp(2.6rem,8vw,7rem); font-weight:300; letter-spacing:-.03em; line-height:1; }
+  h1 em { font-style:italic; color:var(--acc); }
+  .intro p, .outro p { color:var(--mut); margin-top:1.2rem; letter-spacing:.2em; text-transform:uppercase; font-size:.75rem; }
+  .pin { position:relative; height:100vh; overflow:hidden; display:flex; align-items:center; }
+  .track { display:flex; gap:4vw; padding:0 8vw; will-change:transform; }
+  .card { flex:0 0 auto; width:min(62vw,560px); }
+  .frame { height:min(62vh,520px); overflow:hidden; border-radius:6px; position:relative; }
+  .art { position:absolute; inset:0 -15%; width:130%; }
+  .meta { display:flex; justify-content:space-between; margin-top:1rem; font-size:.85rem; color:var(--mut); }
+  .meta b { color:var(--fg); font-weight:400; font-size:1.15rem; }
+  .hud { position:absolute; left:8vw; right:8vw; bottom:6vh; display:flex; align-items:center; gap:1.5rem; font-size:.75rem; letter-spacing:.2em; color:var(--mut); }
+  .bar { flex:1; height:2px; background:#ffffff1f; overflow:hidden; }
+  .bar i { display:block; height:100%; background:var(--acc); transform-origin:left; transform:scaleX(0); }
+  .a1{background:radial-gradient(circle at 30% 30%,#ffb36b,#c4331d 60%,#26080a)}
+  .a2{background:linear-gradient(135deg,#0f2027,#2c5364 55%,#7fd1c7)}
+  .a3{background:conic-gradient(from 200deg at 60% 40%,#2b1055,#7597de,#f3c6ff,#2b1055)}
+  .a4{background:linear-gradient(160deg,#f6e7c1,#d99a5b 50%,#52301a)}
+  .a5{background:radial-gradient(ellipse at 70% 80%,#a8ff78,#0b6e4f 55%,#04120d)}
+  .a6{background:linear-gradient(200deg,#fbc2eb,#a6c1ee 50%,#1b1b3a)}
+  @media (max-width:700px){ .card{width:78vw} .hud{left:6vw;right:6vw} }
+  @media (prefers-reduced-motion:reduce){
+    .pin{height:auto;overflow-x:auto;padding:4rem 0 6rem} .hud{display:none}
+    .art{inset:0;width:100%}
+  }
+</style>
+</head>
+<body>
+<section class="intro"><div><h1>Selected <em>Journeys</em></h1><p>Scroll to travel sideways ↓</p></div></section>
+
+<section class="pin" id="pin">
+  <div class="track" id="track">
+    <article class="card"><div class="frame"><div class="art a1"></div></div><div class="meta"><b>Ember Coast</b><span>01 — 2024</span></div></article>
+    <article class="card"><div class="frame"><div class="art a2"></div></div><div class="meta"><b>Glacier Hour</b><span>02 — 2024</span></div></article>
+    <article class="card"><div class="frame"><div class="art a3"></div></div><div class="meta"><b>Violet Static</b><span>03 — 2023</span></div></article>
+    <article class="card"><div class="frame"><div class="art a4"></div></div><div class="meta"><b>Dune Letters</b><span>04 — 2023</span></div></article>
+    <article class="card"><div class="frame"><div class="art a5"></div></div><div class="meta"><b>Canopy</b><span>05 — 2022</span></div></article>
+    <article class="card"><div class="frame"><div class="art a6"></div></div><div class="meta"><b>Dusk Atlas</b><span>06 — 2022</span></div></article>
+  </div>
+  <div class="hud"><span id="count">01 / 06</span><div class="bar"><i id="fill"></i></div></div>
+</section>
+
+<section class="outro"><div><h1>The <em>end</em> of the road</h1><p>Vertical again</p></div></section>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script>
+(function(){
+  var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce || !window.gsap) return;
+  gsap.registerPlugin(ScrollTrigger);
+  var lenis = new Lenis({ lerp:0.1 });
+  lenis.on("scroll", ScrollTrigger.update);
+  gsap.ticker.add(function(t){ lenis.raf(t*1000); });
+  gsap.ticker.lagSmoothing(0);
+
+  var track = document.getElementById("track"), fill = document.getElementById("fill"), count = document.getElementById("count");
+  var cards = gsap.utils.toArray(".card"), total = cards.length;
+  var dist = function(){ return track.scrollWidth - window.innerWidth; };
+
+  var tween = gsap.to(track, {
+    x: function(){ return -dist(); }, ease:"none",
+    scrollTrigger:{
+      trigger:"#pin", pin:true, scrub:1, start:"top top",
+      end:function(){ return "+=" + dist(); }, invalidateOnRefresh:true,
+      onUpdate:function(self){
+        gsap.set(fill,{scaleX:self.progress});
+        var i = Math.min(total, Math.floor(self.progress*total)+1);
+        count.textContent = String(i).padStart(2,"0") + " / " + String(total).padStart(2,"0");
+      }
+    }
+  });
+
+  // inner parallax relative to horizontal motion
+  cards.forEach(function(c){
+    gsap.fromTo(c.querySelector(".art"), {xPercent:-8}, {xPercent:8, ease:"none",
+      scrollTrigger:{ trigger:c, containerAnimation:tween, start:"left right", end:"right left", scrub:true }});
+  });
+})();
+</script>
+</body>
+</html>

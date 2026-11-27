@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>113 · Hero CSS 3D Scene Tilt</title>
+<!--
+  PATTERN: Cena em camadas com profundidade real (CSS 3D). Céu, serras, cabo, farol e rochas em primeiro plano são
+           planos posicionados com translateZ dentro de um container com perspective. O cursor inclina a cena
+           inteira (rotateX/rotateY) e, como cada plano está em Z diferente, a paralaxe sai da própria
+           geometria 3D. Ao rolar, os planos derivam para cima em velocidades proporcionais à profundidade
+           e a cena sai por trás do texto da próxima seção.
+  Motion: pointermove -> alvo de rotação com lerp por rAF; scroll progress (stage sticky em 230vh) ->
+          translateY por camada (data-depth). O feixe do farol gira por keyframes CSS.
+  Accessibility: cena aria-hidden, texto em DOM real fora do container 3D. prefers-reduced-motion: sem
+          inclinação, sem deriva e sem giro do feixe. Toque: sem cursor, a cena respira com leve deriva
+          automática (desligada em reduced-motion). :focus-visible nos links.
+  Adapting: adicione planos com <div class="plane" data-depth=".. " style="--z:..px">; --z controla profundidade
+          real, data-depth controla a deriva de scroll. MAX_TILT limita o ângulo. Troque as silhuetas por
+          clip-path/SVG/imagens PNG recortadas.
+  Libraries: nenhuma.
+-->
+<style>
+  :root{
+    --ink:#1f1b17; --night:#2a2420; --rust:#b6532d; --amber:#eaa04f; --sun:#f6d28a; --cream:#f3e9d6; --pine:#2f3a2c; --pine-d:#1c261d; --fog:#c9a98a;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:"Gill Sans","Trebuchet MS","Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--cream);color:var(--ink);font-family:var(--sans);overflow-x:hidden}
+  a{color:inherit}
+  a:focus-visible{outline:3px solid var(--sun);outline-offset:4px}
+
+  .runway{position:relative;height:230vh}
+  .stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--night)}
+  .persp{position:absolute;inset:0;perspective:1100px;perspective-origin:50% 45%}
+  .scene{position:absolute;inset:0;transform-style:preserve-3d;transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg))}
+  .plane{position:absolute;left:-12%;right:-12%;top:-12%;bottom:-12%;transform-style:preserve-3d;
+    transform:translate3d(0,var(--dy,0px),var(--z,0px)) scale(var(--s,1))}
+
+  .sky{background:linear-gradient(180deg,#34261f 0%,#8a432a 38%,#e08a46 62%,var(--sun) 78%,#f2e2b9 100%)}
+  .sun{left:50%;right:auto;top:48%;bottom:auto;width:30vmin;height:30vmin;margin-left:-6vmin;border-radius:50%;
+    background:radial-gradient(circle,#fff3cc 0 35%,var(--sun) 36% 58%,rgba(246,210,138,0) 70%)}
+  .ridge{bottom:-12%;top:auto;height:62%}
+  .ridge--far{background:var(--fog);clip-path:polygon(0 60%,9% 42%,18% 55%,28% 30%,40% 52%,52% 36%,63% 56%,75% 34%,88% 54%,100% 40%,100% 100%,0 100%);opacity:.75}
+  .ridge--mid{background:#6a4a3b;clip-path:polygon(0 70%,12% 52%,22% 64%,36% 40%,47% 62%,60% 46%,72% 66%,86% 48%,100% 62%,100% 100%,0 100%)}
+  .ridge--near{background:var(--pine);height:46%;clip-path:polygon(0 66%,16% 50%,30% 70%,44% 46%,58% 72%,74% 50%,88% 68%,100% 54%,100% 100%,0 100%)}
+  .ridge--fore{background:var(--pine-d);height:34%;clip-path:polygon(0 62%,10% 40%,22% 66%,35% 48%,50% 78%,64% 44%,78% 70%,90% 42%,100% 60%,100% 100%,0 100%)}
+
+  .ground{top:auto;bottom:-12%;height:46%;background:var(--pine-d)}
+  .tower{left:62%;right:auto;top:auto;bottom:24%;width:9vmin;height:34vmin}
+  .tower .body{position:absolute;inset:18% 12% 0;background:repeating-linear-gradient(180deg,var(--cream) 0 14%,var(--rust) 14% 28%);clip-path:polygon(16% 0,84% 0,100% 100%,0 100%)}
+  .tower .lamp{position:absolute;left:22%;right:22%;top:6%;height:14%;background:#fff3cc;box-shadow:0 0 30px 10px rgba(255,236,170,.7)}
+  .tower .cap{position:absolute;left:14%;right:14%;top:0;height:8%;background:var(--ink);clip-path:polygon(50% 0,100% 100%,0 100%)}
+  .beam{position:absolute;left:50%;top:13%;width:90vmin;height:6vmin;margin-top:-3vmin;transform-origin:0 50%;
+    background:linear-gradient(90deg,rgba(255,240,190,.75),rgba(255,240,190,0));clip-path:polygon(0 40%,100% 0,100% 100%,0 60%);animation:sweep 9s ease-in-out infinite alternate}
+  @keyframes sweep{from{transform:rotate(-14deg) scaleX(.9)}to{transform:rotate(10deg) scaleX(1)}}
+
+  .gulls{top:22%;bottom:auto;height:10vmin;opacity:.75}
+  .gulls svg{position:absolute;width:5vmin;height:2.4vmin}
+
+  .stage::after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(75deg,rgba(31,27,23,.78) 0,rgba(31,27,23,.45) 38%,rgba(31,27,23,0) 65%)}
+  .copy{position:absolute;left:clamp(1.2rem,5vw,5rem);bottom:clamp(2rem,8vh,5rem);max-width:min(46rem,90vw);color:var(--cream);z-index:3}
+  .copy .kick{font-size:.78rem;letter-spacing:.18em;text-transform:uppercase;color:var(--sun);margin:0 0 .8rem}
+  .copy h1{font-family:var(--serif);font-weight:700;font-size:clamp(2.8rem,8.4vw,7.8rem);line-height:.92;letter-spacing:-.03em;margin:0 0 1.2rem;text-shadow:0 2px 30px rgba(31,27,23,.45)}
+  .copy h1 em{font-weight:400;color:var(--sun)}
+  .copy p{margin:0 0 1.4rem;max-width:28rem;line-height:1.55;font-size:1.05rem}
+  .copy .row{display:flex;gap:1.4rem;align-items:center;flex-wrap:wrap}
+  .btn{display:inline-block;padding:.85rem 1.3rem;background:var(--sun);color:var(--ink);text-decoration:none;font-weight:700;letter-spacing:.04em;border-radius:2px;transition:transform .25s,background .25s}
+  .btn:hover{transform:translateX(6px);background:var(--cream)}
+  .coord{font-size:.8rem;letter-spacing:.12em;color:var(--sun)}
+  .top{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;padding:clamp(1rem,3vw,2.2rem);color:var(--cream);z-index:3;font-size:.78rem;letter-spacing:.16em;text-transform:uppercase}
+  .top b{font-family:var(--serif);font-size:1.2rem;letter-spacing:0;text-transform:none}
+
+  .after{background:var(--cream);padding:clamp(4rem,9vw,8rem) clamp(1.2rem,6vw,6rem)}
+  .after .grid{max-width:76rem;margin:0 auto;display:grid;grid-template-columns:7fr 5fr;gap:clamp(1.5rem,5vw,5rem);align-items:start}
+  .after h2{font-family:var(--serif);font-size:clamp(2rem,4.6vw,4rem);line-height:1;margin:0;letter-spacing:-.02em}
+  .after h2 em{color:var(--rust)}
+  .after p{line-height:1.65;font-size:1.1rem;margin:0 0 1rem}
+  .rooms{list-style:none;margin:2rem 0 0;padding:0;border-top:2px solid var(--ink)}
+  .rooms li{display:flex;justify-content:space-between;padding:.9rem 0;border-bottom:1px solid #b9ab92;font-family:var(--serif);font-size:1.2rem}
+  .rooms span{font-family:var(--sans);font-size:.9rem;color:#5a4b3a}
+  .end{background:var(--pine-d);color:var(--cream);padding:clamp(3rem,7vw,6rem) clamp(1.2rem,6vw,6rem);min-height:50vh}
+  .end p{max-width:32rem;line-height:1.6}
+
+  @media (max-width:700px){
+    .after .grid{grid-template-columns:1fr}
+    .tower{left:58%;width:14vmin;height:44vmin}
+    .copy h1{font-size:clamp(2.6rem,13vw,4rem)}
+    .top span{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .beam{animation:none;transform:rotate(-4deg)}
+    .runway{height:auto}
+    .stage{position:relative;height:100svh}
+  }
+</style>
+</head>
+<body>
+<section class="runway" id="runway">
+  <div class="stage" id="stage">
+    <div class="persp" aria-hidden="true">
+      <div class="scene" id="scene">
+        <div class="plane sky" data-depth="0.05" style="--z:-600px"></div>
+        <div class="plane sun" data-depth="0.08" style="--z:-560px"></div>
+        <div class="plane gulls" data-depth="0.12" style="--z:-420px">
+          <svg viewBox="0 0 40 20" style="left:38%;top:30%"><path d="M0 12 Q10 0 20 12 Q30 0 40 12" fill="none" stroke="#2a2420" stroke-width="2"/></svg>
+          <svg viewBox="0 0 40 20" style="left:44%;top:60%"><path d="M0 12 Q10 0 20 12 Q30 0 40 12" fill="none" stroke="#2a2420" stroke-width="2"/></svg>
+          <svg viewBox="0 0 40 20" style="left:70%;top:20%"><path d="M0 12 Q10 0 20 12 Q30 0 40 12" fill="none" stroke="#2a2420" stroke-width="2"/></svg>
+        </div>
+        <div class="plane ridge ridge--far" data-depth="0.18" style="--z:-420px"></div>
+        <div class="plane ridge ridge--mid" data-depth="0.3" style="--z:-260px"></div>
+        <div class="plane tower" data-depth="0.4" style="--z:-120px">
+          <div class="beam"></div>
+          <div class="cap"></div><div class="lamp"></div><div class="body"></div>
+        </div>
+        <div class="plane ridge ridge--near" data-depth="0.55" style="--z:-40px"></div>
+        <div class="plane ground" data-depth="0" style="--z:140px"></div>
+        <div class="plane ridge ridge--fore" data-depth="0.9" style="--z:140px"></div>
+      </div>
+    </div>
+    <div class="top"><b>Farol da Ponta Seca</b><span>Cabo Frio, RJ · 22°53′S</span></div>
+    <div class="copy" id="copy">
+      <p class="kick">Hospedagem em farol ativo</p>
+      <h1>Durma onde o mar <em>pede licença.</em></h1>
+      <p>Três quartos no antigo alojamento dos faroleiros. A luz gira a cada 12 segundos e o café sai às 7h.</p>
+      <div class="row"><a class="btn" href="#quartos">Ver os quartos</a><span class="coord">Reservas de março a novembro</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="after" id="quartos">
+  <div class="grid">
+    <div>
+      <h2>Três quartos, uma <em>luz</em> a cada doze segundos.</h2>
+      <ul class="rooms">
+        <li>Quarto da Lanterna <span>2 pessoas · vista leste</span></li>
+        <li>Quarto do Vigia <span>2 pessoas · varanda</span></li>
+        <li>Quarto dos Fundos <span>4 pessoas · beliches</span></li>
+      </ul>
+    </div>
+    <div>
+      <p>O alojamento tem paredes de pedra de oitenta centímetros: silencioso mesmo com ressaca. Não há televisão. Há uma estante com os diários de bordo dos faroleiros desde 1923.</p>
+      <p>A subida até a lâmpada acontece todas as noites às 18h, em grupos de seis. Quem se hospeda sobe de graça.</p>
+    </div>
+  </div>
+</section>
+<section class="end">
+  <p>Chegada entre 14h e 17h. A estrada de terra tem 4 km e não é recomendada para carro baixo depois da chuva.</p>
+  <p><a href="#runway">Voltar ao início</a></p>
+</section>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const runway = document.getElementById('runway');
+  const scene = document.getElementById('scene');
+  const planes = [...scene.querySelectorAll('.plane')];
+  const copy = document.getElementById('copy');
+  // compensa o encolhimento de perspectiva para que planos distantes continuem cobrindo a viewport
+  for (const p of planes) { const z = parseFloat(p.style.getPropertyValue('--z')) || 0; p.style.setProperty('--s', ((1100 - z) / 1100).toFixed(3)); }
+  if (reduce) return;
+  const MAX_TILT = 7;               // graus
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  let tx = 0, ty = 0, rx = 0, ry = 0, hasPointer = false, cur = 0, target = 0;
+  addEventListener('pointermove', e => {
+    hasPointer = true;
+    ty = (e.clientX / innerWidth - 0.5) * 2 * MAX_TILT;     // rotateY
+    tx = -(e.clientY / innerHeight - 0.5) * 2 * MAX_TILT;   // rotateX
+  }, { passive: true });
+  const frame = t => {
+    if (!hasPointer) { ty = Math.sin(t / 3200) * 3; tx = Math.cos(t / 4100) * 1.6; }
+    rx += (tx - rx) * 0.07; ry += (ty - ry) * 0.07;
+    const r = runway.getBoundingClientRect();
+    target = clamp(-r.top / (r.height - innerHeight), 0, 1);
+    cur += (target - cur) * 0.1;
+    scene.style.setProperty('--rx', rx.toFixed(3) + 'deg');
+    scene.style.setProperty('--ry', ry.toFixed(3) + 'deg');
+    const travel = innerHeight * 0.55;
+    for (const p of planes) {
+      const d = parseFloat(p.dataset.depth || 0);
+      p.style.setProperty('--dy', (-cur * travel * d).toFixed(2) + 'px');
+    }
+    copy.style.opacity = clamp(1 - cur * 1.7, 0, 1);
+    copy.style.transform = `translate3d(0,${(-cur * 60).toFixed(1)}px,0)`;
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

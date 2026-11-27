@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>75 · Smooth Accordion FAQ</title>
+<!--
+PATTERN: FAQ accordion that animates to auto height with pure CSS: grid-template-rows 0fr -> 1fr.
+  No JS measuring, no max-height guesses, works with any content length.
+Motion: Panel wrapper is display:grid with grid-template-rows:0fr; the inner element has min-height:0
+  and overflow:hidden. Open state flips to 1fr, transitioned on cubic-bezier(.2,.7,.2,1). The plus
+  glyph rotates to a minus; content fades in slightly late.
+Accessibility: Real <button aria-expanded aria-controls> inside headings; panels are role=region.
+  Closed panels use visibility:hidden (delayed) so hidden links are not focusable.
+  Open state is shown by +/- glyph, not colour. Arrow Up/Down/Home/End move between questions.
+  prefers-reduced-motion: no transition.
+Adapting: SINGLE (only one open at a time) in CONFIG. Libraries: none.
+-->
+<style>
+:root{--bg:#efe9db;--fg:#1f1b16;--mut:#51493e;--acc:#a8401f;--line:#c9bfa9;--ease:cubic-bezier(.2,.7,.2,1)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:"Segoe UI",Helvetica,sans-serif;min-height:100vh;padding:10vh 7vw;display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:5rem;align-items:start}
+.kicker{font:600 .72rem ui-monospace,monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--mut);margin-bottom:1rem}
+h1{font-family:Georgia,"Iowan Old Style",serif;font-weight:400;font-size:clamp(2.2rem,5vw,3.8rem);line-height:1;letter-spacing:-.03em}
+.lede{color:var(--mut);line-height:1.55;margin-top:1.2rem;max-width:34ch}
+.item{border-top:1px solid var(--line)}.item:last-child{border-bottom:1px solid var(--line)}
+h2{font-size:1rem}
+.q{width:100%;display:flex;justify-content:space-between;gap:1rem;align-items:center;text-align:left;background:none;border:0;font:inherit;font-family:Georgia,serif;font-size:1.2rem;color:var(--fg);padding:1.2rem .2rem;cursor:pointer;transition:padding-left .3s var(--ease)}
+.q:hover{padding-left:.7rem}
+:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.g{flex:none;width:1.4rem;height:1.4rem;position:relative}
+.g::before,.g::after{content:"";position:absolute;left:0;right:0;top:calc(50% - 1px);height:2px;background:var(--fg);transition:transform .35s var(--ease)}
+.g::after{transform:rotate(90deg)}
+.q[aria-expanded=true] .g::after{transform:rotate(0)}
+.p{display:grid;grid-template-rows:0fr;visibility:hidden;transition:grid-template-rows .4s var(--ease),visibility 0s .4s}
+.item.open .p{grid-template-rows:1fr;visibility:visible;transition:grid-template-rows .4s var(--ease),visibility 0s}
+.p>div{min-height:0;overflow:hidden}
+.p p{padding:0 2.6rem 1.3rem .2rem;line-height:1.6;color:var(--mut);opacity:0;transition:opacity .3s var(--ease)}
+.item.open .p p{opacity:1;transition-delay:.12s}
+@media (max-width:760px){body{grid-template-columns:1fr;gap:2rem}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header><p class="kicker">Studio Oleiro · Questions</p><h1>Before you book a kiln day.</h1><p class="lede">Answers from the people who load the shelves. Still unsure? Write to the studio.</p></header>
+<main id="faq">
+  <div class="item"><h2><button class="q" id="q1" aria-expanded="false" aria-controls="a1">How long does a firing take?<span class="g" aria-hidden="true"></span></button></h2><div class="p" id="a1" role="region" aria-labelledby="q1"><div><p>A bisque firing runs about 10 hours plus 24 hours of cooling. Glaze firings reach cone 6 and need roughly 14 hours, so pieces are ready on the third day.</p></div></div></div>
+  <div class="item"><h2><button class="q" id="q2" aria-expanded="false" aria-controls="a2">Can I bring my own clay?<span class="g" aria-hidden="true"></span></button></h2><div class="p" id="a2" role="region" aria-labelledby="q2"><div><p>Yes, as long as it is rated for cone 6 stoneware. Bring the data sheet; we will not fire unlabelled bodies because they can damage the shelves.</p></div></div></div>
+  <div class="item"><h2><button class="q" id="q3" aria-expanded="false" aria-controls="a3">What is the cancellation policy?<span class="g" aria-hidden="true"></span></button></h2><div class="p" id="a3" role="region" aria-labelledby="q3"><div><p>Cancel up to 72 hours ahead for a full refund. After that we keep 50 percent, since the kiln has already been scheduled around your pieces.</p></div></div></div>
+  <div class="item"><h2><button class="q" id="q4" aria-expanded="false" aria-controls="a4">Do you ship fired work?<span class="g" aria-hidden="true"></span></button></h2><div class="p" id="a4" role="region" aria-labelledby="q4"><div><p>We pack in double-walled boxes with paper wool and insure each parcel. Shipping within the EU takes 3 to 5 working days.</p></div></div></div>
+</main>
+<script>
+(function(){
+  var CONFIG={SINGLE:true};
+  var qs=[].slice.call(document.querySelectorAll(".q"));
+  function toggle(b){
+    var open=b.getAttribute("aria-expanded")==="true";
+    if(CONFIG.SINGLE)qs.forEach(function(o){o.setAttribute("aria-expanded","false");o.closest(".item").classList.remove("open")});
+    b.setAttribute("aria-expanded",String(!open));b.closest(".item").classList.toggle("open",!open);
+  }
+  qs.forEach(function(b,i){
+    b.addEventListener("click",function(){toggle(b)});
+    b.addEventListener("keydown",function(e){
+      var n=qs.length,k=e.key==="ArrowDown"?(i+1)%n:e.key==="ArrowUp"?(i+n-1)%n:e.key==="Home"?0:e.key==="End"?n-1:-1;
+      if(k>=0){e.preventDefault();qs[k].focus()}
+    });
+  });
+})();
+</script>
+</body>
+</html>

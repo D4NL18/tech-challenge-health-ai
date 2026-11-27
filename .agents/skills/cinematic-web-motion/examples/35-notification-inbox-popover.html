@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notification Inbox Popover — Subtle UI Motion</title>
+  <!--
+    PATTERN: Notification Inbox Popover
+    A SaaS top-bar notification bell opening an anchored inbox popover with unread filters,
+    mark-all-read transition, and single-item archive/read collapse.
+    - Motion: Popover scales from 0.96 -> 1 at top-right origin over 160ms; unread badge
+      pulses subtly once on new item; dismissed/archived rows collapse smoothly in 180ms.
+    - Accessibility: Trigger has aria-expanded/aria-controls, role="dialog" with Escape
+      dismiss, tab filters with aria-selected, and aria-live="polite" unread counter.
+    - Adapting: Replace the `notifications` array with API data; keep `data-filter` tabs.
+  -->
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --surface-subtle: #f4f4f5;
+      --border: #e4e4e7;
+      --text: #18181b;
+      --text-muted: #71717a;
+      --accent: #18181b;
+      --accent-fg: #ffffff;
+      --dot: #2563eb;
+      --shadow: 0 12px 32px rgba(9, 9, 11, 0.12), 0 0 0 1px rgba(9, 9, 11, 0.06);
+      --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #09090b;
+        --surface: #18181b;
+        --surface-subtle: #27272a;
+        --border: #27272a;
+        --text: #fafafa;
+        --text-muted: #a1a1aa;
+        --accent: #fafafa;
+        --accent-fg: #09090b;
+        --dot: #60a5fa;
+        --shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 48px 20px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .topbar {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      position: relative;
+    }
+    .brand { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+    .actions { display: flex; align-items: center; gap: 8px; }
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 140ms var(--ease), color 140ms var(--ease);
+    }
+    .btn-ghost:hover { background: var(--surface-subtle); color: var(--text); }
+    .bell-btn {
+      position: relative;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      transition: background 140ms var(--ease), transform 120ms var(--ease);
+    }
+    .bell-btn:hover { background: var(--surface-subtle); }
+    .bell-btn:active { transform: scale(0.96); }
+    .bell-btn:focus-visible, .btn-ghost:focus-visible, .tab:focus-visible, .item-btn:focus-visible {
+      outline: 2px solid var(--text);
+      outline-offset: 2px;
+    }
+    .badge {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 999px;
+      background: var(--dot);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      display: grid;
+      place-items: center;
+      transition: transform 160ms var(--ease), opacity 140ms var(--ease);
+    }
+    .badge[data-count="0"] { opacity: 0; transform: scale(0.6); pointer-events: none; }
+    .popover {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      width: min(380px, calc(100vw - 40px));
+      background: var(--surface);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      transform-origin: top right;
+      opacity: 0;
+      transform: scale(0.96) translateY(-4px);
+      pointer-events: none;
+      transition: opacity 150ms var(--ease), transform 160ms var(--ease);
+      overflow: hidden;
+      z-index: 20;
+    }
+    .popover[data-open="true"] {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+      pointer-events: auto;
+    }
+    .pop-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .pop-title { font-size: 13px; font-weight: 600; margin: 0; }
+    .tabs {
+      display: flex;
+      gap: 4px;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-subtle);
+    }
+    .tab {
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 140ms var(--ease), color 140ms var(--ease);
+    }
+    .tab[aria-selected="true"] {
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    }
+    .list { max-height: 300px; overflow-y: auto; }
+    .item {
+      display: grid;
+      grid-template-columns: 10px 1fr auto;
+      gap: 10px;
+      align-items: start;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      transition: background 140ms var(--ease), opacity 180ms var(--ease), transform 180ms var(--ease);
+    }
+    .item:last-child { border-bottom: 0; }
+    .item:hover { background: var(--surface-subtle); }
+    .item.removing { opacity: 0; transform: translateX(12px); }
+    .unread-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--dot);
+      margin-top: 6px;
+      transition: opacity 150ms var(--ease), transform 150ms var(--ease);
+    }
+    .item[data-read="true"] .unread-dot { opacity: 0; transform: scale(0.4); }
+    .item-title { font-size: 13px; font-weight: 500; margin: 0 0 3px; }
+    .item-meta { font-size: 12px; color: var(--text-muted); margin: 0; }
+    .item-btn {
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 11px;
+      padding: 4px 6px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .item-btn:hover { background: var(--border); color: var(--text); }
+    .empty {
+      padding: 36px 16px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <span class="brand">Workspace Inbox</span>
+    <div class="actions">
+      <button class="btn-ghost" id="simulateBtn" type="button">+ New alert</button>
+      <button class="bell-btn" id="bellBtn" type="button" aria-label="Notifications" aria-expanded="false" aria-controls="inboxPopover">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+        </svg>
+        <span class="badge" id="badge" data-count="3" aria-live="polite">3</span>
+      </button>
+    </div>
+
+    <section class="popover" id="inboxPopover" role="dialog" aria-label="Notification inbox" data-open="false">
+      <div class="pop-head">
+        <h2 class="pop-title">Notifications</h2>
+        <button class="btn-ghost" id="markAllBtn" type="button">Mark all read</button>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Filter notifications">
+        <button class="tab" role="tab" aria-selected="true" data-filter="all" type="button">All</button>
+        <button class="tab" role="tab" aria-selected="false" data-filter="unread" type="button">Unread</button>
+      </div>
+      <div class="list" id="list"></div>
+    </section>
+  </header>
+
+  <script>
+    const bellBtn = document.getElementById('bellBtn');
+    const popover = document.getElementById('inboxPopover');
+    const listEl = document.getElementById('list');
+    const badgeEl = document.getElementById('badge');
+    const markAllBtn = document.getElementById('markAllBtn');
+    const simulateBtn = document.getElementById('simulateBtn');
+    const tabs = [...document.querySelectorAll('.tab')];
+
+    let filter = 'all';
+    let nextId = 4;
+    let notifications = [
+      { id: 1, title: 'Deployment #418 succeeded', meta: 'production · 2m ago', read: false },
+      { id: 2, title: 'Ana commented on PR #92', meta: 'design-tokens · 18m ago', read: false },
+      { id: 3, title: 'API token expires in 5 days', meta: 'security · 1h ago', read: false },
+      { id: 4, title: 'Weekly usage report ready', meta: 'billing · Yesterday', read: true }
+    ];
+
+    function setOpen(open) {
+      popover.dataset.open = String(open);
+      bellBtn.setAttribute('aria-expanded', String(open));
+    }
+
+    function updateBadge() {
+      const unread = notifications.filter(n => !n.read).length;
+      badgeEl.textContent = unread;
+      badgeEl.dataset.count = String(unread);
+      markAllBtn.disabled = unread === 0;
+    }
+
+    function render() {
+      const visible = filter === 'unread' ? notifications.filter(n => !n.read) : notifications;
+      updateBadge();
+      if (!visible.length) {
+        listEl.innerHTML = '<div class="empty">You are all caught up.</div>';
+        return;
+      }
+      listEl.innerHTML = visible.map(n => `
+        <article class="item" data-id="${n.id}" data-read="${n.read}">
+          <span class="unread-dot" aria-hidden="true"></span>
+          <div>
+            <p class="item-title">${n.title}</p>
+            <p class="item-meta">${n.meta}</p>
+          </div>
+          <button class="item-btn" type="button" data-action="archive" aria-label="Archive ${n.title}">Archive</button>
+        </article>
+      `).join('');
+    }
+
+    bellBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setOpen(popover.dataset.open !== 'true');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (popover.dataset.open === 'true' && !popover.contains(e.target) && e.target !== bellBtn) {
+        setOpen(false);
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && popover.dataset.open === 'true') {
+        setOpen(false);
+        bellBtn.focus();
+      }
+    });
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        filter = tab.dataset.filter;
+        tabs.forEach(t => t.setAttribute('aria-selected', String(t === tab)));
+        render();
+      });
+    });
+
+    markAllBtn.addEventListener('click', () => {
+      notifications = notifications.map(n => ({ ...n, read: true }));
+      render();
+    });
+
+    simulateBtn.addEventListener('click', () => {
+      nextId += 1;
+      notifications.unshift({ id: nextId, title: `New build #${415 + nextId} ready`, meta: 'ci · just now', read: false });
+      render();
+    });
+
+    listEl.addEventListener('click', (e) => {
+      const itemEl = e.target.closest('.item');
+      if (!itemEl) return;
+      const id = Number(itemEl.dataset.id);
+      if (e.target.closest('[data-action="archive"]')) {
+        itemEl.classList.add('removing');
+        setTimeout(() => {
+          notifications = notifications.filter(n => n.id !== id);
+          render();
+        }, 170);
+      } else {
+        notifications = notifications.map(n => n.id === id ? { ...n, read: true } : n);
+        render();
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>

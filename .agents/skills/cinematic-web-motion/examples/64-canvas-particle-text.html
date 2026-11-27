@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>64 · Canvas Particle Text</title>
+<!--
+PATTERN: Headline rendered as thousands of particles that repel from the cursor and spring home.
+Motion: Text is drawn to an offscreen canvas, pixels are sampled on a grid, and each lit pixel
+  becomes a particle with a home position. Each frame: mouse repulsion force + spring back +
+  friction. Particles start scattered and assemble on load.
+Accessibility: Canvas has role="img" and aria-label with the text; a visually hidden h1 holds it.
+  prefers-reduced-motion: particles are drawn static at home positions, no repel/assembly.
+  Touch: pointermove works with finger drag.
+Adapting: Edit WORD, GAP (sampling density), RADIUS (repel range), FORCE, SPRING, FRICTION.
+  Libraries: none (canvas 2D).
+-->
+<style>
+:root{--bg:#08090c;--fg:#f1efe8}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:var(--bg);color:var(--fg);overflow:hidden;font-family:"Helvetica Neue",Arial,sans-serif}
+canvas{display:block;width:100vw;height:100vh;touch-action:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+p{position:fixed;bottom:5vh;width:100%;text-align:center;font:500 .75rem ui-monospace,monospace;letter-spacing:.2em;text-transform:uppercase;opacity:.5}
+</style>
+</head>
+<body>
+<h1 class="sr">PARTICLES</h1>
+<canvas id="c" role="img" aria-label="PARTICLES, drawn with particles that move away from the cursor"></canvas>
+<p>Move your cursor through the letters</p>
+<script>
+(function(){
+  var WORD="PARTICLES",GAP=5,RADIUS=110,FORCE=1.6,SPRING=.06,FRICTION=.86;
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var cv=document.getElementById("c"),ctx=cv.getContext("2d");
+  var W,H,dpr,parts=[],mouse={x:-9999,y:-9999},raf;
+
+  function build(){
+    dpr=Math.min(devicePixelRatio||1,2);
+    W=innerWidth;H=innerHeight;
+    cv.width=W*dpr;cv.height=H*dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    var off=document.createElement("canvas");off.width=W;off.height=H;
+    var o=off.getContext("2d");
+    var size=Math.min(W/(WORD.length*.62),H*.4);
+    o.font="900 "+size+"px Helvetica, Arial, sans-serif";
+    o.textAlign="center";o.textBaseline="middle";o.fillStyle="#fff";
+    o.fillText(WORD,W/2,H/2);
+    var data=o.getImageData(0,0,W,H).data;
+    parts=[];
+    var step=Math.max(3,Math.round(GAP*(W<600?.7:1)));
+    for(var y=0;y<H;y+=step)for(var x=0;x<W;x+=step){
+      if(data[(y*W+x)*4+3]>128){
+        parts.push({hx:x,hy:y,
+          x:reduce?x:Math.random()*W,y:reduce?y:Math.random()*H,
+          vx:0,vy:0,h:200+x/W*140});
+      }
+    }
+    if(reduce)drawStatic();
+  }
+  function drawStatic(){
+    ctx.clearRect(0,0,W,H);
+    parts.forEach(function(p){ctx.fillStyle="hsl("+p.h+",80%,65%)";ctx.fillRect(p.hx,p.hy,2.5,2.5)});
+  }
+  function frame(){
+    ctx.fillStyle="rgba(8,9,12,.35)";ctx.fillRect(0,0,W,H);
+    for(var i=0;i<parts.length;i++){
+      var p=parts[i],dx=p.x-mouse.x,dy=p.y-mouse.y,d2=dx*dx+dy*dy;
+      if(d2<RADIUS*RADIUS){
+        var d=Math.sqrt(d2)||1,f=(1-d/RADIUS)*FORCE;
+        p.vx+=dx/d*f*4;p.vy+=dy/d*f*4;
+      }
+      p.vx+=(p.hx-p.x)*SPRING;p.vy+=(p.hy-p.y)*SPRING;
+      p.vx*=FRICTION;p.vy*=FRICTION;
+      p.x+=p.vx;p.y+=p.vy;
+      ctx.fillStyle="hsl("+p.h+",80%,65%)";
+      ctx.fillRect(p.x,p.y,2.5,2.5);
+    }
+    raf=requestAnimationFrame(frame);
+  }
+  addEventListener("pointermove",function(e){mouse.x=e.clientX;mouse.y=e.clientY});
+  addEventListener("pointerleave",function(){mouse.x=mouse.y=-9999});
+  var rt;addEventListener("resize",function(){clearTimeout(rt);rt=setTimeout(function(){cancelAnimationFrame(raf);build();if(!reduce)frame()},200)});
+  build();
+  if(!reduce)frame();
+})();
+</script>
+</body>
+</html>

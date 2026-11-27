@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>54 · 3D Tilt Flip Cards</title>
+<!--
+PATTERN: Flip cards with pointer tilt and glare.
+Motion: Card tilts toward the pointer (rotateX/Y) with a moving radial glare; click/Enter flips it 180deg to reveal the back.
+Accessibility: Each card is a button with aria-pressed; back face is hidden from AT until flipped; reduced-motion removes tilt/glare and uses an instant face swap.
+Adapting: Tune CONFIG.tilt (max degrees); edit card content and --h hue.
+-->
+<style>
+:root{--bg:#0e0e12;--fg:#f1ede4}
+*{box-sizing:border-box;margin:0}
+body{min-height:100vh;background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif;display:grid;place-items:center;padding:3rem 1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,260px));gap:2rem;justify-content:center;perspective:1000px}
+.card{all:unset;display:block;aspect-ratio:3/4;cursor:pointer;position:relative;transform-style:preserve-3d;transition:transform .15s ease-out}
+.card:focus-visible{outline:3px solid #fff;outline-offset:6px;border-radius:20px}
+.inner{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .8s cubic-bezier(.2,.8,.2,1)}
+.card[aria-pressed=true] .inner{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;border-radius:20px;backface-visibility:hidden;-webkit-backface-visibility:hidden;padding:1.5rem;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;background:linear-gradient(145deg,hsl(var(--h) 75% 55%),hsl(calc(var(--h) + 50) 70% 30%))}
+.back{transform:rotateY(180deg);background:#1b1b22;border:1px solid hsl(var(--h) 60% 50%)}
+.face h2{font-size:1.8rem;letter-spacing:-.03em}.face p{margin-top:.5rem;opacity:.85;font-size:.95rem;line-height:1.4}
+.glare{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at var(--gx,50%) var(--gy,50%),#ffffff55,transparent 55%);opacity:0;transition:opacity .2s}
+.card:hover .glare{opacity:1}
+@media (prefers-reduced-motion:reduce){.inner{transition:none}.card{transition:none}.glare{display:none}}
+</style>
+</head>
+<body>
+<div class="grid" id="grid"></div>
+<script>
+(function(){
+  var CONFIG={tilt:14};
+  var data=[["Design","Shape the feel first."],["Motion","Easing carries emotion."],["Build","Ship a small, sharp thing."]];
+  var grid=document.getElementById("grid");
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  data.forEach(function(d,i){
+    var b=document.createElement("button");b.className="card";b.setAttribute("aria-pressed","false");b.style.setProperty("--h",i*110+10);
+    b.innerHTML='<span class="inner"><span class="face front"><h2>'+d[0]+'</h2><p>Click or press Enter to flip.</p><span class="glare"></span></span><span class="face back" aria-hidden="true"><h2>'+d[0]+'</h2><p>'+d[1]+'</p></span></span>';
+    grid.appendChild(b);
+    b.addEventListener("click",function(){
+      var on=b.getAttribute("aria-pressed")==="true";
+      b.setAttribute("aria-pressed",String(!on));
+      b.querySelector(".back").setAttribute("aria-hidden",String(on));
+    });
+    if(reduce)return;
+    b.addEventListener("pointermove",function(e){
+      var r=b.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;
+      b.style.transform="rotateY("+((x-.5)*CONFIG.tilt*2)+"deg) rotateX("+((.5-y)*CONFIG.tilt*2)+"deg)";
+      b.querySelectorAll(".glare").forEach(function(g){g.style.setProperty("--gx",x*100+"%");g.style.setProperty("--gy",y*100+"%")});
+      b.querySelector(".front").style.setProperty("--gx",x*100+"%");
+    });
+    b.addEventListener("pointerleave",function(){b.style.transform=""});
+  });
+})();
+</script>
+</body>
+</html>

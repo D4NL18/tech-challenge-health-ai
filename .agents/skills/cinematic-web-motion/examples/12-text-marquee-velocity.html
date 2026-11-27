@@ -1,0 +1,97 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>12 Â· Text Marquee with Scroll Velocity</title>
+<!--
+EFFECT: Stacked giant-text marquees that loop infinitely. Their speed and direction react to scroll
+velocity: scrolling down speeds them up, scrolling up reverses them, and they ease back to a calm
+base drift when scrolling stops. Rows alternate base direction and a skew leans with velocity.
+HOW TO ADAPT:
+  - Each .marquee has data-speed (px/sec base, negative = reverse) â€” text lives in .track > .item.
+  - CONFIG.boost: how strongly velocity affects speed. CONFIG.skew: max skew degrees.
+  - Items are cloned automatically to fill 2x viewport width; loop is seamless via modulo wrap.
+  - Uses ScrollTrigger.create({onUpdate: self.getVelocity()}) + gsap.ticker for the frame loop.
+REDUCED MOTION: marquees are static (no motion, no velocity response), content remains visible.
+-->
+<style>
+*{box-sizing:border-box;margin:0}
+body{background:#0d0d0d;color:#f2efe8;font-family:"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+.intro,.outro{min-height:80vh;display:grid;place-items:center;text-align:center;padding:2rem}
+.intro p,.outro p{font:500 .75rem/1.6 ui-monospace,monospace;letter-spacing:.2em;text-transform:uppercase;color:#777}
+.intro h1{font-size:clamp(2rem,5vw,4rem);letter-spacing:-.04em;font-weight:600;margin-bottom:1rem}
+.rows{padding:6vh 0;display:grid;gap:1.2vw}
+.marquee{overflow:hidden;white-space:nowrap}
+.track{display:inline-flex;will-change:transform}
+.item{display:inline-flex;align-items:center;font-size:clamp(4rem,14vw,13rem);font-weight:700;letter-spacing:-.05em;line-height:1.05;padding-right:.35em;text-transform:uppercase}
+.item i{display:inline-block;width:.18em;height:.18em;border-radius:50%;background:#ff5a36;margin-left:.35em}
+.outline .item{color:transparent;-webkit-text-stroke:2px #f2efe8}
+.accent .item{color:#ff5a36}
+</style>
+</head>
+<body>
+<div class="intro"><div><h1>Scroll to steer.</h1><p>Speed + direction follow your scroll velocity â†“â†‘</p></div></div>
+<div class="rows">
+  <div class="marquee" data-speed="90"><div class="track"><span class="item">Motion design<i></i></span></div></div>
+  <div class="marquee outline" data-speed="-110"><div class="track"><span class="item">Interaction<i></i></span></div></div>
+  <div class="marquee accent" data-speed="80"><div class="track"><span class="item">Craft &amp; Code<i></i></span></div></div>
+  <div class="marquee" data-speed="-100"><div class="track"><span class="item">Smooth by default<i></i></span></div></div>
+</div>
+<div class="outro"><p>Keep scrolling Â· it lingers Â· then settles</p></div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  gsap.registerPlugin(ScrollTrigger);
+  var CONFIG={boost:.9,skew:8,maxFactor:12};
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var rows=[].slice.call(document.querySelectorAll(".marquee")).map(function(m){
+    return {m:m,track:m.querySelector(".track"),base:parseFloat(m.dataset.speed)||80,x:0,w:0,unit:null};
+  });
+
+  function setup(){
+    rows.forEach(function(r){
+      var first=r.track.querySelector(".item");
+      [].slice.call(r.track.querySelectorAll(".item")).forEach(function(n,i){if(i>0)n.remove()});
+      r.unit=first.getBoundingClientRect().width;
+      var need=Math.ceil(innerWidth*2/r.unit)+1;
+      for(var i=0;i<need;i++){var c=first.cloneNode(true);c.setAttribute("aria-hidden","true");r.track.appendChild(c)}
+      r.w=r.unit;
+    });
+  }
+  (document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(setup);
+  var rt;addEventListener("resize",function(){clearTimeout(rt);rt=setTimeout(setup,200)});
+  if(reduce)return;
+
+  var vel=0,dir=1; // smoothed scroll velocity factor
+  ScrollTrigger.create({onUpdate:function(self){
+    var v=self.getVelocity()/1000; // ~px/ms scaled
+    var target=gsap.utils.clamp(-CONFIG.maxFactor,CONFIG.maxFactor,v*CONFIG.boost);
+    state.target=target;
+  }});
+  var state={target:0,f:0};
+
+  gsap.ticker.add(function(time,dt){
+    dt=Math.min(dt,50)/1000;
+    // ease the factor toward the scroll velocity, then decay target to 0
+    state.target*=.92;
+    state.f+=(state.target-state.f)*.12;
+    var skew=gsap.utils.clamp(-CONFIG.skew,CONFIG.skew,-state.f*1.2);
+    rows.forEach(function(r){
+      if(!r.w)return;
+      var sign=r.base<0?-1:1;
+      // scrolling down (positive f) pushes every row toward its own base direction faster;
+      // scrolling up (negative f) reverses it.
+      var mult=1+state.f;
+      r.x-=r.base*mult*dt;
+      var x=((r.x%r.w)+r.w)%r.w;
+      gsap.set(r.track,{x:-x,skewX:skew*sign});
+    });
+  });
+})();
+</script>
+</body>
+</html>
+

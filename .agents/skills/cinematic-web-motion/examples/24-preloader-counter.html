@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>24 · Preloader Counter → Curtain Reveal</title>
+<!--
+  EFFECT: Full-screen preloader with a big 0→100 counter and thin progress line. At 100 the counter slides out, the
+  panel splits into two curtains that open to reveal a hero whose title lines, nav and meta animate in.
+  Page scroll is locked during loading, and Lenis starts afterwards.
+
+  HOW TO ADAPT:
+  - Make the counter real: replace the fake tween with progress from images/fonts (e.g. count loaded assets).
+  - Change MIN_TIME for the shortest preloader duration; colours via CSS variables.
+  - Reduced motion: preloader is skipped entirely and hero is shown immediately.
+-->
+<style>
+  :root { --bg:#f1ede4; --ink:#141414; --acc:#ff4d2e; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html.lenis { height:auto; }
+  body { background:var(--bg); color:var(--ink); font-family:"Helvetica Neue",Arial,sans-serif; }
+  body.loading { overflow:hidden; height:100vh; }
+  .pre { position:fixed; inset:0; z-index:100; display:flex; pointer-events:all; }
+  .pre .half { flex:1; background:var(--ink); height:100%; }
+  .pre .half.l { transform-origin:left; } .pre .half.r { transform-origin:right; }
+  .pre .ui { position:absolute; inset:0; color:var(--bg); display:flex; flex-direction:column; justify-content:space-between; padding:4vw; }
+  .pre .top { display:flex; justify-content:space-between; font-size:.75rem; letter-spacing:.25em; text-transform:uppercase; opacity:.7; }
+  .count { overflow:hidden; line-height:.85; text-align:right; }
+  .count span { display:inline-block; font-size:clamp(6rem,26vw,24rem); font-weight:200; letter-spacing:-.06em; font-variant-numeric:tabular-nums; }
+  .line { position:absolute; left:0; bottom:0; height:4px; width:100%; background:var(--acc); transform-origin:left; transform:scaleX(0); }
+  .hero { min-height:100vh; display:flex; flex-direction:column; justify-content:space-between; padding:3vw 4vw; background:radial-gradient(circle at 80% 20%,#ffd4b8,transparent 45%),var(--bg); }
+  nav { display:flex; justify-content:space-between; font-size:.8rem; letter-spacing:.2em; text-transform:uppercase; }
+  nav ul { display:flex; gap:2rem; list-style:none; }
+  h1 { font-weight:300; font-size:clamp(3.4rem,13vw,12rem); line-height:.9; letter-spacing:-.05em; }
+  h1 .m { display:block; overflow:hidden; padding-bottom:.1em; } h1 .m span { display:block; }
+  h1 em { color:var(--acc); font-style:italic; }
+  .meta { display:flex; justify-content:space-between; font-size:.8rem; letter-spacing:.15em; text-transform:uppercase; opacity:.7; gap:1rem; flex-wrap:wrap; }
+  .more { min-height:80vh; display:grid; place-content:center; text-align:center; background:var(--ink); color:var(--bg); padding:2rem; }
+  .more h2 { font-weight:300; font-size:clamp(2rem,5vw,4rem); max-width:16ch; margin:auto; }
+  @media (max-width:600px){ nav ul{gap:1rem} }
+  @media (prefers-reduced-motion:reduce){ .pre{display:none} }
+</style>
+</head>
+<body class="loading">
+<div class="pre" id="pre">
+  <div class="half l"></div><div class="half r"></div>
+  <div class="ui" id="preUi">
+    <div class="top"><span>Studio Nova</span><span>Loading experience</span></div>
+    <div class="count"><span id="num">0</span></div>
+    <div class="line" id="bar"></div>
+  </div>
+</div>
+
+<main>
+  <section class="hero">
+    <nav class="rv"><span>Nova®</span><ul><li>Work</li><li>About</li><li>Contact</li></ul></nav>
+    <h1><span class="m"><span>Motion for</span></span><span class="m"><span>the <em>curious</em></span></span></h1>
+    <div class="meta rv"><span>Design &amp; Code</span><span>Scroll ↓</span><span>© 2025</span></div>
+  </section>
+  <section class="more"><h2>Everything after the curtain.</h2></section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script>
+(function(){
+  var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  document.body.classList.remove("loading");
+  if (reduce || !window.gsap) { var p = document.getElementById("pre"); if (p) p.style.display = "none"; return; }
+  document.body.classList.add("loading");
+  gsap.registerPlugin(ScrollTrigger);
+
+  var lenis = new Lenis();
+  lenis.stop();
+  lenis.on("scroll", ScrollTrigger.update);
+  gsap.ticker.add(function(t){ lenis.raf(t*1000); });
+  gsap.ticker.lagSmoothing(0);
+
+  var MIN_TIME = 3; // seconds
+  var num = document.getElementById("num"), bar = document.getElementById("bar");
+  var state = { v:0 };
+
+  gsap.set(".m span", { yPercent:110 });
+  gsap.set(".rv", { opacity:0, y:20 });
+
+  var tl = gsap.timeline();
+  tl.to(state, { v:100, duration:MIN_TIME, ease:"power2.inOut",
+      onUpdate:function(){ num.textContent = Math.round(state.v); gsap.set(bar, { scaleX:state.v/100 }); } })
+    .to(num, { yPercent:-110, duration:.7, ease:"power3.in" }, "+=.15")
+    .to("#preUi", { opacity:0, duration:.3 }, "<.4")
+    .to(".half.l", { scaleX:0, duration:1.1, ease:"power4.inOut" }, ">-.1")
+    .to(".half.r", { scaleX:0, duration:1.1, ease:"power4.inOut" }, "<")
+    .to(".m span", { yPercent:0, duration:1.3, ease:"power4.out", stagger:.12 }, "<.35")
+    .to(".rv", { opacity:1, y:0, duration:1, ease:"power3.out", stagger:.15 }, "<.3")
+    .add(function(){
+      document.getElementById("pre").style.display = "none";
+      document.body.classList.remove("loading");
+      lenis.start();
+    }, "-=.6");
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>41 — Product Hotspot Pan & Zoom</title>
+<!--
+  EFFECT: Interactive hotspot & smooth pan-zoom stage for a precision rangefinder camera
+  ("MONOLITH M1"). Clicking numbered pulsing pins smoothly pans and zooms the product stage into
+  that exact hardware detail, reveals a floating editorial spec card with Prev/Next navigation,
+  and supports a Reset View button or Escape key to return to the full overview.
+  ADAPT: Edit `HOTSPOTS` (x%, y%, scale, title, tag, body) to match your product's coordinates
+  and specs; swap the `#cameraSvg` illustration for any SVG or layered diagram.
+  Reduced motion: Jumps directly to the target zoom/pan state without animated transitions.
+-->
+<style>
+  :root {
+    --bg: #090a0c;
+    --panel: rgba(17,19,24,0.88);
+    --border: rgba(255,255,255,0.1);
+    --text: #f3f4f6;
+    --muted: #9399a6;
+    --accent: #f59e0b;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .shell {
+    position: relative;
+    height: 100vh;
+    width: 100vw;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    padding: clamp(18px, 3vw, 36px) clamp(20px, 4vw, 56px);
+  }
+  header {
+    position: relative;
+    z-index: 20;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .brand {
+    font-size: 12px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .reset-btn {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    backdrop-filter: blur(12px);
+    color: var(--text);
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s, border-color 0.2s;
+  }
+  .reset-btn.visible { opacity: 1; pointer-events: auto; }
+  .reset-btn:hover { border-color: rgba(255,255,255,0.3); }
+
+  .stage-viewport {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+  .pan-canvas {
+    position: relative;
+    width: min(86vw, 760px);
+    aspect-ratio: 16 / 10;
+    transform-origin: center center;
+    will-change: transform;
+  }
+  #cameraSvg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    filter: drop-shadow(0 32px 54px rgba(0,0,0,0.65));
+  }
+
+  /* Hotspot Pins */
+  .pin {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    margin: -15px 0 0 -15px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.85);
+    background: rgba(15,17,22,0.85);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    z-index: 5;
+    transition: transform 0.25s, background 0.25s, border-color 0.25s, opacity 0.25s;
+  }
+  .pin::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 1px solid var(--accent);
+    opacity: 0.55;
+    animation: pulse 2.2s infinite ease-out;
+    pointer-events: none;
+  }
+  .pin:hover { transform: scale(1.14); border-color: var(--accent); }
+  .pin.active {
+    background: var(--accent);
+    color: #090a0c;
+    border-color: var(--accent);
+    transform: scale(1.15);
+  }
+  .pin.dimmed { opacity: 0.35; }
+  @keyframes pulse {
+    0% { transform: scale(0.9); opacity: 0.7; }
+    100% { transform: scale(1.55); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pin::after { animation: none; }
+  }
+
+  /* Floating Editorial Spec Card */
+  .spec-card {
+    position: fixed;
+    right: clamp(20px, 4vw, 56px);
+    bottom: clamp(24px, 4vw, 48px);
+    width: min(340px, calc(100vw - 40px));
+    background: var(--panel);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(18px);
+    border-radius: 18px;
+    padding: 22px;
+    z-index: 25;
+    opacity: 0;
+    transform: translateY(16px);
+    pointer-events: none;
+  }
+  .spec-card.open { pointer-events: auto; }
+  .card-tag {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .spec-card h2 {
+    margin: 0 0 8px;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .spec-card p {
+    margin: 0 0 18px;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--muted);
+  }
+  .card-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+  }
+  .nav-group { display: flex; gap: 8px; }
+  .mini-btn {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .mini-btn:hover { background: rgba(255,255,255,0.1); }
+  .hint-bar {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <header>
+    <div class="brand">MONOLITH // M1 RANGEFINDER</div>
+    <button class="reset-btn" id="resetBtn" type="button">Reset View (Esc)</button>
+  </header>
+
+  <main class="stage-viewport">
+    <div class="pan-canvas" id="panCanvas">
+      <svg id="cameraSvg" viewBox="0 0 760 475" aria-label="Monolith M1 Rangefinder Camera">
+        <defs>
+          <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#2b2f37"/>
+            <stop offset="22%" stop-color="#1a1d23"/>
+            <stop offset="100%" stop-color="#0f1115"/>
+          </linearGradient>
+          <linearGradient id="topPlate" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#5a616e"/>
+            <stop offset="50%" stop-color="#8b93a1"/>
+            <stop offset="100%" stop-color="#454b56"/>
+          </linearGradient>
+          <radialGradient id="lensGlass" cx="42%" cy="38%" r="58%">
+            <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/>
+            <stop offset="45%" stop-color="#1e1b4b" stop-opacity="0.75"/>
+            <stop offset="100%" stop-color="#050608"/>
+          </radialGradient>
+        </defs>
+
+        <!-- Main Chassis -->
+        <rect x="85" y="108" width="590" height="290" rx="26" fill="url(#bodyGrad)" stroke="#3e4450" stroke-width="2"/>
+        <!-- Textured Leatherette Grip -->
+        <rect x="92" y="164" width="576" height="218" rx="14" fill="#121418" stroke="#252932" stroke-width="1"/>
+        <!-- Machined Top Plate -->
+        <path d="M85 134 C85 116, 98 108, 114 108 H646 C662 108, 675 116, 675 134 V162 H85 Z" fill="url(#topPlate)"/>
+
+        <!-- Shutter Dial & Release -->
+        <rect x="148" y="88" width="58" height="20" rx="4" fill="#3a404c" stroke="#9aa3b2" stroke-width="1"/>
+        <circle cx="177" cy="83" r="11" fill="#f59e0b"/>
+        <!-- ISO / Mode Dial -->
+        <rect x="520" y="90" width="66" height="18" rx="4" fill="#2c313b" stroke="#858e9e" stroke-width="1"/>
+        <!-- Hot Shoe -->
+        <rect x="338" y="96" width="84" height="12" rx="2" fill="#262a33" stroke="#646d7d" stroke-width="1"/>
+
+        <!-- Optical Viewfinder Window -->
+        <rect x="492" y="120" width="66" height="32" rx="6" fill="#090b0f" stroke="#2b313c" stroke-width="2"/>
+        <rect x="502" y="126" width="46" height="20" rx="3" fill="#132238"/>
+        <!-- Rangefinder Patch -->
+        <rect x="424" y="124" width="26" height="24" rx="4" fill="#090b0f" stroke="#2b313c" stroke-width="1.5"/>
+
+        <!-- 35mm f/1.4 Lens Barrel -->
+        <circle cx="350" cy="272" r="118" fill="#181b21" stroke="#525a69" stroke-width="3"/>
+        <circle cx="350" cy="272" r="102" fill="#101216" stroke="#303642" stroke-width="8" stroke-dasharray="5 4"/>
+        <circle cx="350" cy="272" r="84" fill="#1a1e26" stroke="#677080" stroke-width="2"/>
+        <circle cx="350" cy="272" r="64" fill="url(#lensGlass)" stroke="#2f3644" stroke-width="2"/>
+        <!-- Aperture Blades -->
+        <circle cx="350" cy="272" r="32" fill="#050608" stroke="#38bdf8" stroke-opacity="0.3" stroke-width="1"/>
+        <ellipse cx="330" cy="252" rx="14" ry="8" transform="rotate(-32 330 252)" fill="rgba(255,255,255,0.22)"/>
+        <text x="350" y="204" text-anchor="middle" fill="#94a3b8" font-size="9" letter-spacing="2.5">APO-SUMMICRON 35MM F/1.4</text>
+
+        <!-- Red Alignment Dot -->
+        <circle cx="242" cy="182" r="6" fill="#ef4444"/>
+      </svg>
+    </div>
+  </main>
+
+  <div class="hint-bar">
+    <span>Click any numbered pin to inspect hardware</span>
+    <span>60MP Full-Frame BSI · Brass Top Plate</span>
+  </div>
+</div>
+
+<aside class="spec-card" id="specCard" aria-live="polite">
+  <div class="card-tag" id="cardTag">01 // OPTICS</div>
+  <h2 id="cardTitle">35mm f/1.4 Aspherical</h2>
+  <p id="cardBody">11-element apochromatic glass with dual floating elements and nano-crystal anti-reflective coating.</p>
+  <div class="card-nav">
+    <span id="cardIndex" style="font-size:11px;color:var(--muted)">1 / 5</span>
+    <div class="nav-group">
+      <button class="mini-btn" id="prevPin" type="button">Prev</button>
+      <button class="mini-btn" id="nextPin" type="button">Next</button>
+    </div>
+  </div>
+</aside>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script>
+(() => {
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const HOTSPOTS = [
+    { x: 46, y: 57, scale: 2.05, tag: '01 // OPTICS', title: '35mm f/1.4 Aspherical', body: '11-element apochromatic glass with dual floating elements and nano-crystal anti-reflective coating.' },
+    { x: 23.3, y: 18, scale: 2.3, tag: '02 // MECHANICS', title: 'Milled Brass Shutter', body: 'Stepped 1/3-stop mechanical shutter dial with a tactile sapphire-tipped soft-release button.' },
+    { x: 69, y: 28, scale: 2.4, tag: '03 // VIEWFINDER', title: 'Hybrid Optical Finder', body: '0.73x magnification optical rangefinder with projected OLED framelines and zero-lag focus peaking.' },
+    { x: 46, y: 21, scale: 2.2, tag: '04 // CHASSIS', title: 'Machined Top Plate', body: 'CNC-milled from a solid billet of brass and finished in satin titanium PVD for lifelong patina.' },
+    { x: 72.5, y: 20, scale: 2.35, tag: '05 // TELEMETRY', title: 'Dedicated ISO Dial', body: 'Locking analog ISO and exposure compensation wheel legible even when the camera is powered down.' }
+  ];
+
+  const panCanvas = document.getElementById('panCanvas');
+  const specCard = document.getElementById('specCard');
+  const resetBtn = document.getElementById('resetBtn');
+  const cardTag = document.getElementById('cardTag');
+  const cardTitle = document.getElementById('cardTitle');
+  const cardBody = document.getElementById('cardBody');
+  const cardIndex = document.getElementById('cardIndex');
+
+  let current = -1;
+  const pins = [];
+
+  HOTSPOTS.forEach((hs, idx) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pin';
+    btn.style.left = hs.x + '%';
+    btn.style.top = hs.y + '%';
+    btn.textContent = idx + 1;
+    btn.setAttribute('aria-label', `Inspect ${hs.title}`);
+    btn.addEventListener('click', () => focusHotspot(idx));
+    panCanvas.appendChild(btn);
+    pins.push(btn);
+  });
+
+  function focusHotspot(idx) {
+    current = idx;
+    const hs = HOTSPOTS[idx];
+    const dur = reduceMotion ? 0 : 0.85;
+
+    // Offset so target point sits comfortably left-of-center away from spec card
+    const offsetX = (50 - hs.x) * hs.scale - 6;
+    const offsetY = (50 - hs.y) * hs.scale;
+
+    gsap.to(panCanvas, {
+      scale: hs.scale,
+      xPercent: offsetX,
+      yPercent: offsetY,
+      duration: dur,
+      ease: 'power3.inOut'
+    });
+
+    pins.forEach((p, i) => {
+      p.classList.toggle('active', i === idx);
+      p.classList.toggle('dimmed', i !== idx);
+    });
+
+    cardTag.textContent = hs.tag;
+    cardTitle.textContent = hs.title;
+    cardBody.textContent = hs.body;
+    cardIndex.textContent = `${idx + 1} / ${HOTSPOTS.length}`;
+
+    specCard.classList.add('open');
+    resetBtn.classList.add('visible');
+    gsap.to(specCard, { opacity: 1, y: 0, duration: reduceMotion ? 0 : 0.35, ease: 'power2.out' });
+  }
+
+  function resetView() {
+    current = -1;
+    const dur = reduceMotion ? 0 : 0.75;
+    gsap.to(panCanvas, { scale: 1, xPercent: 0, yPercent: 0, duration: dur, ease: 'power3.inOut' });
+    pins.forEach((p) => p.classList.remove('active', 'dimmed'));
+    specCard.classList.remove('open');
+    resetBtn.classList.remove('visible');
+    gsap.to(specCard, { opacity: 0, y: 16, duration: reduceMotion ? 0 : 0.25 });
+  }
+
+  resetBtn.addEventListener('click', resetView);
+  document.getElementById('prevPin').addEventListener('click', () => {
+    const next = current <= 0 ? HOTSPOTS.length - 1 : current - 1;
+    focusHotspot(next);
+  });
+  document.getElementById('nextPin').addEventListener('click', () => {
+    const next = (current + 1) % HOTSPOTS.length;
+    focusHotspot(next);
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && current !== -1) resetView();
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>78 · Pricing Toggle Cards</title>
+<!--
+PATTERN: Monthly/yearly billing switch with prices that roll to the new value, and one plan
+  highlighted by size and position instead of three identical cards.
+Motion: Each price is a counter that eases from old to new value over DUR ms (rAF, ease-out); a
+  sliding thumb moves in the switch; the featured plan sits raised and wider in an asymmetric grid.
+Accessibility: Switch is role="switch" with aria-checked, Space/Enter/arrow keys; prices live in
+  aria-live="polite". Yearly saving is stated in text ("2 months free"), not colour alone.
+  prefers-reduced-motion: prices change instantly, thumb does not slide.
+Adapting: PLANS (monthly price) and YEAR_FACTOR / DUR in the CONFIG. Libraries: none.
+-->
+<style>
+:root{--paper:#efe8da;--ink:#1d1b18;--mute:#59524a;--acc:#a8401d;--sage:#2f4a3c;--line:#c9bfab;--e:cubic-bezier(.2,.7,.2,1)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--paper);color:var(--ink);font:16px/1.5 "Helvetica Neue",Arial,sans-serif;padding:9vh 6vw}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:2rem;margin-bottom:4rem}
+h1{font:600 clamp(2.2rem,5.5vw,4rem)/1 Georgia,"Iowan Old Style",serif;letter-spacing:-.025em;max-width:11ch}
+.sw{display:flex;align-items:center;gap:.8rem;font-weight:600}
+.sw button{position:relative;width:60px;height:32px;border:2px solid var(--ink);background:transparent;border-radius:16px;cursor:pointer}
+.sw button::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--ink);transition:transform .4s var(--e)}
+.sw button[aria-checked=true]::after{transform:translateX(28px);background:var(--acc)}
+.sw button:focus-visible{outline:3px solid var(--acc);outline-offset:3px}
+.save{font:700 .72rem ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--sage);color:var(--sage);padding:.2rem .5rem}
+.grid{display:grid;grid-template-columns:1fr 1.45fr .9fr;align-items:stretch;gap:0;margin:3rem 0 1.5rem}
+.plan{padding:2rem 1.6rem;border:1px solid var(--line);margin-left:-1px}
+.plan h2{font:600 1.5rem Georgia,serif;margin-bottom:.3rem}
+.plan p{color:var(--mute);font-size:.92rem;min-height:3em}
+.price{font:600 3rem/1.1 Georgia,serif;margin:1.2rem 0 .2rem;font-variant-numeric:tabular-nums}
+.price small{font:500 .85rem "Helvetica Neue",sans-serif;color:var(--mute)}
+.plan ul{list-style:none;padding:0;margin:1rem 0 1.5rem;font-size:.9rem}
+.plan li{padding:.35rem 0;border-top:1px dotted var(--line)}
+.plan.hot{background:var(--ink);color:var(--paper);padding:3.4rem 2.2rem;margin:-1.5rem 0;position:relative;z-index:1;border-color:var(--ink)}
+.plan.hot p,.plan.hot .price small{color:#d6ccb8}.plan.hot li{border-color:#5b544a}
+.tag{display:inline-block;background:var(--acc);color:#fff;font:700 .7rem ui-monospace,monospace;letter-spacing:.12em;text-transform:uppercase;padding:.25rem .55rem;margin-bottom:.8rem}
+.btn{display:inline-block;border:1px solid currentColor;padding:.65rem 1.1rem;font-weight:600;color:inherit;background:none;cursor:pointer;transition:background .25s var(--e),color .25s var(--e),transform .25s var(--e)}
+.btn:hover{background:var(--acc);border-color:var(--acc);color:#fff;transform:translateX(4px)}
+.btn:focus-visible{outline:3px solid var(--acc);outline-offset:3px}
+.hot .btn:focus-visible{outline-color:var(--paper)}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.plan.hot{margin:0}}
+@media (prefers-reduced-motion:reduce){.sw button::after,.btn{transition:none}.btn:hover{transform:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Pay for the lanes you ship.</h1>
+  <div class="sw"><span id="lm">Monthly</span>
+    <button id="sw" role="switch" aria-checked="false" aria-labelledby="lm ly"></button>
+    <span id="ly">Yearly</span><span class="save">2 months free</span></div>
+</header>
+<div class="grid" aria-live="polite">
+  <article class="plan"><h2>Solo</h2><p>One courier, one route sheet, no dispatcher.</p>
+    <div class="price"><span data-base="12">12</span><small> € / month</small></div>
+    <ul><li>1 driver seat</li><li>Route export to PDF</li></ul><button class="btn">Start Solo</button></article>
+  <article class="plan hot"><span class="tag">Most chosen by depots</span><h2>Depot</h2><p>Up to 25 drivers, live ETA to customers, proof-of-delivery photos.</p>
+    <div class="price"><span data-base="58">58</span><small> € / month</small></div>
+    <ul><li>25 driver seats</li><li>Live ETA by SMS</li><li>Photo proof-of-delivery</li><li>Priority phone line</li></ul><button class="btn">Start Depot</button></article>
+  <article class="plan"><h2>Network</h2><p>Several depots, one dashboard.</p>
+    <div class="price"><span data-base="190">190</span><small> € / month</small></div>
+    <ul><li>Unlimited seats</li><li>SSO and audit log</li></ul><button class="btn">Talk to us</button></article>
+</div>
+<script>
+(function(){
+  var CONFIG={YEAR_FACTOR:10,DUR:650};
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var sw=document.getElementById("sw"),yearly=false;
+  var nums=[].slice.call(document.querySelectorAll("[data-base]"));
+  function target(n){var b=+n.getAttribute("data-base");return yearly?Math.round(b*CONFIG.YEAR_FACTOR/12):b}
+  function roll(n,to){
+    var from=+n.textContent,t0=null,id=n._id=(n._id||0)+1;
+    if(reduce){n.textContent=to;return}
+    function step(t){
+      if(id!==n._id)return;if(!t0)t0=t;var p=Math.min((t-t0)/CONFIG.DUR,1),k=1-Math.pow(1-p,3);
+      n.textContent=Math.round(from+(to-from)*k);
+      if(p<1)requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  function toggle(){
+    yearly=!yearly;sw.setAttribute("aria-checked",yearly);
+    nums.forEach(function(n){roll(n,target(n))});
+  }
+  sw.addEventListener("click",toggle);
+  sw.addEventListener("keydown",function(e){
+    if(e.key==="ArrowRight"&&!yearly||e.key==="ArrowLeft"&&yearly)toggle();
+  });
+})();
+</script>
+</body>
+</html>

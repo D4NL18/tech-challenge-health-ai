@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>130 · Logo Wall Stagger Section</title>
+<!--
+PATTERN: "Who we have worked with" client wall for a freight-forwarding firm: five ruled rows of
+  typographic wordmarks (fictional clients). Entrance is staggered; hovering or focusing a client
+  dims the rest of the wall; each row is also offset horizontally in proportion to scroll, odd rows
+  one way and even rows the other, so the wall shears as you pass it.
+Motion: ScrollTrigger batch fades/lifts cells with stagger from a grid origin (gsap stagger grid).
+  A scrubbed tween per row moves x between -X and +X (alternating sign). Hover dimming is CSS
+  (:has) with a class fallback; no JS needed for it.
+Accessibility: Each wordmark is a link with the client name as accessible text; decorative marks
+  are aria-hidden. prefers-reduced-motion or no CDN: static wall, no stagger, no row offset (the hover
+  dimming remains: it is a state change, not movement). :focus-visible ring. Mobile (390px): 2 cells
+  per row, rows offset less, no horizontal overflow.
+Adapting: Replace .wm contents with <img loading="lazy" width height alt="Name">; tune SHIFT.
+Libraries: GSAP + ScrollTrigger (CDN, optional).
+-->
+<style>
+:root{--chalk:#eeeae1;--navy:#18222d;--signal:#e4572e;--teal:#2d6a6a;--sand:#cfc6b2;--olive:#6b6f3c;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Helvetica Neue",Arial,sans-serif;--mono:ui-monospace,"Cascadia Mono",Consolas,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--chalk);color:var(--navy);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+a:focus-visible{outline:3px solid var(--signal);outline-offset:-4px}
+.head{padding:clamp(3rem,12vh,8rem) clamp(1.2rem,6vw,6rem) 8vh;display:grid;grid-template-columns:repeat(12,1fr);gap:1rem}
+.head small{grid-column:1/-1;letter-spacing:.2em;text-transform:uppercase;font-size:.75rem;color:var(--teal);font-weight:700}
+.head h1{grid-column:2/11;font-family:var(--serif);font-weight:400;font-size:clamp(2.6rem,7.4vw,7.2rem);line-height:.92;letter-spacing:-.03em}
+.head p{grid-column:7/-1;line-height:1.55;max-width:36ch;margin-top:1rem}
+.wall{overflow:hidden;background:var(--navy);color:var(--chalk);padding:8vh 0}
+.row{display:flex;border-top:1px solid #eeeae133;width:max-content;min-width:calc(100% + 900px);margin-left:-450px}
+.row:last-child{border-bottom:1px solid #eeeae133}
+.cell{flex:1 0 auto;width:calc(100vw / 4.4);min-width:15rem;display:grid;place-items:center;height:clamp(7rem,17vh,11rem);border-right:1px solid #eeeae133;transition:opacity .35s,background .35s}
+.wm{display:flex;align-items:center;gap:.7rem;font-size:clamp(1.3rem,2.2vw,2rem);white-space:nowrap}
+.wm svg{width:1.5em;height:1.5em;flex:none}
+.w-serif{font-family:var(--serif);letter-spacing:-.02em}
+.w-mono{font-family:var(--mono);font-size:clamp(1rem,1.6vw,1.4rem);letter-spacing:.08em;text-transform:uppercase}
+.w-cond{font-family:var(--sans);font-weight:800;letter-spacing:-.04em;text-transform:uppercase}
+.w-thin{font-family:var(--sans);font-weight:300;letter-spacing:.24em;text-transform:uppercase;font-size:clamp(1rem,1.7vw,1.5rem)}
+.wall:has(.cell:hover) .cell:not(:hover),.wall:has(.cell:focus-within) .cell:not(:focus-within){opacity:.22}
+.cell:hover,.cell:focus-within{background:var(--signal);color:var(--navy)}
+.dimmed .cell{opacity:.22}.dimmed .cell.on{opacity:1}
+.tail{padding:12vh clamp(1.2rem,6vw,6rem) 14vh;display:grid;grid-template-columns:repeat(12,1fr);gap:1rem;align-items:end}
+.tail p{grid-column:1/8;font-family:var(--serif);font-size:clamp(1.6rem,3.2vw,3rem);line-height:1.08;max-width:22ch}
+.tail a{grid-column:9/-1;justify-self:end;color:var(--teal);font-size:.85rem;letter-spacing:.12em;text-transform:uppercase;text-underline-offset:.4em;text-decoration:underline}
+@media(max-width:760px){
+  .head h1,.head p{grid-column:1/-1}
+  .cell{width:50vw;min-width:11rem;height:6.5rem}
+  .tail p,.tail a{grid-column:1/-1;justify-self:start}
+}
+@media(prefers-reduced-motion:reduce){.cell{transition:none}}
+</style>
+</head>
+<body>
+<section class="head"><small>Tideway Freight, since 1994</small><h1>We move freight for people who cannot afford a late pallet.</h1><p>Forty-one clients ship with us every week. Here are the ones who agreed to be named.</p></section>
+
+<section class="wall" id="wall" aria-label="Selected clients">
+  <div class="row" data-dir="-1">
+    <a class="cell" href="#top"><span class="wm w-serif"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v20M2 12h20" stroke="currentColor" stroke-width="2"/></svg>Harbourline</span></a>
+    <a class="cell" href="#top"><span class="wm w-mono"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" fill="currentColor"/></svg>Kestrel/Ops</span></a>
+    <a class="cell" href="#top"><span class="wm w-cond">Brindle &amp; Voss</span></a>
+    <a class="cell" href="#top"><span class="wm w-thin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20L12 4l9 16z" fill="none" stroke="currentColor" stroke-width="2"/></svg>Aurelian</span></a>
+    <a class="cell" href="#top"><span class="wm w-serif">Oakhurst Dairy</span></a>
+  </div>
+  <div class="row" data-dir="1">
+    <a class="cell" href="#top"><span class="wm w-cond"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 18l7-12 6 8 3-4 4 8z" fill="currentColor"/></svg>Northpeak</span></a>
+    <a class="cell" href="#top"><span class="wm w-serif">Mallory's Seeds</span></a>
+    <a class="cell" href="#top"><span class="wm w-mono">LK-9 Labs</span></a>
+    <a class="cell" href="#top"><span class="wm w-thin">Verdant Row</span></a>
+    <a class="cell" href="#top"><span class="wm w-cond"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="6" fill="currentColor"/><circle cx="16" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="2"/></svg>Twinbrook</span></a>
+  </div>
+  <div class="row" data-dir="-1">
+    <a class="cell" href="#top"><span class="wm w-thin">Sable &amp; Co.</span></a>
+    <a class="cell" href="#top"><span class="wm w-serif"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z" fill="currentColor"/></svg>Ferrous Works</span></a>
+    <a class="cell" href="#top"><span class="wm w-cond">Quayside Foods</span></a>
+    <a class="cell" href="#top"><span class="wm w-mono"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V4h4v16zM10 20V10h4v10zM16 20V6h4v14z" fill="currentColor"/></svg>Tallis Tech</span></a>
+    <a class="cell" href="#top"><span class="wm w-serif">The Pennant Press</span></a>
+  </div>
+  <div class="row" data-dir="1">
+    <a class="cell" href="#top"><span class="wm w-mono">Mercer 44</span></a>
+    <a class="cell" href="#top"><span class="wm w-thin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zm0 4a5 5 0 110 10 5 5 0 010-10z" fill="currentColor"/></svg>Lumen Glass</span></a>
+    <a class="cell" href="#top"><span class="wm w-cond">Crowther Tiles</span></a>
+    <a class="cell" href="#top"><span class="wm w-serif">Ashgrove Cider</span></a>
+    <a class="cell" href="#top"><span class="wm w-mono"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12h6l3-8 4 16 3-8h4" fill="none" stroke="currentColor" stroke-width="2"/></svg>PulseRx</span></a>
+  </div>
+  <div class="row" data-dir="-1">
+    <a class="cell" href="#top"><span class="wm w-cond"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M12 3v18" stroke="currentColor" stroke-width="4"/></svg>Marlow Medical</span></a>
+    <a class="cell" href="#top"><span class="wm w-serif">Dunmore &amp; Pike</span></a>
+    <a class="cell" href="#top"><span class="wm w-thin">Isla Textiles</span></a>
+    <a class="cell" href="#top"><span class="wm w-mono">Bolt-Rail</span></a>
+    <a class="cell" href="#top"><span class="wm w-cond"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l10 10-10 10L2 12z" fill="currentColor"/></svg>Kite &amp; Anchor</span></a>
+  </div>
+</section>
+
+<section class="tail"><p>Your pallet leaves the dock the same day the order comes in.</p><a href="#top">Get a lane quote</a></section>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || !window.gsap || !window.ScrollTrigger) return;
+  gsap.registerPlugin(ScrollTrigger);
+  var SHIFT = matchMedia('(max-width:760px)').matches ? 90 : 240; // px travel each way
+  var rows = gsap.utils.toArray('.row');
+  rows.forEach(function(row, i){
+    var dir = +row.dataset.dir * (1 + (i % 3) * .35); // slightly different speeds per row
+    gsap.fromTo(row, {x: -SHIFT * dir}, {x: SHIFT * dir, ease: 'none',
+      scrollTrigger: {trigger: '.wall', start: 'top bottom', end: 'bottom top', scrub: .6}});
+  });
+  // staggered entrance, radiating from the top-left cell
+  var cells = gsap.utils.toArray('.cell');
+  gsap.set(cells, {opacity: 0, y: 28});
+  ScrollTrigger.create({trigger: '.wall', start: 'top 78%', once: true, onEnter: function(){
+    gsap.to(cells, {opacity: 1, y: 0, duration: .8, ease: 'power3.out',
+      stagger: {amount: 1.1, grid: [rows.length, 5], from: 'start', axis: null}, clearProps: 'opacity,y'});
+  }});
+  gsap.from('.head > *', {y: 30, opacity: 0, duration: 1, stagger: .12, ease: 'power3.out'});
+  addEventListener('load', function(){ ScrollTrigger.refresh(); });
+})();
+</script>
+</body>
+</html>

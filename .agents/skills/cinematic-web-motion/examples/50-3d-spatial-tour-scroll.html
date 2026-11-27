@@ -1,0 +1,293 @@
+<!--
+  Effect: Continuous Scroll-Scrubbed 3D Spatial Tour (CatmullRomCurve3 + ScrollTrigger + Lenis)
+  - Scrolling continuously guides a 3D camera along a spline path through an architectural loft apartment:
+    Terrace -> Glass Entry -> Living Gallery -> Studio Mezzanine -> Night Balcony.
+  - Floating editorial chapter cards fade in/out at each zone, with clickable waypoint pills to scroll smoothly to any zone.
+  - Adapt: replace procedural architectural geometry with an exported GLB apartment model and adjust the spline control points.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3D Spatial Scroll Tour — KAZA LOFT</title>
+<style>
+  :root {
+    --ink: #f5f2eb;
+    --muted: rgba(245, 242, 235, 0.72);
+    --glass: rgba(16, 17, 20, 0.52);
+    --border: rgba(255, 255, 255, 0.15);
+    --amber: #e6a964;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #101316; color: var(--ink); font-family: system-ui, -apple-system, sans-serif; overflow-x: hidden; }
+
+  #webgl { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+
+  /* Progress rail on right */
+  .rail {
+    position: fixed; right: 24px; top: 50%; transform: translateY(-50%); z-index: 10;
+    display: flex; flex-direction: column; gap: 12px; align-items: flex-end;
+  }
+  .rail button {
+    border: 0; background: transparent; color: var(--muted); cursor: pointer;
+    display: flex; align-items: center; gap: 10px; font-size: 0.74rem;
+    letter-spacing: 0.14em; text-transform: uppercase; transition: color 0.25s;
+  }
+  .rail button span.dot {
+    width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.28);
+    transition: transform 0.25s, background 0.25s;
+  }
+  .rail button.active { color: #fff; }
+  .rail button.active span.dot { background: var(--amber); transform: scale(1.45); }
+
+  /* Scroll track with 4 full-viewport chapters */
+  .track { position: relative; z-index: 2; }
+  .chapter {
+    height: 125vh; display: flex; align-items: flex-end; padding: 0 6vw 10vh;
+    pointer-events: none;
+  }
+  .chapter:first-child { height: 100vh; }
+  .card {
+    pointer-events: auto;
+    max-width: 26rem; padding: 24px 26px; border-radius: 20px;
+    background: var(--glass); backdrop-filter: blur(18px) saturate(1.2);
+    border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+  }
+  .card .eyebrow {
+    font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--amber); margin-bottom: 8px;
+  }
+  .card h2 {
+    font-family: Georgia, serif; font-weight: 400; font-size: clamp(1.7rem, 3vw, 2.4rem);
+    margin-bottom: 8px;
+  }
+  .card p { font-size: 0.9rem; line-height: 1.55; color: var(--muted); }
+
+  .top-brand {
+    position: fixed; top: 22px; left: 28px; z-index: 10;
+    font-size: 0.8rem; letter-spacing: 0.22em; text-transform: uppercase;
+    padding: 8px 14px; border-radius: 999px;
+    background: var(--glass); backdrop-filter: blur(14px); border: 1px solid var(--border);
+  }
+
+  @media (max-width: 720px) {
+    .rail { right: 12px; }
+    .rail button span.label { display: none; }
+    .chapter { padding: 0 16px 8vh; }
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="webgl" aria-hidden="true"></canvas>
+<div class="top-brand">KAZA · RESIDENCE 04</div>
+
+<nav class="rail" aria-label="Tour zones">
+  <button data-idx="0" class="active"><span class="label">01 Glass Entry</span><span class="dot"></span></button>
+  <button data-idx="1"><span class="label">02 Living Gallery</span><span class="dot"></span></button>
+  <button data-idx="2"><span class="label">03 Dining &amp; Bar</span><span class="dot"></span></button>
+  <button data-idx="3"><span class="label">04 Night Suite</span><span class="dot"></span></button>
+</nav>
+
+<main class="track">
+  <section class="chapter" id="z0">
+    <div class="card">
+      <div class="eyebrow">01 · ARRIVAL</div>
+      <h2>Through the glass</h2>
+      <p>Scroll continuously to glide from the misted terrace directly into the main living volume.</p>
+    </div>
+  </section>
+  <section class="chapter" id="z1">
+    <div class="card">
+      <div class="eyebrow">02 · LIVING GALLERY</div>
+      <h2>Warm timber &amp; shadow</h2>
+      <p>Double-height cedar fins filter the evening light across low-profile stone and wool seating.</p>
+    </div>
+  </section>
+  <section class="chapter" id="z2">
+    <div class="card">
+      <div class="eyebrow">03 · DINING &amp; BAR</div>
+      <h2>Monolithic kitchen</h2>
+      <p>A sculpted travertine island anchors the center of the plan beneath warm brass pendants.</p>
+    </div>
+  </section>
+  <section class="chapter" id="z3">
+    <div class="card">
+      <div class="eyebrow">04 · NIGHT SUITE</div>
+      <h2>Quiet horizon</h2>
+      <p>Turn the corner into the private suite, framed by recessed amber glow and panoramic glass.</p>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script type="module">
+import * as THREE from 'three';
+
+gsap.registerPlugin(ScrollTrigger);
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const lenis = reduced ? null : new Lenis({ duration: 1.25 });
+if (lenis) {
+  lenis.on('scroll', ScrollTrigger.update);
+  gsap.ticker.add(t => lenis.raf(t * 1000));
+  gsap.ticker.lagSmoothing(0);
+}
+
+const canvas = document.getElementById('webgl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#14191e');
+scene.fog = new THREE.FogExp2('#14191e', 0.036);
+
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 100);
+
+// Architectural loft corridor along Z: +8 -> -18
+const woodMat = new THREE.MeshStandardMaterial({ color: '#2b2019', roughness: 0.65 });
+const stoneMat = new THREE.MeshStandardMaterial({ color: '#1d2024', roughness: 0.85 });
+const travertine = new THREE.MeshStandardMaterial({ color: '#d8cfc0', roughness: 0.78 });
+const brass = new THREE.MeshStandardMaterial({ color: '#d6a468', roughness: 0.25, metalness: 0.85 });
+const glass = new THREE.MeshPhysicalMaterial({
+  color: '#a8c8dc', transparent: true, opacity: 0.18, roughness: 0.05, transmission: 0.7, side: THREE.DoubleSide
+});
+
+const floor = new THREE.Mesh(new THREE.BoxGeometry(12, 0.2, 34), woodMat);
+floor.position.set(0, 0, -6);
+scene.add(floor);
+
+const ceiling = new THREE.Mesh(new THREE.BoxGeometry(12, 0.25, 34), stoneMat);
+ceiling.position.set(0, 4.4, -6);
+scene.add(ceiling);
+
+// Left architectural timber fins
+for (let z = 2; z >= -20; z -= 1.8) {
+  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.18, 4.4, 0.55), woodMat);
+  fin.position.set(-5.6, 2.2, z);
+  scene.add(fin);
+}
+
+// Right panoramic glass wall
+const rightGlass = new THREE.Mesh(new THREE.PlaneGeometry(32, 4.4), glass);
+rightGlass.rotation.y = -Math.PI / 2;
+rightGlass.position.set(5.8, 2.2, -6);
+scene.add(rightGlass);
+
+// Entry glass portal at Z = 3
+const entryGlass = new THREE.Mesh(new THREE.PlaneGeometry(11.4, 4.4), glass);
+entryGlass.position.set(0, 2.2, 3);
+scene.add(entryGlass);
+
+// Zone 1: Living seating (Z = -2)
+const sofa = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.55, 1.4), new THREE.MeshStandardMaterial({ color: '#383b40', roughness: 0.9 }));
+sofa.position.set(-2.2, 0.35, -2.5);
+scene.add(sofa);
+const table = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.12, 24), travertine);
+table.position.set(-1.2, 0.45, -0.5);
+scene.add(table);
+
+// Zone 2: Monolithic kitchen island (Z = -9.5)
+const island = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.0, 1.3), travertine);
+island.position.set(1.2, 0.55, -9.5);
+scene.add(island);
+for (let x = 0.4; x <= 2.0; x += 0.8) {
+  const lamp = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.22, 20, 1, true), brass);
+  lamp.position.set(x, 2.6, -9.5);
+  scene.add(lamp);
+}
+
+// Zone 3: Suite bed & amber wall wash (Z = -17)
+const bed = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.5, 2.8), travertine);
+bed.position.set(-1.6, 0.35, -17.5);
+scene.add(bed);
+const headboard = new THREE.Mesh(new THREE.BoxGeometry(3.6, 2.4, 0.2), woodMat);
+headboard.position.set(-1.6, 1.3, -19.0);
+scene.add(headboard);
+
+// Lighting
+scene.add(new THREE.HemisphereLight('#88a0b5', '#211914', 0.95));
+[[-1.5, 3.2, -2, '#ffae66', 9], [1.2, 2.4, -9.5, '#ffbe7a', 10], [-1.6, 2.6, -17.5, '#ff9d52', 9]].forEach(([x, y, z, col, int]) => {
+  const l = new THREE.PointLight(col, int, 12);
+  l.position.set(x, y, z);
+  scene.add(l);
+});
+
+// Smooth 3D spline paths for position and look-at target
+const posCurve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(0.2, 1.75, 9.2),
+  new THREE.Vector3(0.6, 1.65, 1.2),
+  new THREE.Vector3(-0.6, 1.55, -5.8),
+  new THREE.Vector3(0.5, 1.60, -13.2),
+  new THREE.Vector3(-0.4, 1.50, -15.4)
+]);
+const lookCurve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(0.0, 1.55, 0.0),
+  new THREE.Vector3(-1.4, 1.25, -3.5),
+  new THREE.Vector3(0.9, 1.15, -9.8),
+  new THREE.Vector3(-1.2, 1.05, -17.8),
+  new THREE.Vector3(-1.6, 0.95, -19.0)
+]);
+
+const tour = { p: 0 };
+const chapters = [...document.querySelectorAll('.chapter')];
+const railBtns = [...document.querySelectorAll('.rail button')];
+
+function updateRail(progress) {
+  const idx = Math.min(3, Math.floor(progress * 3.99));
+  railBtns.forEach((b, i) => b.classList.toggle('active', i === idx));
+}
+
+if (!reduced) {
+  gsap.to(tour, {
+    p: 1,
+    ease: 'none',
+    scrollTrigger: {
+      trigger: '.track',
+      start: 'top top',
+      end: 'bottom bottom',
+      scrub: 0.7,
+      onUpdate: self => updateRail(self.progress)
+    }
+  });
+}
+
+railBtns.forEach((btn, i) => {
+  btn.addEventListener('click', () => {
+    const target = chapters[i];
+    if (lenis) lenis.scrollTo(target, { offset: 0 });
+    else target.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
+  });
+});
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+const tmpPos = new THREE.Vector3(), tmpLook = new THREE.Vector3();
+function animate() {
+  requestAnimationFrame(animate);
+  posCurve.getPointAt(tour.p, tmpPos);
+  lookCurve.getPointAt(tour.p, tmpLook);
+  camera.position.copy(tmpPos);
+  camera.lookAt(tmpLook);
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

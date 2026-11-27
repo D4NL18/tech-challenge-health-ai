@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>109 · SVG Route Map Scroll</title>
+<!--
+PATTERN: Itinerary map. A sticky stage holds an SVG route; scroll progress draws the path (stroke-dashoffset) while a head dot travels along it and numbered pins plus stop cards appear as the head passes each stop.
+Motion: p = scroll position inside a 520vh track; drawn length = p * path length; each stop has its own length on the path (found by sampling getPointAtLength) and its pin/card reveal when drawn >= that length; the head dot uses getPointAtLength; ease via rAF lerp (0.14).
+Accessibility: The route is also a numbered list of stops in real text; with prefers-reduced-motion or no JS the full route is drawn and all stop cards are listed below the map; the SVG has role=img + aria-label; :focus-visible styled. On narrow screens only the current card is shown to avoid covering the map.
+Adapting: Edit the STOPS arrays (one for landscape, one for portrait viewBox) and the card text; contour lines are generated.
+Libraries: none (vanilla JS + SVG). Concept demo: "Rota Vicentina em cinco dias" is a fictional itinerary; distances are illustrative.
+-->
+<style>
+:root{--paper:#f1ead9;--sea:#d9e4da;--ink:#1c2b2a;--route:#c4492a;--tan:#bfae86;--green:#2f5a4a;--mute:#4d5b57;
+--serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Segoe UI","Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.55;overflow-x:hidden}
+a:focus-visible{outline:3px solid var(--route);outline-offset:4px}
+.top{display:flex;justify-content:space-between;padding:1.4rem 6vw;font-size:.78rem;letter-spacing:.2em;text-transform:uppercase}
+.top b{font:400 1.3rem var(--serif);text-transform:none;letter-spacing:.01em}
+.lead{padding:10vh 6vw 8vh;display:grid;grid-template-columns:8fr 4fr;gap:5vw;align-items:end;min-height:70vh}
+.lead h1{font:400 clamp(2.8rem,8.4vw,7.4rem)/.92 var(--serif);letter-spacing:-.035em}
+.lead h1 em{color:var(--route)}
+.lead p{max-width:22rem;color:var(--mute)}
+.track{position:relative}
+.stage{position:relative;height:100vh;overflow:hidden;background:var(--sea)}
+.stage svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.cont{fill:none;stroke:var(--tan);stroke-width:1.2;opacity:.55}
+.base{fill:none;stroke:#1c2b2a22;stroke-width:5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:2 12}
+.route{fill:none;stroke:var(--route);stroke-width:5;stroke-linecap:round;stroke-linejoin:round}
+.pin circle{fill:var(--paper);stroke:var(--ink);stroke-width:3}
+.pin text{font:700 15px var(--sans);fill:var(--ink);text-anchor:middle}
+.pin{opacity:0;transform-box:fill-box;transform-origin:center;transition:opacity .35s}
+.pin.on{opacity:1}
+.head{fill:var(--route);stroke:var(--paper);stroke-width:3}
+.title{position:absolute;left:6vw;top:5vh;z-index:2;max-width:18rem}
+.title small{font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;color:var(--route)}
+.title h2{font:400 clamp(1.4rem,2.4vw,2.2rem)/1.05 var(--serif);margin-top:.3rem}
+.km{position:absolute;right:6vw;bottom:5vh;z-index:2;font:400 clamp(2.4rem,6vw,5rem)/1 var(--serif);letter-spacing:-.03em;text-align:right}
+.km small{display:block;font:600 .7rem var(--sans);letter-spacing:.2em;text-transform:uppercase;color:var(--route)}
+.cards{display:grid;gap:0;border-top:2px solid var(--ink);margin:0 6vw 10vh}
+.card{padding:1.2rem 0;border-bottom:1px solid #1c2b2a33;display:grid;grid-template-columns:3rem 1fr;gap:1rem}
+.card i{font:400 1.8rem var(--serif);font-style:normal;color:var(--route)}
+.card h3{font:400 1.5rem/1.1 var(--serif);margin-bottom:.2rem}
+.card p{color:var(--mute);max-width:28rem;font-size:.95rem}
+.card small{display:block;margin-top:.4rem;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--green)}
+/* animated overlay cards */
+.js .cards{position:absolute;inset:0;margin:0;border:0;display:block;pointer-events:none;z-index:3}
+.js .card{position:absolute;width:min(17rem,70vw);display:block;background:var(--paper);padding:.9rem 1rem;border-left:5px solid var(--route);opacity:0;transform:translateY(10px);transition:opacity .4s,transform .4s;pointer-events:auto}
+.js .card.on{opacity:1;transform:none}
+.js .card i{display:block;font-size:1.1rem}.js .card h3{font-size:1.3rem}.js .card p{font-size:.85rem}
+.end{padding:12vh 6vw;display:grid;gap:1.2rem;min-height:50vh;align-content:center;background:var(--ink);color:var(--paper)}
+.end h2{font:400 clamp(2rem,5vw,4.4rem)/1 var(--serif);max-width:14em}
+.end a{justify-self:start;color:var(--paper);border-bottom:2px solid var(--route);text-decoration:none;padding-bottom:.2rem}
+.disc{font-size:.72rem;padding:1rem 6vw;background:var(--ink);color:var(--paper);opacity:.9}
+html:not(.js) .stage{height:auto;overflow:visible}
+html:not(.js) .stage svg{position:relative;height:70vh}
+html:not(.js) .title{position:static;padding:1rem 6vw}
+html:not(.js) .km{position:static;padding:0 6vw 1rem;text-align:left}
+@media (max-width:760px){
+ .lead{grid-template-columns:1fr;gap:1.5rem}
+ .js .card{left:5vw!important;right:5vw;top:5.2rem!important;width:auto}
+ .title h2{display:none}
+}
+@media (prefers-reduced-motion:reduce){.card,.pin{transition:none}}
+</style>
+</head>
+<body>
+<div class="top"><b>Trilho Sul</b><span>Caminhadas na costa alentejana</span></div>
+<header class="lead"><h1>Cinco dias a pé pela <em>costa</em>, de Sagres a Porto Covo.</h1><p>Cento e vinte quilômetros de falésia, duna e trilho de pescador. Role e a rota se desenha, parada a parada.</p></header>
+<section class="track" id="track">
+ <div class="stage" id="stage">
+  <svg id="map" role="img" aria-label="Mapa estilizado da rota em cinco paradas, de Sagres a Porto Covo" preserveAspectRatio="xMidYMid meet">
+   <g id="cont"></g><path class="base" id="base"/><path class="route" id="route"/>
+   <g id="pins"></g><circle class="head" id="head" r="9"/>
+  </svg>
+  <div class="title"><small>Rota Vicentina</small><h2>Cinco dias, 120 km, uma costa.</h2></div>
+  <div class="km"><small>Percorrido</small><span id="km">0 km</span></div>
+  <ol class="cards" id="cards">
+   <li class="card"><i>1</i><div><h3>Sagres</h3><p>Saída no farol do Cabo de São Vicente, onde a terra acaba. Etapa curta de 18 km para aquecer.</p><small>Dia 1 · 18 km</small></div></li>
+   <li class="card"><i>2</i><div><h3>Carrapateira</h3><p>Dunas fixas e a praia da Bordeira, quase sempre deserta. Jantar de percebes no vilarejo.</p><small>Dia 2 · 27 km</small></div></li>
+   <li class="card"><i>3</i><div><h3>Aljezur</h3><p>Entre a ribeira e o castelo árabe. É o dia da batata-doce e do descanso dos pés.</p><small>Dia 3 · 24 km</small></div></li>
+   <li class="card"><i>4</i><div><h3>Odeceixe</h3><p>Travessia do rio na maré baixa e a vila branca na colina. Dormida num moinho reformado.</p><small>Dia 4 · 31 km</small></div></li>
+   <li class="card"><i>5</i><div><h3>Porto Covo</h3><p>Praça de pedra, ilha do Pessegueiro e o último pôr do sol do roteiro.</p><small>Dia 5 · 20 km</small></div></li>
+  </ol>
+ </div>
+</section>
+<section class="end"><h2>Saídas de 6 de abril a 26 de outubro, grupos de até oito pessoas.</h2><a href="#">Ver datas e preços</a></section>
+<p class="disc">Demo conceitual: Trilho Sul é uma operadora fictícia; mapa estilizado, distâncias e etapas ilustrativas.</p>
+<script>
+(function(){
+  var CONFIG={lerp:.14,trackVh:5.2};
+  var STOPS={
+    land:{vb:[1200,750],pts:[[150,560],[380,420],[560,530],[790,300],[1040,170]]},
+    port:{vb:[600,1170],pts:[[150,1050],[420,890],[190,720],[440,560],[270,400]]}
+  };
+  var NS="http://www.w3.org/2000/svg",KM=[0,18,45,69,100,120];
+  var svg=document.getElementById("map"),route=document.getElementById("route"),base=document.getElementById("base"),pinsG=document.getElementById("pins"),
+      cont=document.getElementById("cont"),head=document.getElementById("head"),track=document.getElementById("track"),stage=document.getElementById("stage"),
+      cards=[].slice.call(document.querySelectorAll(".card")),kmEl=document.getElementById("km");
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var L=0,lens=[],pins=[],cur=reduce?1:0;
+  function catmull(p){var d="M"+p[0][0]+" "+p[0][1];
+    for(var i=0;i<p.length-1;i++){var a=p[i-1]||p[i],b=p[i],c=p[i+1],e=p[i+2]||c;
+      d+=" C"+(b[0]+(c[0]-a[0])/6)+" "+(b[1]+(c[1]-a[1])/6)+","+(c[0]-(e[0]-b[0])/6)+" "+(c[1]-(e[1]-b[1])/6)+","+c[0]+" "+c[1]}
+    return d}
+  function build(){
+    var mob=matchMedia("(max-width:760px)").matches,S=mob?STOPS.port:STOPS.land,w=S.vb[0],h=S.vb[1];
+    svg.setAttribute("viewBox","0 0 "+w+" "+h);
+    var d=catmull(S.pts);route.setAttribute("d",d);base.setAttribute("d",d);
+    L=route.getTotalLength();route.style.strokeDasharray=L;
+    /* topographic contours */
+    cont.innerHTML="";
+    for(var k=0;k<18;k++){var p=document.createElementNS(NS,"path"),y0=k*h/17,s="M-20 "+y0;
+      for(var x=0;x<=w+40;x+=40){s+=" L"+x+" "+(y0+Math.sin(x*.006+k*.9)*28+Math.sin(x*.017+k)*9)}
+      p.setAttribute("d",s);p.setAttribute("class","cont");cont.appendChild(p)}
+    pinsG.innerHTML="";lens=[];pins=[];
+    S.pts.forEach(function(pt,i){
+      /* length on path nearest to the stop */
+      var best=0,bd=1e9;for(var l=0;l<=L;l+=L/400){var q=route.getPointAtLength(l),dd=(q.x-pt[0])*(q.x-pt[0])+(q.y-pt[1])*(q.y-pt[1]);if(dd<bd){bd=dd;best=l}}
+      lens.push(best);
+      var g=document.createElementNS(NS,"g");g.setAttribute("class","pin");
+      g.innerHTML='<circle cx="'+pt[0]+'" cy="'+pt[1]+'" r="17"/><text x="'+pt[0]+'" y="'+(pt[1]+5)+'">'+(i+1)+'</text>';
+      pinsG.appendChild(g);pins.push(g);
+    });
+    place();
+  }
+  function place(){
+    if(!document.documentElement.classList.contains("js"))return;
+    var sb=stage.getBoundingClientRect(),mob=matchMedia("(max-width:760px)").matches;
+    cards.forEach(function(c,i){
+      if(mob){c.style.left="";c.style.top="";return}
+      var pr=pins[i].getBoundingClientRect(),cx=pr.left+pr.width/2-sb.left,cy=pr.top+pr.height/2-sb.top,cw=c.offsetWidth,ch=c.offsetHeight;
+      var next=pins[i+1]?pins[i+1].getBoundingClientRect():null,ny=next?next.top+next.height/2-sb.top:null;
+      var left=Math.max(16,Math.min(sb.width-cw-16,next?cx-20:cx-cw+20)),top;
+      if(next&&ny<cy)top=cy+30;else if(next)top=cy-30-ch;else top=cy+30;
+      top=Math.max(90,Math.min(sb.height-ch-30,top));
+      c.style.left=left+"px";c.style.top=top+"px";
+    });
+  }
+  function render(p){
+    var drawn=p*L;route.style.strokeDashoffset=L-drawn;
+    var pt=route.getPointAtLength(Math.max(.01,drawn));head.setAttribute("cx",pt.x);head.setAttribute("cy",pt.y);head.style.opacity=p>=.999?0:1;
+    var mob=matchMedia("(max-width:760px)").matches,lastOn=-1;
+    lens.forEach(function(l,i){var on=drawn>=l-2||p>=.999;pins[i].classList.toggle("on",on);if(on)lastOn=i});
+    cards.forEach(function(c,i){c.classList.toggle("on",mob?i===lastOn:i<=lastOn)});
+    var seg=Math.min(4,Math.floor(p*5)),t=p*5-seg;kmEl.textContent=Math.round(p>=1?120:p*120)+" km";
+  }
+  function progress(){var b=track.getBoundingClientRect(),total=b.height-innerHeight;return Math.max(0,Math.min(1,-b.top/total))}
+  var animated=!reduce;
+  if(animated){document.documentElement.classList.add("js");track.style.height=(CONFIG.trackVh*100)+"vh";stage.style.position="sticky";stage.style.top="0"}
+  build();
+  addEventListener("resize",function(){build();render(cur)});
+  if(!animated){pins.forEach(function(g){g.classList.add("on")});head.style.display="none";route.style.strokeDashoffset=0;kmEl.textContent="120 km";return}
+  /* sticky needs the stage inside a taller track: cards live inside the stage */
+  place();
+  (function loop(){var t=progress();cur+=(t-cur)*CONFIG.lerp;if(Math.abs(t-cur)<.0004)cur=t;render(cur);requestAnimationFrame(loop)})();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>20 · Clip-path Image Reveal + Curtain</title>
+<!--
+  EFFECT: Scroll-triggered image reveals using animated clip-path (inset wipes in 3 directions, a circle reveal)
+  combined with an inner scale-down (1.4 → 1) and a coloured "curtain" that wipes across before the image shows.
+  Headline lines also slide up out of masks. Lenis + ScrollTrigger.
+
+  HOW TO ADAPT:
+  - Swap `.img` backgrounds for <img> tags (width/height 100%, object-fit: cover).
+  - Add data-reveal="left|right|up|circle" on a .reveal element to choose the direction.
+  - Change the curtain colour via --curtain, durations/ease in the `reveal()` function.
+  - Reduced motion: everything is shown statically, no animation.
+-->
+<style>
+  :root { --bg:#efe9dd; --fg:#16130f; --curtain:#16130f; --acc:#c9472b; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html.lenis { height:auto; }
+  body { background:var(--bg); color:var(--fg); font-family:Georgia,"Times New Roman",serif; overflow-x:hidden; }
+  header { min-height:90vh; display:flex; flex-direction:column; justify-content:flex-end; padding:6vw; }
+  h1 { font-weight:400; font-size:clamp(3rem,10vw,9rem); line-height:.95; letter-spacing:-.03em; }
+  .line { display:block; overflow:hidden; padding-bottom:.08em; }
+  .line span { display:block; }
+  header p { margin-top:2rem; font:.75rem/1.6 "Helvetica Neue",Arial,sans-serif; letter-spacing:.2em; text-transform:uppercase; opacity:.6; }
+  .row { display:grid; grid-template-columns:repeat(12,1fr); gap:2vw; padding:8vw 6vw; align-items:center; }
+  .row .reveal { grid-column:2 / span 6; }
+  .row.flip .reveal { grid-column:6 / span 6; grid-row:1; }
+  .row .txt { grid-column:9 / span 4; font-size:1.1rem; line-height:1.6; }
+  .row.flip .txt { grid-column:2 / span 4; grid-row:1; }
+  .txt h2 { font-weight:400; font-size:2rem; margin-bottom:1rem; }
+  .txt small { display:block; margin-bottom:1rem; font:.7rem "Helvetica Neue",Arial,sans-serif; letter-spacing:.25em; color:var(--acc); }
+  .reveal { position:relative; aspect-ratio:4/5; overflow:hidden; }
+  .reveal.wide { aspect-ratio:16/10; }
+  .clip { position:absolute; inset:0; overflow:hidden; }
+  .img { position:absolute; inset:0; }
+  .curtain { position:absolute; inset:0; background:var(--curtain); z-index:2; transform-origin:left; }
+  .i1{background:radial-gradient(circle at 25% 20%,#ffd9a0,#e0663a 45%,#3a1410)}
+  .i2{background:linear-gradient(145deg,#cfe8e2,#4d8f87 50%,#10302f)}
+  .i3{background:conic-gradient(from 90deg at 40% 60%,#241a4a,#8a6bd1,#f1b5d3,#241a4a)}
+  .i4{background:linear-gradient(180deg,#f9e8b8,#e3a24a 55%,#6b2f12)}
+  .full { padding:0 6vw 10vw; }
+  .full .reveal { aspect-ratio:21/9; }
+  footer { padding:6vw; text-align:center; font:.75rem "Helvetica Neue",Arial,sans-serif; letter-spacing:.2em; text-transform:uppercase; opacity:.5; }
+  @media (max-width:800px){
+    .row{display:block;padding:12vw 6vw} .row .txt{margin-top:1.5rem} .full .reveal{aspect-ratio:4/3}
+  }
+  @media (prefers-reduced-motion:reduce){ .curtain{display:none} }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="line"><span>Reveal the</span></span><span class="line"><span><em>unseen</em>, slowly.</span></span></h1>
+  <p>Scroll — clip-path · curtain · scale</p>
+</header>
+
+<section class="row">
+  <div class="reveal" data-reveal="left"><div class="clip"><div class="img i1"></div></div><div class="curtain"></div></div>
+  <div class="txt"><small>01 — INSET LEFT</small><h2>Wipe from the left</h2><p>The curtain slides off while the picture unclips and settles from a 1.4× scale.</p></div>
+</section>
+
+<section class="row flip">
+  <div class="reveal" data-reveal="right"><div class="clip"><div class="img i2"></div></div><div class="curtain"></div></div>
+  <div class="txt"><small>02 — INSET RIGHT</small><h2>Mirrored wipe</h2><p>Same recipe, opposite direction. Direction is just a data attribute.</p></div>
+</section>
+
+<section class="row">
+  <div class="reveal" data-reveal="circle"><div class="clip"><div class="img i3"></div></div></div>
+  <div class="txt"><small>03 — CIRCLE</small><h2>Iris open</h2><p>A circle() clip-path grows from the centre — no curtain, pure mask.</p></div>
+</section>
+
+<section class="full">
+  <div class="reveal wide" data-reveal="up"><div class="clip"><div class="img i4"></div></div><div class="curtain"></div></div>
+</section>
+<footer>End</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script>
+(function(){
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches || !window.gsap) return;
+  gsap.registerPlugin(ScrollTrigger);
+  var lenis = new Lenis();
+  lenis.on("scroll", ScrollTrigger.update);
+  gsap.ticker.add(function(t){ lenis.raf(t*1000); });
+  gsap.ticker.lagSmoothing(0);
+
+  gsap.from(".line span", { yPercent:110, duration:1.2, ease:"power4.out", stagger:.15, delay:.2 });
+
+  var hidden = {
+    left:  "inset(0 100% 0 0)",
+    right: "inset(0 0 0 100%)",
+    up:    "inset(100% 0 0 0)",
+    circle:"circle(0% at 50% 50%)"
+  };
+  var shown = {
+    left:"inset(0 0% 0 0)", right:"inset(0 0 0 0%)", up:"inset(0% 0 0 0)", circle:"circle(75% at 50% 50%)"
+  };
+
+  gsap.utils.toArray(".reveal").forEach(function(el){
+    var dir = el.dataset.reveal, clip = el.querySelector(".clip"), img = el.querySelector(".img"), curtain = el.querySelector(".curtain");
+    gsap.set(clip, { clipPath:hidden[dir] });
+    gsap.set(img, { scale:1.4 });
+    var tl = gsap.timeline({ scrollTrigger:{ trigger:el, start:"top 80%", once:true } });
+    if (curtain) {
+      tl.fromTo(curtain, { scaleX:0, transformOrigin:"left" }, { scaleX:1, duration:.6, ease:"power3.inOut" })
+        .set(clip, { clipPath:shown[dir] })
+        .set(curtain, { transformOrigin:"right" })
+        .to(curtain, { scaleX:0, duration:.8, ease:"power3.inOut" })
+        .to(img, { scale:1, duration:1.4, ease:"power3.out" }, "<");
+    } else {
+      tl.to(clip, { clipPath:shown[dir], duration:1.4, ease:"power3.inOut" })
+        .to(img, { scale:1, duration:1.6, ease:"power3.out" }, "<");
+    }
+  });
+
+  gsap.utils.toArray(".txt").forEach(function(t){
+    gsap.from(t.children, { y:30, opacity:0, stagger:.12, duration:1, ease:"power3.out",
+      scrollTrigger:{ trigger:t, start:"top 85%", once:true } });
+  });
+})();
+</script>
+</body>
+</html>

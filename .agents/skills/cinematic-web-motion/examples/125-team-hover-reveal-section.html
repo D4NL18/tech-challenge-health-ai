@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>125 · Team Hover Reveal Section</title>
+<!--
+PATTERN: Editorial team index for a small veterinary practice: oversized names in a ruled list;
+  hovering (or keyboard-focusing) a row floats a portrait card with role and years at the cursor,
+  while scroll reveals each row with a masked slide-up and a hairline that draws across.
+Motion: ScrollTrigger batch reveals rows (yPercent 110 -> 0 inside overflow:hidden masks, rule
+  scaleX 0 -> 1). Hover: gsap.quickTo follows the pointer; the card scales/rotates in and the other
+  rows dim to 35% opacity. Portraits are procedural SVG (no photos).
+Accessibility: Each row is a real link (focusable); focus triggers the same reveal as hover. The
+  role is always present in the row text, so the floating card is decorative (aria-hidden).
+  prefers-reduced-motion / touch / no CDN: no floating card; the role and a small portrait show
+  inline in each row, everything visible. Mobile (390px): stacked rows with inline portrait.
+Adapting: Edit the rows; change data-tone for portrait colour. Libraries: GSAP + ScrollTrigger (CDN, optional).
+-->
+<style>
+:root{--paper:#f3eee3;--ink:#1e231f;--pine:#2f4a3b;--poppy:#d2492c;--butter:#e7c96b;--mist:#c7d2c2;--rose:#e2b5a5;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+a:focus-visible{outline:3px solid var(--poppy);outline-offset:-3px}
+.intro{padding:clamp(3rem,12vh,8rem) clamp(1.2rem,6vw,6rem) 8vh;display:grid;grid-template-columns:repeat(12,1fr);gap:1rem}
+.intro small{grid-column:1/-1;letter-spacing:.2em;text-transform:uppercase;font-size:.75rem;color:var(--pine);font-weight:700}
+.intro h1{grid-column:1/9;font-family:var(--serif);font-weight:400;font-size:clamp(2.6rem,7.6vw,7.4rem);line-height:.92;letter-spacing:-.03em}
+.intro p{grid-column:9/-1;align-self:end;line-height:1.55;max-width:30ch}
+.list{list-style:none;margin:0 clamp(1.2rem,6vw,6rem) 14vh;position:relative}
+.row{position:relative}
+.row .rule{position:absolute;left:0;right:0;top:0;height:1px;background:var(--ink);transform-origin:0 50%}
+.row:last-child::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--ink)}
+.row a{display:grid;grid-template-columns:3rem 1fr auto;align-items:center;gap:1rem;padding:clamp(1rem,3.2vh,2.2rem) 0;transition:opacity .35s}
+.mask{overflow:hidden;display:block}
+.inner{display:block}
+.no{font-size:.8rem;letter-spacing:.14em;color:var(--pine)}
+.name{font-family:var(--serif);font-size:clamp(2.2rem,6.4vw,6rem);letter-spacing:-.03em;line-height:1.05;transition:transform .5s cubic-bezier(.2,.8,.2,1),color .3s}
+.role{font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;text-align:right;max-width:16ch;line-height:1.35}
+.list.hovering .row a{opacity:.35}
+.list.hovering .row a.act{opacity:1}
+.row a:hover .name,.row a:focus-visible .name{transform:translateX(clamp(.5rem,2vw,2rem));color:var(--poppy)}
+.thumb{display:none;width:56px;height:56px;border-radius:50%;overflow:hidden}
+.thumb svg,.peek svg{display:block;width:100%;height:100%}
+.peek{position:fixed;left:0;top:0;width:clamp(11rem,17vw,16rem);aspect-ratio:3/4;pointer-events:none;z-index:20;opacity:0;transform:scale(.6);transform-origin:50% 50%;background:var(--mist);overflow:hidden;box-shadow:0 1px 0 var(--ink)}
+.peek .cap{position:absolute;left:0;right:0;bottom:0;padding:.7rem .9rem;background:var(--ink);color:var(--paper);font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;line-height:1.35}
+.peek .pic{position:absolute;inset:0 0 3.4rem 0}
+.foot{padding:0 clamp(1.2rem,6vw,6rem) 14vh;font-family:var(--serif);font-size:clamp(1.5rem,3vw,2.6rem);max-width:24ch;line-height:1.1}
+.nocursor .thumb{display:block}
+.nocursor .row a{grid-template-columns:2.2rem 1fr auto}
+@media(max-width:760px){
+  .intro h1,.intro p{grid-column:1/-1}
+  .row a{grid-template-columns:1fr 56px;grid-template-areas:"n t" "r t";gap:.1rem 1rem}
+  .no{display:none}.name{grid-area:n}.role{grid-area:r;text-align:left;max-width:none}
+  .thumb{display:block;grid-area:t}
+  .name{font-size:clamp(2rem,10vw,2.8rem)}
+}
+@media(prefers-reduced-motion:reduce){.row a,.name{transition:none}}
+</style>
+</head>
+<body>
+<section class="intro"><small>Brookside Veterinary Practice</small><h1>Seven people who will know your dog's name.</h1><p>No rotating locums. The same faces at reception, in the consulting room and on the phone at 2 am.</p></section>
+
+<ul class="list" id="list">
+  <li class="row"><i class="rule"></i><a href="#top" data-role="Lead vet, 16 years" data-tone="0"><span class="no">01</span><span class="mask"><span class="inner name">Dr Amara Okafor</span></span><span class="role">Lead vet<br>Soft tissue surgery</span><span class="thumb" aria-hidden="true"></span></a></li>
+  <li class="row"><i class="rule"></i><a href="#top" data-role="Senior vet, 11 years" data-tone="1"><span class="no">02</span><span class="mask"><span class="inner name">Callum Fraser</span></span><span class="role">Senior vet<br>Dentistry</span><span class="thumb" aria-hidden="true"></span></a></li>
+  <li class="row"><i class="rule"></i><a href="#top" data-role="Head nurse, 9 years" data-tone="2"><span class="no">03</span><span class="mask"><span class="inner name">Siobhan Kearney</span></span><span class="role">Head nurse<br>Anaesthesia</span><span class="thumb" aria-hidden="true"></span></a></li>
+  <li class="row"><i class="rule"></i><a href="#top" data-role="Nurse, 4 years" data-tone="3"><span class="no">04</span><span class="mask"><span class="inner name">Tariq Hussein</span></span><span class="role">Nurse<br>Puppy classes</span><span class="thumb" aria-hidden="true"></span></a></li>
+  <li class="row"><i class="rule"></i><a href="#top" data-role="Practice manager, 12 years" data-tone="4"><span class="no">05</span><span class="mask"><span class="inner name">Elspeth Munro</span></span><span class="role">Practice manager<br>Insurance claims</span><span class="thumb" aria-hidden="true"></span></a></li>
+  <li class="row"><i class="rule"></i><a href="#top" data-role="Receptionist, 3 years" data-tone="5"><span class="no">06</span><span class="mask"><span class="inner name">Joel Abara</span></span><span class="role">Reception<br>Appointments</span><span class="thumb" aria-hidden="true"></span></a></li>
+  <li class="row"><i class="rule"></i><a href="#top" data-role="Practice cat, 8 years" data-tone="6"><span class="no">07</span><span class="mask"><span class="inner name">Biscuit</span></span><span class="role">Practice cat<br>Waiting room</span><span class="thumb" aria-hidden="true"></span></a></li>
+</ul>
+<p class="foot">Open 8 to 7 weekdays, 9 to 1 Saturdays.</p>
+
+<div class="peek" id="peek" aria-hidden="true"><div class="pic" id="pic"></div><div class="cap" id="cap"></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  var TONES = [['#c7d2c2','#2f4a3b','#d2492c'],['#e7c96b','#1e231f','#2f4a3b'],['#e2b5a5','#2f4a3b','#1e231f'],['#2f4a3b','#e7c96b','#e2b5a5'],['#d2492c','#f3eee3','#1e231f'],['#c7d2c2','#d2492c','#1e231f'],['#e7c96b','#d2492c','#1e231f']];
+  function portrait(t, cat){
+    var c = TONES[t];
+    var face = cat
+      ? '<path d="M70 170l-10-70 30 20h40l30-20-10 70c0 40-20 60-40 60s-40-20-40-60z" fill="' + c[1] + '"/><circle cx="100" cy="170" r="5" fill="' + c[0] + '"/><circle cx="130" cy="170" r="5" fill="' + c[0] + '"/>'
+      : '<circle cx="100" cy="115" r="38" fill="' + c[1] + '"/><path d="M20 250c0-60 36-84 80-84s80 24 80 84z" fill="' + c[2] + '"/><path d="M62 108c4-34 66-40 76 0-22-14-52-14-76 0z" fill="' + c[0] + '" opacity=".35"/>';
+    return '<svg viewBox="0 0 200 250" preserveAspectRatio="xMidYMid slice"><rect width="200" height="250" fill="' + c[0] + '"/>' + face + '</svg>';
+  }
+  var links = Array.prototype.slice.call(document.querySelectorAll('.row a'));
+  links.forEach(function(a, i){ a.querySelector('.thumb').innerHTML = portrait(+a.dataset.tone, i === 6); });
+
+  var fine = matchMedia('(hover:hover) and (pointer:fine)').matches;
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var ok = window.gsap && window.ScrollTrigger;
+  if (!fine || reduce || !ok) document.documentElement.classList.add('nocursor');
+  if (!ok) return;
+  gsap.registerPlugin(ScrollTrigger);
+
+  // scroll reveal of rows
+  if (!reduce) {
+    var names = gsap.utils.toArray('.inner'), rules = gsap.utils.toArray('.rule');
+    gsap.set(names, {yPercent: 115}); gsap.set(rules, {scaleX: 0});
+    gsap.set('.no, .role, .thumb', {opacity: 0});
+    ScrollTrigger.batch('.row', {start: 'top 90%', once: true, onEnter: function(batch){
+      batch.forEach(function(r, i){
+        gsap.timeline({delay: i * .08})
+          .to(r.querySelector('.rule'), {scaleX: 1, duration: 1, ease: 'power3.inOut'})
+          .to(r.querySelector('.inner'), {yPercent: 0, duration: .9, ease: 'power4.out'}, .15)
+          .to(r.querySelectorAll('.no,.role,.thumb'), {opacity: 1, duration: .6}, .4);
+      });
+    }});
+    gsap.from('.intro > *', {y: 30, opacity: 0, duration: 1, stagger: .1, ease: 'power3.out'});
+  }
+  if (!fine || reduce) return;
+
+  // hover portrait following the cursor
+  var peek = document.getElementById('peek'), pic = document.getElementById('pic'), cap = document.getElementById('cap'), list = document.getElementById('list');
+  var qx = gsap.quickTo(peek, 'x', {duration: .5, ease: 'power3'}), qy = gsap.quickTo(peek, 'y', {duration: .5, ease: 'power3'});
+  var rot = gsap.quickTo(peek, 'rotation', {duration: .6, ease: 'power3'}), lastX = 0;
+  function show(a, e){
+    pic.innerHTML = portrait(+a.dataset.tone, a === links[6]); cap.textContent = a.dataset.role;
+    links.forEach(function(l){ l.classList.toggle('act', l === a); }); list.classList.add('hovering');
+    gsap.to(peek, {opacity: 1, scale: 1, duration: .4, ease: 'back.out(1.6)', overwrite: 'auto'});
+    if (e && e.clientX !== undefined) { qx(e.clientX + 24); qy(e.clientY - 120); }
+    else { var r = a.getBoundingClientRect(); qx(r.right - 280); qy(r.top - 60); }
+  }
+  function hide(){ list.classList.remove('hovering'); links.forEach(function(l){ l.classList.remove('act'); });
+    gsap.to(peek, {opacity: 0, scale: .6, duration: .25, overwrite: 'auto'}); }
+  links.forEach(function(a){
+    a.addEventListener('pointerenter', function(e){ show(a, e); });
+    a.addEventListener('pointermove', function(e){ qx(e.clientX + 24); qy(e.clientY - 120); rot(gsap.utils.clamp(-8, 8, (e.clientX - lastX) * .4)); lastX = e.clientX; });
+    a.addEventListener('pointerleave', hide);
+    a.addEventListener('focus', function(){ show(a); });
+    a.addEventListener('blur', hide);
+  });
+})();
+</script>
+</body>
+</html>

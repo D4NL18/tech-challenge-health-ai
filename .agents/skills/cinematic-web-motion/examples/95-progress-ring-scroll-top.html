@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>95 · Progress Ring Scroll Top</title>
+<!--
+PATTERN: A circular "back to top" button that fades in after the reader scrolls past a threshold.
+  Its ring doubles as a reading-progress gauge for the page.
+Motion: stroke-dashoffset on an SVG circle maps scrollY / (scrollHeight - innerHeight) to 0..1.
+  The button enters with opacity + translateY + scale; click runs a smooth scroll to top.
+Accessibility: Real <button> with aria-label; progress also exposed as visible text percentage
+  (status is not colour alone). :focus-visible ring. Button is hidden with visibility so it leaves
+  the tab order when invisible. prefers-reduced-motion: no transitions, instant jump to top.
+Adapting: SHOW_AFTER (px), RADIUS, DURATION in CONFIG. Libraries: none.
+-->
+<style>
+:root{--paper:#f3eee3;--ink:#1d1a16;--clay:#b4442a;--moss:#3f5a3a;--ease:cubic-bezier(.2,.7,.2,1)}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:auto}
+body{background:var(--paper);color:var(--ink);font:1.05rem/1.65 "Helvetica Neue",Arial,sans-serif}
+.wrap{display:grid;grid-template-columns:1fr minmax(0,38rem) 2fr;padding:12vh 0}
+.wrap>*{grid-column:2}
+h1,h2{font-family:Georgia,"Times New Roman",serif;font-weight:700;letter-spacing:-.02em;line-height:1.05}
+h1{font-size:clamp(2.6rem,7vw,5rem);grid-column:1/3;padding-left:6vw;margin-bottom:8vh}
+h2{font-size:1.7rem;margin:6vh 0 1rem}
+p{margin-bottom:1rem}
+.kicker{font:600 .75rem ui-monospace,monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--moss);margin-bottom:1rem}
+.top{position:fixed;right:max(1rem,3vw);bottom:max(1rem,3vw);width:64px;height:64px;border:0;border-radius:50%;background:var(--ink);color:var(--paper);cursor:pointer;display:grid;place-items:center;
+  opacity:0;visibility:hidden;transform:translateY(16px) scale(.9);transition:opacity .4s var(--ease),transform .4s var(--ease),visibility 0s .4s}
+.top.on{opacity:1;visibility:visible;transform:none;transition-delay:0s}
+.top:hover{transform:translateY(-3px) scale(1.05)}
+.top:focus-visible{outline:3px solid var(--clay);outline-offset:3px}
+.top svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.top circle{fill:none;stroke-width:3}
+.top .trk{stroke:rgba(243,238,227,.25)}
+.top .bar{stroke:var(--paper);stroke-linecap:round}
+.top b{font:600 .7rem ui-monospace,monospace;position:relative}
+@media(max-width:700px){.wrap{grid-template-columns:6vw minmax(0,1fr) 6vw}h1{grid-column:2;padding-left:0}}
+@media (prefers-reduced-motion:reduce){.top,.top.on,.top:hover{transition:none;transform:none}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>Field notes from a salt marsh restoration</h1>
+  <p class="kicker">Survey log · Estuary 4B</p>
+  <p>The tide gauge at the eastern sluice recorded a 0.4 m rise over the past three seasons. Volunteers re-planted cordgrass along 600 metres of eroded bank before the March spring tides.</p>
+  <h2>Sediment cores</h2>
+  <p>Eleven cores were pulled at 20 m intervals. Organic content climbs steadily toward the creek mouth, which matches the pattern of root density measured in June.</p>
+  <p>Two cores failed the compaction check and were discarded, leaving nine usable samples for the lab.</p>
+  <h2>Bird counts</h2>
+  <p>Dunlin returned in numbers by late October. Redshank used the new channel edge within a week of the regrade, feeding on exposed mud at low water.</p>
+  <p>Counts were taken from the same hide at dawn to keep light conditions comparable across visits.</p>
+  <h2>Planting schedule</h2>
+  <p>Plugs go in at 30 cm spacing, staggered by row. A second pass in May fills gaps where gulls pulled seedlings.</p>
+  <p>Fencing stays up until the stems are knee-high, roughly twelve weeks after planting.</p>
+  <h2>What we still don't know</h2>
+  <p>Whether the lower terrace will hold through a surge season is open. We will resurvey the profile line every two months and publish the elevation table alongside these notes.</p>
+  <p>Funding covers monitoring until next autumn. After that, the parish council decides whether the gauge stays.</p>
+  <h2>Contact</h2>
+  <p>Questions go to the survey coordinator at the visitor hut, open Thursdays and weekends.</p>
+</main>
+<button class="top" type="button" aria-label="Back to top, page read">
+  <svg viewBox="0 0 64 64" aria-hidden="true"><circle class="trk" cx="32" cy="32" r="28"/><circle class="bar" cx="32" cy="32" r="28"/></svg>
+  <b aria-hidden="true">0%</b>
+</button>
+<script>
+(function(){
+  var CONFIG={SHOW_AFTER:300,RADIUS:28};
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var btn=document.querySelector(".top"),bar=btn.querySelector(".bar"),pct=btn.querySelector("b");
+  var C=2*Math.PI*CONFIG.RADIUS,ticking=false;
+  bar.style.strokeDasharray=C;bar.style.strokeDashoffset=C;
+  function update(){
+    ticking=false;
+    var max=document.documentElement.scrollHeight-innerHeight;
+    var p=max>0?Math.min(1,Math.max(0,scrollY/max)):0;
+    bar.style.strokeDashoffset=C*(1-p);
+    pct.textContent=Math.round(p*100)+"%";
+    btn.setAttribute("aria-label","Back to top, "+Math.round(p*100)+" percent read");
+    btn.classList.toggle("on",scrollY>CONFIG.SHOW_AFTER);
+  }
+  addEventListener("scroll",function(){if(!ticking){ticking=true;requestAnimationFrame(update)}},{passive:true});
+  addEventListener("resize",update);
+  btn.addEventListener("click",function(){
+    scrollTo({top:0,behavior:reduce?"auto":"smooth"});
+    document.querySelector("h1").setAttribute("tabindex","-1");
+    document.querySelector("h1").focus({preventScroll:true});
+  });
+  update();
+})();
+</script>
+</body>
+</html>

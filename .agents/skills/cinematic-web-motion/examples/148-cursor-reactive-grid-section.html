@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>148 · Cursor Reactive Grid Section</title>
+<!--
+PATTERN: A full-section grid of tiles, each holding a wind-vector needle. Needles rotate to point at the cursor
+  and tiles scale up and warm in colour as the cursor nears. When no pointer is present a slow wind field drives
+  them. Scrolling slides a wave through the field (phase shift) so the pattern is never the same twice.
+Motion: canvas 2D, one rAF loop. For each tile: angle = lerp(windAngle(x,y,t,scroll), angleToCursor, influence),
+  scale = 1 + influence * 0.55. Smoothed pointer position; touch drag is supported via pointer events.
+Accessibility: Canvas is aria-hidden; all copy is HTML on top. prefers-reduced-motion: one static frame, redrawn
+  only on pointer move (no continuous wind, no scroll phase). Section text keeps AA contrast on the dark ground.
+Adapting: Edit COLS/ROWS density (computed from size), INFLUENCE radius, the palette, and windAngle().
+  Libraries: none (canvas 2D).
+-->
+<style>
+:root{--night:#10161a;--slate:#1b252b;--bone:#ece6d6;--amber:#f0a73c;--rust:#d65a31;--mist:#9fb0a8;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--night);color:var(--bone);font-family:var(--sans);line-height:1.55;overflow-x:hidden}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:4px}
+.nav{position:fixed;z-index:10;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:20px clamp(18px,4vw,48px);font-size:.74rem;letter-spacing:.18em;text-transform:uppercase;pointer-events:none}
+.nav b{font:italic 400 1.2rem var(--serif);letter-spacing:0;text-transform:none}
+.track{position:relative;height:260vh}
+.stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden}
+#grid{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y}
+.copy{position:absolute;z-index:2;left:clamp(18px,4vw,48px);bottom:8vh;max-width:min(720px,90vw);pointer-events:none}
+.copy .k{font:600 .72rem/1 var(--sans);letter-spacing:.22em;text-transform:uppercase;color:var(--amber);margin-bottom:20px;display:block}
+.copy h1{font:400 clamp(2.8rem,8.6vw,8rem)/.9 var(--serif);letter-spacing:-.035em;text-shadow:0 0 30px var(--night),0 0 60px var(--night)}
+.copy h1 em{color:var(--amber)}
+.copy p{margin-top:22px;max-width:40ch;color:#d3ccb9;background:rgba(16,22,26,.7);padding:6px 0}
+.read{position:absolute;right:clamp(18px,4vw,48px);top:50%;transform:translateY(-50%);z-index:2;font:400 .75rem var(--sans);letter-spacing:.16em;text-transform:uppercase;text-align:right;color:var(--mist);pointer-events:none}
+.read b{display:block;font:400 clamp(2rem,4vw,3.4rem)/1 var(--serif);color:var(--bone);letter-spacing:0;text-transform:none}
+.after{padding:16vh clamp(18px,4vw,48px);display:grid;grid-template-columns:repeat(12,1fr);gap:0 16px;background:var(--bone);color:var(--night)}
+.after h2{grid-column:1/8;font:400 clamp(2.2rem,5.4vw,4.8rem)/.98 var(--serif);letter-spacing:-.03em}
+.after p{grid-column:8/13;align-self:end;max-width:38ch}
+.after a{grid-column:8/13;margin-top:24px;justify-self:start;padding:14px 26px;background:var(--night);color:var(--bone);text-decoration:none;font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;transition:background .25s,transform .25s}
+.after a:hover{background:var(--rust);transform:translateX(5px)}
+@media (max-width:720px){
+  .read{display:none}.after h2,.after p,.after a{grid-column:1/13}.after p{margin-top:20px}
+  .copy{bottom:5vh}
+}
+@media (prefers-reduced-motion:reduce){.track{height:auto}.stage{position:relative;height:100vh}}
+</style>
+</head>
+<body>
+<div class="nav"><b>Windfield</b><span>Wind data studio · Aveiro</span></div>
+<section class="track" aria-labelledby="h">
+  <div class="stage" id="stage">
+    <canvas id="grid" aria-hidden="true"></canvas>
+    <div class="copy"><span class="k">Live from the Atlantic coast</span><h1 id="h">Every needle is a <em>measurement.</em></h1><p>Two thousand anemometers along the Portuguese coast, drawn as one field. Move your cursor: the field turns toward you. Scroll: the front moves through.</p></div>
+    <div class="read" aria-hidden="true">Gust now<b id="gust">34 km/h</b>NW, 312 degrees</div>
+  </div>
+</section>
+<section class="after">
+  <h2>We sell the forecast, not the dashboard.</h2>
+  <p>Harbours, wind farms and sail clubs get a single morning email: where the wind turns, when it drops, what to do about it.</p>
+  <a href="#">Read a sample bulletin</a>
+</section>
+
+<script>
+(function(){
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var stage=document.getElementById("stage"),cv=document.getElementById("grid"),ctx=cv.getContext("2d"),gustEl=document.getElementById("gust");
+  var W,H,dpr,cols,rows,cell,mouse={x:null,y:null},sm={x:-999,y:-999,k:0},INFL=230,scroll=0;
+  var C0=[40,54,62],C1=[240,167,60];
+  function size(){
+    dpr=Math.min(devicePixelRatio||1,2);var r=stage.getBoundingClientRect();W=r.width;H=r.height;
+    cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+    cell=W<600?44:Math.max(54,Math.round(W/26));cols=Math.ceil(W/cell)+1;rows=Math.ceil(H/cell)+1;INFL=W<600?150:230;
+  }
+  function wind(cx,cy,t,s){
+    var u=cx/W*5+s*3.2,v=cy/H*4;
+    return Math.sin(u+t*.5)*.9+Math.cos(v*1.4-t*.35+u*.4)*.8-.6;
+  }
+  function draw(t){
+    ctx.clearRect(0,0,W,H);
+    var tgtK=mouse.x===null?0:1;
+    sm.k+=(tgtK-sm.k)*.08;
+    if(mouse.x!==null){sm.x=sm.x<-900?mouse.x:sm.x+(mouse.x-sm.x)*.18;sm.y=sm.y<-900?mouse.y:sm.y+(mouse.y-sm.y)*.18;}
+    for(var j=0;j<rows;j++)for(var i=0;i<cols;i++){
+      var cx=i*cell+cell/2-(cell*.5),cy=j*cell+cell/2-(cell*.5)+(i%2?0:0);
+      var base=wind(cx,cy,t,scroll);
+      var dx=sm.x-cx,dy=sm.y-cy,dist=Math.sqrt(dx*dx+dy*dy),infl=Math.max(0,1-dist/INFL);infl=infl*infl*(3-2*infl)*sm.k;
+      var toC=Math.atan2(dy,dx),ang=base;
+      var diff=Math.atan2(Math.sin(toC-ang),Math.cos(toC-ang));ang+=diff*Math.min(infl*1.15,1);
+      var sc=1+infl*.5,len=cell*.34*(1+Math.max(0,Math.sin(base*2+i*.3))*.25)*sc;
+      var heat=Math.min(infl*1.2+Math.max(0,Math.sin(base*2))*.12,1);
+      var col="rgb("+Math.round(C0[0]+(C1[0]-C0[0])*heat+(mouse.x===null?20:0))+","+Math.round(C0[1]+(C1[1]-C0[1])*heat+(mouse.x===null?30:0))+","+Math.round(C0[2]+(C1[2]-C0[2])*heat+(mouse.x===null?30:0))+")";
+      // tile
+      var ts=cell*.8*(1+infl*.12);
+      ctx.fillStyle="rgba(27,37,43,"+(.75+infl*.2)+")";
+      ctx.fillRect(cx-ts/2,cy-ts/2,ts,ts);
+      // needle
+      ctx.save();ctx.translate(cx,cy);ctx.rotate(ang);
+      ctx.strokeStyle=heat>.05?col:"rgb(96,120,128)";ctx.fillStyle=ctx.strokeStyle;ctx.lineWidth=2+infl*2;ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(-len,0);ctx.lineTo(len*.7,0);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(len,0);ctx.lineTo(len*.35,-len*.28);ctx.lineTo(len*.35,len*.28);ctx.closePath();ctx.fill();
+      ctx.restore();
+    }
+    if(gustEl&&((t*10|0)%5===0))gustEl.textContent=Math.round(30+Math.sin(t*.4+scroll*3)*9+sm.k*6)+" km/h";
+  }
+  function scrollP(){var tr=stage.parentElement.getBoundingClientRect(),sp=-tr.top/Math.max(tr.height-innerHeight,1);scroll=Math.min(Math.max(sp,0),1);}
+  size();addEventListener("resize",function(){size();draw(performance.now()/1000)});
+  stage.addEventListener("pointermove",function(e){var r=stage.getBoundingClientRect();mouse.x=e.clientX-r.left;mouse.y=e.clientY-r.top;if(reduce)redraw();});
+  stage.addEventListener("pointerleave",function(){mouse.x=null;if(reduce)redraw()});
+  function redraw(){sm.x=mouse.x===null?-999:mouse.x;sm.y=mouse.y;sm.k=mouse.x===null?0:1;draw(0)}
+  if(reduce){draw(0);return;}
+  function loop(now){scrollP();draw(now/1000);requestAnimationFrame(loop)}
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

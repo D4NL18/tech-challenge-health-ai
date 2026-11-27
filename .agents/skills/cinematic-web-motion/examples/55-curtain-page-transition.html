@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>55 · Curtain Page Transition</title>
+<!--
+PATTERN: SPA-style page transition with curtain panels.
+Motion: Five vertical panels scale up from the bottom (staggered) to cover the page, the view is swapped, then they exit upward (Web Animations API, no library).
+Accessibility: Hash routing with focus moved to the new heading and aria-live announcement; reduced-motion swaps views instantly.
+Adapting: Edit VIEWS, panel count N, duration and easing in CONFIG.
+-->
+<style>
+:root{--bg:#f1ede4;--fg:#111;--acc:#ff5a36}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif;min-height:100vh}
+nav{display:flex;gap:1.5rem;padding:1.5rem 6vw;font:500 .85rem ui-monospace,monospace;letter-spacing:.15em;text-transform:uppercase}
+nav a{color:inherit;text-decoration:none;border-bottom:2px solid transparent}
+nav a[aria-current=page]{border-color:var(--acc)}
+nav a:focus-visible{outline:3px solid var(--acc);outline-offset:4px}
+main{padding:12vh 6vw}
+h1{font-size:clamp(3rem,12vw,10rem);letter-spacing:-.05em;line-height:.9;outline:none}
+p{margin-top:2rem;max-width:40ch;font-size:1.25rem;line-height:1.5}
+.curtain{position:fixed;inset:0;display:flex;pointer-events:none;z-index:10}
+.curtain i{flex:1;background:#111;transform:scaleY(0);transform-origin:50% 100%}
+.sr{position:absolute;left:-9999px}
+</style>
+</head>
+<body>
+<nav aria-label="Pages"><a href="#home">Home</a><a href="#work">Work</a><a href="#about">About</a></nav>
+<main><h1 id="title" tabindex="-1"></h1><p id="body"></p></main>
+<div class="curtain" id="curtain" aria-hidden="true"></div>
+<div class="sr" aria-live="polite" id="live"></div>
+<script>
+(function(){
+  var CONFIG={N:5,dur:550,stagger:70,ease:"cubic-bezier(.76,0,.24,1)"};
+  var VIEWS={home:["Home","A curtain falls, the scene changes, the curtain lifts."],work:["Work","Selected projects live here. Same shell, new content."],about:["About","Transitions hide the swap and keep context."]};
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var cur=document.getElementById("curtain"),panels=[],busy=false,shown=null;
+  for(var i=0;i<CONFIG.N;i++){var p=document.createElement("i");cur.appendChild(p);panels.push(p)}
+  function render(k){
+    var v=VIEWS[k]||VIEWS.home;
+    document.getElementById("title").textContent=v[0];document.getElementById("body").textContent=v[1];
+    document.title="55 · "+v[0];
+    [].forEach.call(document.querySelectorAll("nav a"),function(a){a.toggleAttribute("aria-current",a.hash==="#"+k);if(a.hash==="#"+k)a.setAttribute("aria-current","page")});
+    document.getElementById("live").textContent="Navigated to "+v[0];
+    document.getElementById("title").focus({preventScroll:true});
+    shown=k;
+  }
+  function anim(from,to,delayRev,origin){
+    return Promise.all(panels.map(function(p,i){
+      p.style.transformOrigin=origin;
+      var a=p.animate([{transform:"scaleY("+from+")"},{transform:"scaleY("+to+")"}],{duration:CONFIG.dur,delay:(delayRev?CONFIG.N-1-i:i)*CONFIG.stagger,easing:CONFIG.ease,fill:"forwards"});
+      return a.finished;
+    }));
+  }
+  function go(){
+    var k=location.hash.slice(1)||"home";
+    if(k===shown)return;
+    if(reduce||shown===null){render(k);return}
+    if(busy)return;busy=true;
+    anim(0,1,false,"50% 100%").then(function(){render(k);return anim(1,0,false,"50% 0%")}).then(function(){busy=false});
+  }
+  addEventListener("hashchange",go);go();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>91 · Logo Marquee Pause Hover</title>
+<!--
+PATTERN: Two-row partner marquee for a freight-forwarding site. Rows scroll in opposite directions,
+  fade out at the edges and pause when hovered or when any link inside has keyboard focus.
+Motion: Each track holds the list twice; translateX(0 -> -50%) linear infinite loops seamlessly.
+  Row two uses animation-direction: reverse. Edge fade via mask-image linear-gradient.
+  Pause: .row:hover / :focus-within sets animation-play-state: paused (CSS only).
+Accessibility: The duplicate list is aria-hidden and its links have tabindex="-1", so assistive tech
+  and Tab see each partner once. A visible Pause/Play button (aria-pressed) gives WCAG 2.2.2 control.
+  prefers-reduced-motion: no animation; rows wrap into a static grid.
+Adapting: --dur (speed), mask width, rows in markup. Libraries: none (one small script for the button).
+-->
+<style>
+:root{--bg:#14231f;--ink:#f1ead7;--accent:#e0a526;--mute:#b9c4b8;--ease:cubic-bezier(.2,.7,.2,1)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font:1rem/1.5 "Helvetica Neue",Arial,sans-serif;min-height:100vh;padding:10vh 0}
+.intro{padding:0 7vw;max-width:60rem;margin-bottom:7vh}
+h1{font:400 clamp(2rem,5.5vw,4.6rem)/1 Georgia,serif;letter-spacing:-.025em}
+.intro p{margin:1rem 0 1.5rem;max-width:42ch;color:var(--mute)}
+#toggle{font:600 .85rem/1 inherit;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);background:none;border:1.5px solid var(--ink);padding:.7rem 1rem;cursor:pointer;transition:background .25s var(--ease),color .25s}
+#toggle:hover{background:var(--ink);color:var(--bg)}
+#toggle:focus-visible,.track a:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.row{overflow:hidden;margin-bottom:2rem;-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+.track{display:flex;width:max-content;animation:run var(--dur,38s) linear infinite}
+.row.rev .track{animation-direction:reverse;--dur:46s}
+.row:hover .track,.row:focus-within .track,.paused .track{animation-play-state:paused}
+.list{display:flex;gap:4rem;padding-right:4rem;list-style:none;padding-left:0}
+.track a{display:block;font:italic 400 1.8rem/1 Georgia,serif;color:var(--ink);text-decoration:none;white-space:nowrap;padding:.4rem 0;border-bottom:2px solid transparent;transition:border-color .3s var(--ease)}
+.track a:hover{border-color:var(--accent)}
+.list small{display:block;font:600 .65rem/1.2 "Helvetica Neue",Arial,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin-top:.3rem}
+@keyframes run{to{transform:translateX(-50%)}}
+@media(prefers-reduced-motion:reduce){
+  .track{animation:none;width:auto;flex-wrap:wrap;padding:0 7vw}
+  .list[aria-hidden]{display:none}
+  .row{-webkit-mask-image:none;mask-image:none}
+  #toggle{display:none}
+}
+</style>
+</head>
+<body>
+<section class="intro">
+  <h1>Forty-one ports, nine carriers we trust.</h1>
+  <p>The shipping lines and customs brokers who clear our containers every week.</p>
+  <button id="toggle" type="button" aria-pressed="false">Pause scrolling</button>
+</section>
+<div class="row" aria-label="Ocean carriers">
+  <div class="track">
+    <ul class="list"><li><a href="#">Nordhavn Lines<small>Rotterdam</small></a></li><li><a href="#">Santa Rosa Maritime<small>Valparaiso</small></a></li><li><a href="#">Kestrel Container<small>Felixstowe</small></a></li><li><a href="#">Ostrava &amp; Sons<small>Gdansk</small></a></li><li><a href="#">Baia Azul Cargo<small>Santos</small></a></li></ul>
+    <ul class="list" aria-hidden="true"><li><a tabindex="-1" href="#">Nordhavn Lines<small>Rotterdam</small></a></li><li><a tabindex="-1" href="#">Santa Rosa Maritime<small>Valparaiso</small></a></li><li><a tabindex="-1" href="#">Kestrel Container<small>Felixstowe</small></a></li><li><a tabindex="-1" href="#">Ostrava &amp; Sons<small>Gdansk</small></a></li><li><a tabindex="-1" href="#">Baia Azul Cargo<small>Santos</small></a></li></ul>
+  </div>
+</div>
+<div class="row rev" aria-label="Customs brokers">
+  <div class="track">
+    <ul class="list"><li><a href="#">Hallworth Brokers<small>Customs · UK</small></a></li><li><a href="#">Aduanas Pereira<small>Customs · CL</small></a></li><li><a href="#">Tideway Bonded<small>Warehousing</small></a></li><li><a href="#">Krol Freight Audit<small>Invoicing</small></a></li><li><a href="#">Mar y Tierra Seguros<small>Cargo insurance</small></a></li></ul>
+    <ul class="list" aria-hidden="true"><li><a tabindex="-1" href="#">Hallworth Brokers<small>Customs · UK</small></a></li><li><a tabindex="-1" href="#">Aduanas Pereira<small>Customs · CL</small></a></li><li><a tabindex="-1" href="#">Tideway Bonded<small>Warehousing</small></a></li><li><a tabindex="-1" href="#">Krol Freight Audit<small>Invoicing</small></a></li><li><a tabindex="-1" href="#">Mar y Tierra Seguros<small>Cargo insurance</small></a></li></ul>
+  </div>
+</div>
+<script>
+(function(){
+  var CONFIG={LABEL_PAUSE:"Pause scrolling",LABEL_PLAY:"Resume scrolling"};
+  var btn=document.getElementById("toggle");
+  btn.addEventListener("click",function(){
+    var p=document.body.classList.toggle("paused");
+    btn.setAttribute("aria-pressed",p);
+    btn.textContent=p?CONFIG.LABEL_PLAY:CONFIG.LABEL_PAUSE;
+  });
+})();
+</script>
+</body>
+</html>

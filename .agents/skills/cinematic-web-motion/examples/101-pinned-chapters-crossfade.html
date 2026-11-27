@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>101 · Pinned Chapters Crossfade</title>
+<!--
+PATTERN: Pinned stage with four chapters that crossfade while the scroll position scrubs a single timeline (story-chapter section).
+Motion: GSAP ScrollTrigger pins .stage for 400% of viewport height; one scrubbed timeline fades each chapter out/in (opacity + 40px translate + art scale) and fills a progress bar.
+Accessibility: Without GSAP or with prefers-reduced-motion the chapters are plain stacked sections (no pin, no scrub); all copy is always in the DOM; :focus-visible on links.
+Adapting: Change the chapter markup (.ch) and the CONFIG.length; the timeline is built from the .ch count automatically.
+Libraries: gsap 3.12.5 + ScrollTrigger (jsdelivr CDN). Concept demo: "Salina Norte" is a fictional salt cooperative.
+-->
+<style>
+:root{--bg:#efe8d8;--ink:#1c2a29;--mute:#5c6a66;--rust:#b8502b;--teal:#2d5a56;--sand:#d9c9a3;
+--serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Segoe UI","Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg)}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;overflow-x:hidden}
+a{color:inherit}a:focus-visible,button:focus-visible{outline:3px solid var(--rust);outline-offset:4px}
+.bar{display:flex;justify-content:space-between;padding:1.4rem 6vw;font-size:.8rem;letter-spacing:.18em;text-transform:uppercase}
+.bar b{font-family:var(--serif);letter-spacing:.02em;font-size:1.2rem;text-transform:none}
+.intro{min-height:85vh;padding:12vh 6vw;display:grid;align-content:center;gap:2rem}
+.intro h1{font:400 clamp(2.8rem,9vw,8rem)/.95 var(--serif);letter-spacing:-.03em;max-width:12em}
+.intro h1 em{color:var(--rust)}
+.intro p{max-width:30rem;color:var(--mute)}
+.hint{font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--rust)}
+.stage{position:relative}
+.ch{display:grid;grid-template-columns:1.1fr .9fr;gap:5vw;align-items:center;padding:12vh 6vw;min-height:100vh}
+.num{font:400 clamp(6rem,20vw,17rem)/.8 var(--serif);color:var(--rust);opacity:.9;letter-spacing:-.05em}
+.ch h2{font:400 clamp(2rem,4.5vw,4rem)/1.02 var(--serif);margin:1.2rem 0 1rem;letter-spacing:-.02em}
+.ch p{max-width:30rem;color:var(--mute)}
+.art{aspect-ratio:4/5;max-height:70vh;width:100%;justify-self:end;border-radius:2px;position:relative;overflow:hidden}
+.a1{background:radial-gradient(circle at 50% 60%,transparent 0 18%,#2d5a56 18.5% 30%,transparent 30.5% 40%,#3e7a73 40.5% 52%,transparent 52.5% 62%,#79a99f 62.5% 74%,#d9c9a3 74.5%)}
+.a2{background:radial-gradient(circle at 62% 34%,#f0b45a 0 16%,#e07f3b 16.5% 24%,transparent 24.5%),linear-gradient(#f2d9a8,#e9b97c 55%,#2d5a56 55.2%)}
+.a3{background:repeating-linear-gradient(100deg,#d9c9a3 0 14px,#c7b385 14px 17px),linear-gradient(#d9c9a3,#c7b385)}
+.a3::after{content:"";position:absolute;left:0;right:0;top:46%;height:6px;background:#1c2a29;box-shadow:0 0 0 1px #1c2a2933;transform:rotate(-4deg)}
+.a4{background:linear-gradient(135deg,transparent 0 50%,#fff8 50.2% 51%,transparent 51.2%),conic-gradient(from 30deg at 40% 60%,#f7f3e8,#e6dcc2,#fffaf0,#d6c79e,#f7f3e8);}
+.prog{display:none}
+.outro{padding:14vh 6vw;display:grid;gap:1.5rem;justify-items:start;min-height:70vh;align-content:center;background:var(--ink);color:var(--bg)}
+.outro h2{font:400 clamp(2rem,6vw,5rem)/1 var(--serif);max-width:14em}
+.outro a{border-bottom:2px solid var(--rust);padding-bottom:.2rem;text-decoration:none;font-size:1.05rem}
+.disc{font-size:.72rem;opacity:.6;padding:1rem 6vw;background:var(--ink);color:var(--bg)}
+/* animated mode */
+.anim .stage{height:100vh;overflow:hidden}
+.anim .ch{position:absolute;inset:0;min-height:0;opacity:0;visibility:hidden}
+.anim .ch:first-child{opacity:1;visibility:visible}
+.anim .prog{display:flex;position:absolute;left:6vw;right:6vw;bottom:5vh;align-items:center;gap:1rem;font-size:.75rem;letter-spacing:.18em;text-transform:uppercase;z-index:2}
+.prog i{flex:1;height:2px;background:#1c2a2926;position:relative;display:block}
+.prog i span{position:absolute;inset:0;background:var(--rust);transform-origin:left;transform:scaleX(0)}
+@media (max-width:760px){
+ .ch{grid-template-columns:1fr;gap:1.2rem;padding:9vh 6vw;align-content:center}
+ .num{font-size:7rem}.art{aspect-ratio:16/10;max-height:30vh;order:-1}
+ .anim .ch{align-content:start;padding-top:14vh}
+}
+@media (prefers-reduced-motion:reduce){.anim .stage{height:auto}}
+</style>
+</head>
+<body>
+<div class="bar"><b>Salina Norte</b><span>Cooperativa de sal marinho</span></div>
+<header class="intro">
+ <span class="hint">Safra 2025 · role para começar</span>
+ <h1>Quatro etapas entre o mar e o <em>sal de mesa</em>.</h1>
+ <p>Cada flor de sal passa por um caminho lento. Acompanhe a safra do tanque de evaporação até a caixa fechada.</p>
+</header>
+<section class="stage" id="stage" aria-label="Etapas da safra">
+ <article class="ch"><div><div class="num" aria-hidden="true">01</div><h2>Água que entra com a maré</h2><p>Em março as comportas abrem na lua cheia. A salmoura de 3,5% enche os viveiros rasos e descansa dez dias para decantar a areia fina.</p></div><div class="art a1" role="img" aria-label="Círculos concêntricos de tanques de salmoura"></div></article>
+ <article class="ch"><div><div class="num" aria-hidden="true">02</div><h2>Sol, vento e paciência</h2><p>Sem máquinas: de junho a agosto o sol puxa a água e o nordeste empurra o vapor. A concentração sobe para 25% e a superfície começa a craquelar.</p></div><div class="art a2" role="img" aria-label="Sol baixo sobre um viveiro de evaporação"></div></article>
+ <article class="ch"><div><div class="num" aria-hidden="true">03</div><h2>O rodo de madeira</h2><p>Antes das 9h, quando o vento ainda está calmo, os marnotos puxam a camada fina de cristais com um rodo de figueira. Dois quilos por metro quadrado, no máximo.</p></div><div class="art a3" role="img" aria-label="Linhas paralelas de sulcos de sal e um rodo"></div></article>
+ <article class="ch"><div><div class="num" aria-hidden="true">04</div><h2>Seca à sombra, caixa à mão</h2><p>O sal escorre dois dias em cestos de vime e segue para a caixa de papelão reciclado. Nenhum anticaking, nenhum branqueador. Só sal.</p></div><div class="art a4" role="img" aria-label="Cristais de sal em close"></div></article>
+ <div class="prog" aria-hidden="true"><span id="cnt">01 / 04</span><i><span id="fill"></span></i><span>Safra</span></div>
+</section>
+<section class="outro"><h2>Lote 2025 disponível a partir de 1º de outubro.</h2><a href="#stage">Reservar uma caixa</a></section>
+<p class="disc">Demo conceitual: Salina Norte é uma marca fictícia criada apenas para ilustrar o padrão.</p>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  var CONFIG={length:"+=400%"};
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(reduce||!window.gsap||!window.ScrollTrigger)return;
+  gsap.registerPlugin(ScrollTrigger);
+  document.documentElement.classList.add("anim");
+  var chs=gsap.utils.toArray(".ch"),n=chs.length,cnt=document.getElementById("cnt");
+  var tl=gsap.timeline({defaults:{ease:"none"},scrollTrigger:{trigger:"#stage",start:"top top",end:CONFIG.length,pin:true,scrub:.6,anticipatePin:1,
+    onUpdate:function(s){var i=Math.min(n,Math.floor(s.progress*n)+1);cnt.textContent="0"+i+" / 0"+n}}});
+  chs.forEach(function(c,i){
+    var art=c.querySelector(".art");
+    if(i>0){
+      tl.fromTo(c,{autoAlpha:0,y:40},{autoAlpha:1,y:0,duration:.35},i-.05);
+      tl.fromTo(art,{scale:1.12},{scale:1,duration:1},i-.05);
+    }
+    if(i<n-1) tl.to(c,{autoAlpha:0,y:-40,duration:.28},i+.72);
+  });
+  tl.fromTo("#fill",{scaleX:0},{scaleX:1,duration:n},0);
+})();
+</script>
+</body>
+</html>

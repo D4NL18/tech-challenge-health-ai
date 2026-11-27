@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3D Floating Product</title>
+<!--
+  EFFECT: A procedural bottle (LatheGeometry body + cap) floats, bobs, auto-spins and tilts toward the mouse.
+  Giant text sits behind the canvas (transparent WebGL), a soft blurred shadow blob sits underneath and
+  scales with the bobbing. Lit by RoomEnvironment (studio reflections) + a key light.
+  ADAPT: edit PROFILE points for another silhouette; change COLOR / label; swap BG text in <h1>;
+  tweak BOB_AMP, SPIN_SPEED, TILT_MAX. To use a real model, replace `product` with a GLTFLoader scene.
+  Reduced motion: spin/bob/tilt are disabled (static pose, rendered once on resize).
+-->
+<style>
+  html,body{margin:0;height:100%;background:#0a0a0c;color:#fff;font-family:Inter,system-ui,sans-serif;overflow:hidden}
+  .bg{position:fixed;inset:0;display:grid;place-items:center;z-index:0;pointer-events:none}
+  .bg h1{margin:0;font-size:clamp(7rem,28vw,30rem);font-weight:900;letter-spacing:-.04em;line-height:.8;
+    background:linear-gradient(180deg,#2a2a33,#101014);-webkit-background-clip:text;background-clip:text;color:transparent}
+  canvas{position:fixed;inset:0;z-index:1;display:block}
+  .shadow{position:fixed;left:50%;bottom:14vh;width:min(26vw,260px);height:34px;transform:translateX(-50%);z-index:0;
+    background:radial-gradient(ellipse at center,rgba(0,0,0,.85),rgba(0,0,0,0) 70%);filter:blur(8px)}
+  .ui{position:fixed;z-index:2;left:4vw;right:4vw;bottom:4vh;display:flex;justify-content:space-between;align-items:end;
+    font-size:.8rem;letter-spacing:.2em;text-transform:uppercase;color:#9a9aa6}
+  .ui b{color:#fff;font-weight:600}
+  nav{position:fixed;z-index:2;top:4vh;left:4vw;right:4vw;display:flex;justify-content:space-between;font-size:.8rem;letter-spacing:.25em;text-transform:uppercase}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+"three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div class="bg"><h1>AURA</h1></div>
+<div class="shadow" id="shadow"></div>
+<nav><span>AURA/Studio</span><span>Collection 01</span></nav>
+<div class="ui"><span>Move your cursor</span><span><b>Eau Noire</b> — 50 ml</span></div>
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const BOB_AMP = .12, SPIN_SPEED = .5, TILT_MAX = .35, COLOR = 0x1d6f6a;
+
+const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), .04).texture;
+const camera = new THREE.PerspectiveCamera(35, 1, .1, 50);
+camera.position.set(0,0,9);
+const key = new THREE.DirectionalLight(0xffffff, 2); key.position.set(3,4,5); scene.add(key);
+
+// Product
+const product = new THREE.Group();
+const PROFILE = [[0,0],[.9,0],[1.05,.1],[1.1,.4],[1.1,2.2],[1.0,2.6],[.6,2.9],[.35,3.05],[.32,3.3],[0,3.3]]
+  .map(p=>new THREE.Vector2(p[0]*.8,p[1]*.8));
+const body = new THREE.Mesh(new THREE.LatheGeometry(PROFILE,96),
+  new THREE.MeshPhysicalMaterial({color:COLOR,metalness:.1,roughness:.12,clearcoat:1,clearcoatRoughness:.05,transmission:0}));
+const cap = new THREE.Mesh(new THREE.CylinderGeometry(.3,.3,.9,64),
+  new THREE.MeshStandardMaterial({color:0xd8b26a,metalness:1,roughness:.22}));
+cap.position.y = 2.64+.45*0+.5;
+const label = new THREE.Mesh(new THREE.CylinderGeometry(.89,.89,.9,64,1,true,-1.1,2.2),
+  new THREE.MeshStandardMaterial({color:0xf2efe8,roughness:.6,side:THREE.DoubleSide}));
+label.position.y = 1.0;
+product.add(body,cap,label);
+product.position.y = -1.3;
+const holder = new THREE.Group(); holder.add(product); scene.add(holder);
+
+const mouse = {x:0,y:0}, cur = {x:0,y:0};
+addEventListener('pointermove',e=>{mouse.x=e.clientX/innerWidth*2-1; mouse.y=e.clientY/innerHeight*2-1;});
+
+const shadow = document.getElementById('shadow');
+function resize(){
+  const w=innerWidth,h=innerHeight;
+  renderer.setSize(w,h); camera.aspect=w/h;
+  camera.position.z = w/h<.8 ? 12 : 9;
+  camera.updateProjectionMatrix();
+  if(reduce) draw(0);
+}
+addEventListener('resize',resize);
+
+const clock = new THREE.Clock();
+function draw(t){
+  if(!reduce){
+    cur.x += (mouse.x-cur.x)*.06; cur.y += (mouse.y-cur.y)*.06;
+    const bob = Math.sin(t*1.2);
+    holder.position.y = bob*BOB_AMP;
+    product.rotation.y = t*SPIN_SPEED;
+    holder.rotation.x = cur.y*TILT_MAX;
+    holder.rotation.z = -cur.x*TILT_MAX*.6;
+    const s = 1 - bob*.08;
+    shadow.style.transform = `translateX(-50%) scale(${s})`;
+    shadow.style.opacity = 0.8 - bob*.15;
+  } else product.rotation.y = .6;
+  renderer.render(scene,camera);
+}
+resize();
+if(!reduce) renderer.setAnimationLoop(()=>draw(clock.getElapsedTime()));
+</script>
+</body>
+</html>

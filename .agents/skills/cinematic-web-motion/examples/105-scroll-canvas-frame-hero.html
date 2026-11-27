@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>105 · Scroll Canvas Frame Hero</title>
+<!--
+PATTERN: Frame-sequence hero without any assets. A procedural canvas draws an eclipse as a pure function of scroll progress (draw(p)), the way image-sequence heroes map scrollY to a frame index.
+Motion: A sticky 100vh stage inside a 420vh track; scroll progress p (0..1) is eased towards its target every frame (lerp 0.12) and the canvas repaints: moon crosses the sun, sky darkens, corona rays and stars grow with coverage, clock and caption follow p.
+Accessibility: Canvas is role=img with an aria-label; all four phase captions exist as real text (listed below the stage with reduced motion); prefers-reduced-motion draws the totality frame once and removes sticky/scrub; no external library required.
+Adapting: Replace draw(p) with image-sequence drawImage(frames[Math.round(p*(N-1))]) to use real frames; tweak PHASES for captions.
+Libraries: none (vanilla JS + CSS position:sticky). Concept demo: "Sombra 2027" is a fictional eclipse guide.
+-->
+<style>
+:root{--night:#120f14;--paper:#efe3cc;--gold:#f2c46d;--ember:#d4562f;--mute:#c9bda6;
+--serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;--sans:"Segoe UI","Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--night);font-family:var(--sans);line-height:1.6;overflow-x:hidden}
+a:focus-visible{outline:3px solid var(--ember);outline-offset:4px}
+.intro{padding:12vh 6vw 10vh;display:grid;grid-template-columns:7fr 4fr;gap:5vw;align-items:end;min-height:80vh}
+.intro h1{font:400 clamp(2.8rem,9vw,8rem)/.92 var(--serif);letter-spacing:-.035em}
+.intro h1 em{color:var(--ember)}
+.intro p{max-width:24rem}
+.intro small{display:block;margin-top:1rem;font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:#6b5a47}
+.track{position:relative;height:420vh;background:var(--night)}
+.stick{position:sticky;top:0;height:100vh;overflow:hidden}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:var(--night)}
+.hud span{background:var(--night);padding:.4rem .7rem}.hud{position:absolute;left:6vw;right:6vw;top:5vh;display:flex;justify-content:space-between;color:var(--paper);font:600 .8rem ui-monospace,Consolas,monospace;letter-spacing:.14em;text-transform:uppercase}
+.caps{position:absolute;left:6vw;bottom:6vh;width:min(30rem,88vw);min-height:14.5rem;color:var(--paper);background:var(--night);padding:1.3rem 1.5rem;border-left:5px solid var(--ember)}
+.cap{position:absolute;left:1.5rem;right:1.5rem;top:1.3rem;opacity:0;transform:translateY(14px);transition:opacity .5s,transform .5s}
+.cap.on{opacity:1;transform:none}
+.cap h2{font:400 clamp(1.8rem,4.4vw,3.6rem)/1 var(--serif);letter-spacing:-.02em;margin-bottom:.6rem}
+.cap p{color:var(--mute);font-size:1rem}
+.outro{padding:14vh 6vw;display:grid;grid-template-columns:5fr 6fr;gap:6vw}
+.outro h2{font:400 clamp(2rem,4.4vw,4rem)/1.02 var(--serif)}
+.outro ul{list-style:none;border-top:2px solid var(--night)}
+.outro li{display:flex;justify-content:space-between;gap:1rem;padding:1rem 0;border-bottom:1px solid #12101433;font:400 1.35rem var(--serif)}
+.outro li span{font:600 .78rem var(--sans);letter-spacing:.14em;text-transform:uppercase;color:#a33c1f;align-self:center;text-align:right}
+.disc{font-size:.72rem;padding:1rem 6vw;background:var(--night);color:var(--paper)}
+/* reduced motion / no JS: plain stage with all captions listed */
+.static .track{height:auto}.static .stick{position:relative;height:70vh}
+.static .caps{position:static;width:auto;min-height:0;border:0;padding:2rem 6vw}
+.static .cap{position:static;opacity:1;transform:none;margin-bottom:1.5rem}
+@media (max-width:760px){.intro,.outro{grid-template-columns:1fr;gap:2rem}.caps{bottom:3vh;min-height:14rem}.hud span:last-child{display:none}}
+</style>
+</head>
+<body class="static">
+<header class="intro">
+ <h1>Doze minutos de <em>escuro</em> no meio da tarde.</h1>
+ <div><p>Em 2 de agosto de 2027 a sombra da Lua cruza o Egito de oeste a leste. Role para ver o eclipse inteiro, do primeiro contato ao último.</p><small>Guia de observação · Luxor</small></div>
+</header>
+<section class="track" id="track">
+ <div class="stick">
+  <canvas id="cv" role="img" aria-label="Animação procedural de um eclipse solar total, controlada pelo scroll"></canvas>
+  <div class="hud" aria-hidden="true"><span id="clock">11:42:00</span><span id="cover">Cobertura 0%</span></div>
+ <div class="caps" id="caps">
+  <div class="cap"><h2>Primeiro contato</h2><p>11h42. A Lua encosta no disco solar pela borda oeste. Ainda não há nada a ver sem filtro; use óculos certificados ISO 12312-2.</p></div>
+  <div class="cap"><h2>Fase parcial</h2><p>A luz fica cor de latão e as sombras ganham bordas nítidas. A temperatura cai quatro graus em vinte minutos.</p></div>
+  <div class="cap"><h2>Totalidade, 6 min 23 s</h2><p>12h07. Tire os óculos. A coroa aparece, as estrelas surgem e os pássaros calam. É o único momento seguro para olhar direto.</p></div>
+  <div class="cap"><h2>Último contato</h2><p>12h31. O primeiro raio volta pela borda leste. Coloque os óculos de novo antes de olhar para o céu.</p></div>
+ </div>
+ </div>
+</section>
+<section class="outro">
+ <h2>Onde ficar para ver a totalidade completa.</h2>
+ <ul><li>Luxor, margem oeste <span>6 min 23 s</span></li><li>Assuã <span>5 min 29 s</span></li><li>Hurghada <span>parcial 91%</span></li><li>Cairo <span>parcial 71%</span></li></ul>
+</section>
+<p class="disc">Demo conceitual: Sombra 2027 é um guia fictício criado apenas para ilustrar o padrão. Horários e durações são ilustrativos.</p>
+<script>
+(function(){
+  var cv=document.getElementById("cv"),ctx=cv.getContext("2d"),track=document.getElementById("track"),
+      caps=[].slice.call(document.querySelectorAll(".cap")),clock=document.getElementById("clock"),cover=document.getElementById("cover");
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var W,H,dpr,stars=[],rays=[];
+  function rnd(s){return function(){s=(s*16807)%2147483647;return s/2147483647}}
+  var r=rnd(42);
+  for(var i=0;i<110;i++)stars.push({x:r(),y:r()*.8,s:r()*1.6+.4,a:r()*.6+.4});
+  for(i=0;i<140;i++)rays.push({a:i/140*Math.PI*2+r()*.04,l:.25+r()*1.1,w:.6+r()*1.6});
+  function mix(a,b,t){return a+(b-a)*t}
+  function rgb(a,b,t){return "rgb("+Math.round(mix(a[0],b[0],t))+","+Math.round(mix(a[1],b[1],t))+","+Math.round(mix(a[2],b[2],t))+")"}
+  function size(){dpr=Math.min(devicePixelRatio||1,2);W=cv.clientWidth;H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}
+  function draw(p){
+    var narrow=W<700,cx=narrow?W*.5:W*.62,cy=narrow?H*.4:H*.44,R=narrow?W*.22:Math.min(W,H)*.19;
+    var d=Math.abs(mix(-3.2*R,3.2*R,p)),c=Math.max(0,Math.min(1,1-d/(2.1*R)));c=c*c*(3-2*c);
+    var mx=cx+mix(-3.2*R,3.2*R,p),my=cy+(narrow?0:R*.06);
+    var night=Math.pow(c,2.2);
+    ctx.fillStyle=rgb([236,214,170],[18,15,20],night);ctx.fillRect(0,0,W,H);
+    ctx.globalAlpha=Math.pow(c,3);
+    stars.forEach(function(s){ctx.fillStyle="rgba(255,244,220,"+s.a+")";ctx.beginPath();ctx.arc(s.x*W,s.y*H,s.s,0,7);ctx.fill()});
+    ctx.globalAlpha=1;
+    /* corona glow + rays, strongest near totality */
+    var k=Math.pow(c,3);
+    if(k>.01){
+      var g=ctx.createRadialGradient(cx,cy,R*.9,cx,cy,R*3.2);g.addColorStop(0,"rgba(255,236,190,"+(.55*k)+")");g.addColorStop(1,"rgba(255,236,190,0)");
+      ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+      ctx.lineCap="round";
+      rays.forEach(function(q){var l=R*(1.02+q.l*1.4*k);ctx.strokeStyle="rgba(255,240,205,"+(.5*k)+")";ctx.lineWidth=q.w;
+        ctx.beginPath();ctx.moveTo(cx+Math.cos(q.a)*R*1.02,cy+Math.sin(q.a)*R*1.02);ctx.lineTo(cx+Math.cos(q.a)*l,cy+Math.sin(q.a)*l);ctx.stroke()});
+    }
+    /* sun */
+    ctx.fillStyle=rgb([255,246,214],[255,226,170],c);ctx.beginPath();ctx.arc(cx,cy,R,0,7);ctx.fill();
+    /* moon */
+    ctx.fillStyle="#0a090c";ctx.beginPath();ctx.arc(mx,my,R*1.015,0,7);ctx.fill();
+    /* diamond ring flashes just before and after totality */
+    var edge=Math.abs(d-0.03*R);if(d<R*.22&&d>R*.02){ctx.fillStyle="rgba(255,250,230,"+(1-d/(R*.22))+")";ctx.beginPath();ctx.arc(cx+(mx>cx?-1:1)*R*.98,cy,R*.07,0,7);ctx.fill()}
+    /* horizon */
+    ctx.fillStyle=rgb([88,62,44],[8,7,10],night);
+    ctx.beginPath();ctx.moveTo(0,H);ctx.lineTo(0,H*.86);
+    for(var x=0;x<=W;x+=W/24){ctx.lineTo(x,H*.86+Math.sin(x*.012)*H*.012+Math.sin(x*.041)*H*.006)}
+    ctx.lineTo(W,H);ctx.closePath();ctx.fill();
+    /* hud */
+    var t=Math.round(mix(11*3600+42*60,12*3600+31*60,p)),h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=t%60;
+    clock.textContent=(h<10?"0":"")+h+":"+(m<10?"0":"")+m+":"+(s<10?"0":"")+s;
+    cover.textContent="Cobertura "+Math.round(c*100)+"%";
+    var idx=Math.min(3,Math.floor(p*4));
+    caps.forEach(function(el,i){el.classList.toggle("on",i===idx)});
+  }
+  function progress(){var b=track.getBoundingClientRect(),total=b.height-innerHeight;return Math.max(0,Math.min(1,-b.top/total))}
+  size();addEventListener("resize",function(){size();draw(cur)});
+  var cur=.5;
+  if(reduce){draw(.5);return}
+  document.body.classList.remove("static");size();
+  cur=progress();var target=cur;
+  function loop(){target=progress();cur+=(target-cur)*.12;if(Math.abs(target-cur)<.0003)cur=target;draw(cur);requestAnimationFrame(loop)}
+  loop();
+})();
+</script>
+</body>
+</html>

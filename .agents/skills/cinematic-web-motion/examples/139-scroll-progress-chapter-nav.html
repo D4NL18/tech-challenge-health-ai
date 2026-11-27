@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>139 · Scroll Progress Chapter Nav</title>
+<!--
+PATTERN: Long-read page with a fixed chapter navigation: each chapter has its own progress bar that fills as you read through it, the current chapter is highlighted (scrollspy), and clicking jumps with an eased smooth scroll.
+Motion: Per-chapter progress = (scrollY - chapterTop) / chapterHeight, written to a CSS variable --p on each nav item (scaleX on a bar); active state toggles on the chapter crossing 40% of the viewport; click handler animates scrollTo with easeInOutCubic and updates the URL hash.
+Accessibility: Nav is a labelled <nav> with real anchors and aria-current="location"; without JS anchors jump natively; reduced motion uses instant jumps and no bar transitions; progress bars are decorative (aria-hidden).
+Adapting: Change chapters in the markup (id + h2 + data-title), tune OFFSET and DURATION in CONFIG; on narrow screens the nav becomes a top strip.
+Libraries: none (vanilla JS).
+-->
+<style>
+:root{--paper:#eae6dc;--ink:#171d1f;--ice:#9fc3c7;--deep:#143a44;--flare:#e2552e;--moss:#5a6a3c;--nav-w:15rem}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:auto}
+body{background:var(--paper);color:var(--ink);font:400 1.1rem/1.7 "Helvetica Neue",Arial,sans-serif}
+:focus-visible{outline:3px solid var(--flare);outline-offset:3px}
+.cnav{position:fixed;z-index:20;left:2.4vw;top:50%;transform:translateY(-50%);width:var(--nav-w)}
+.cnav ol{list-style:none;padding:0;display:flex;flex-direction:column;gap:.2rem}
+.cnav a{display:block;text-decoration:none;color:inherit;padding:.6rem 0 .5rem;position:relative;opacity:.55;transition:opacity .25s}
+.cnav a small{display:block;font:600 .68rem/1 ui-monospace,Consolas,monospace;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.25rem}
+.cnav a span{font:400 1.05rem/1.2 Georgia,"Iowan Old Style",serif}
+.cnav a::after{content:"";display:block;margin-top:.5rem;height:3px;background:linear-gradient(var(--flare),var(--flare)) 0 0 / 100% 100% no-repeat;transform-origin:0 50%;transform:scaleX(var(--p,0))}
+.cnav a::before{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(23,29,31,.15)}
+.cnav a::after{position:absolute;left:0;right:0;bottom:0}
+.cnav a:hover,.cnav a[aria-current=location]{opacity:1}
+.cnav a[aria-current=location] span{font-style:italic}
+main{margin-left:calc(var(--nav-w) + 5vw);padding-right:7vw}
+.cover{min-height:92vh;display:grid;align-content:end;padding:12vh 0 8vh}
+.cover .k{font:600 .72rem/1 ui-monospace,monospace;letter-spacing:.2em;text-transform:uppercase;color:var(--flare);margin-bottom:1.4rem}
+.cover h1{font:400 clamp(3rem,8.4vw,8rem)/.9 Georgia,serif;letter-spacing:-.04em;max-width:10ch}
+.cover h1 em{font-style:italic;color:var(--deep)}
+.cover p{max-width:36ch;margin-top:2rem}
+.ch{padding:14vh 0;min-height:100vh}
+.ch .num{font:italic 400 clamp(5rem,12vw,10rem)/.8 Georgia,serif;color:var(--ice)}
+.ch h2{font:400 clamp(2.2rem,5vw,4.6rem)/.98 Georgia,serif;letter-spacing:-.03em;max-width:14ch;margin:.4rem 0 2rem}
+.ch p{max-width:40ch;margin-bottom:1.3rem}
+.ch p.big{font:italic 400 1.6rem/1.25 Georgia,serif;max-width:24ch;border-left:4px solid var(--flare);padding-left:1.2rem;margin:2.4rem 0 2.4rem 3vw}
+.ch.dark{background:var(--deep);color:var(--paper);margin-right:-7vw;padding-right:7vw;padding-left:3vw;margin-left:-3vw}
+.ch.dark .num{color:#2b5f6c}
+.ch.dark p.big{border-color:var(--ice)}
+.fig{display:flex;gap:2.4rem;margin:2.4rem 0;flex-wrap:wrap}
+.fig b{display:block;font:400 3.2rem/1 Georgia,serif;color:var(--flare)}
+.dark .fig b{color:#f0a487}
+.fig small{font-size:.85rem;letter-spacing:.04em}
+.end{padding:12vh 0 18vh}
+@media (max-width:860px){
+  .cnav{top:0;left:0;right:0;transform:none;width:auto;background:var(--paper);border-bottom:1px solid rgba(23,29,31,.2);padding:.2rem 3vw 0}
+  .cnav ol{flex-direction:row;gap:.4rem}
+  .cnav li{flex:1;min-width:0}
+  .cnav a{padding:.5rem 0 .4rem}
+  .cnav a span{display:none}
+  .cnav a small{margin:0;text-align:left}
+  main{margin-left:0;padding:3.6rem 7vw 0}
+  .ch.dark{margin:0 -7vw;padding-left:7vw;padding-right:7vw}
+  html{scroll-padding-top:3.4rem}
+}
+@media (prefers-reduced-motion:reduce){.cnav a{transition:none}}
+</style>
+</head>
+<body>
+<nav class="cnav" aria-label="Chapters"><ol id="nav"></ol></nav>
+<main>
+  <header class="cover"><p class="k">Field report · Vatnajökull ice cap</p><h1>The ice we <em>measured</em> twice.</h1><p>Eleven winters of stake readings, drone surveys and one very patient camp cook. A long read on how a glacier tongue came to lose forty metres in a decade.</p></header>
+
+  <section class="ch" id="stakes" data-title="Stakes"><div class="num" aria-hidden="true">i</div><h2>Forty-two stakes, one dead drill.</h2>
+    <p>Every September the team walks the same line of steel stakes drilled into the Breiðamerkurjökull tongue. Each is read to the nearest centimetre against a painted mark, then photographed from two angles.</p>
+    <p>In 2019 the main steam drill failed in a crevasse field and the crew improvised with a hand auger and nine litres of boiling meltwater. The readings from that season are the least tidy and the most quoted.</p>
+    <p class="big">A stake does not lie. It only leans.</p>
+    <p>Leaning is the problem: after a warm spell, stakes tilt in softening ice and the apparent loss shrinks. We now correct every reading with an inclinometer and note the correction in the margin.</p></section>
+
+  <section class="ch dark" id="melt" data-title="Melt"><div class="num" aria-hidden="true">ii</div><h2>Where the water goes.</h2>
+    <p>Meltwater does not simply run downhill. It drains into moulins, travels beneath the glacier for weeks and reappears at the terminus carrying silt, which is why the lagoon at Jökulsárlón is the colour of milky tea.</p>
+    <div class="fig"><div><b>1.9 m</b><small>average surface lowering, 2023</small></div><div><b>41 m</b><small>terminus retreat since 2014</small></div></div>
+    <p>The lagoon itself is a measurement: deeper than 280 metres at its centre and still deepening as the ice recedes over what used to be dry rock.</p></section>
+
+  <section class="ch" id="camp" data-title="Camp"><div class="num" aria-hidden="true">iii</div><h2>Life at the Esjufjöll hut.</h2>
+    <p>The hut sleeps six and has a gas stove that works one day in three. Water is melted from snow, and the daily bread is pan-fried flatkaka that the cook, Sólrún, makes without measuring.</p>
+    <p>Days start at 05:30 in September. Weather decides the schedule: a low cloud means no drone flights and a day of manual stake reading with ice axes and crampons.</p>
+    <p class="big">If the radio is quiet, the weather is fine. If it is chatty, stay in.</p></section>
+
+  <section class="ch dark" id="models" data-title="Models"><div class="num" aria-hidden="true">iv</div><h2>What the model got wrong.</h2>
+    <p>The first mass-balance model underestimated summer melt by almost 18 percent because it assumed a clean white surface. Dust from Icelandic ash plains darkens the ice, and darker ice absorbs far more sunlight.</p>
+    <div class="fig"><div><b>18%</b><small>underestimate in v1</small></div><div><b>0.3</b><small>albedo of dusty ice</small></div></div>
+    <p>The revised model takes a weekly albedo reading from a handheld sensor carried across the same transect, and it now sits within five percent of the stake readings.</p></section>
+
+  <section class="ch" id="next" data-title="Next"><div class="num" aria-hidden="true">v</div><h2>The line we will keep walking.</h2>
+    <p>Funding runs to 2030. Beyond that, the stakes will be handed to the regional park service and the dataset to the national archive in Reykjavik, with the notes in both English and Icelandic.</p>
+    <p>If you want to join a field season, applications open each January for two volunteer places. Carrying skills matter more than science degrees.</p></section>
+  <div class="end"></div>
+</main>
+<script>
+(function(){
+  var CONFIG={offset:.4,duration:900};
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var chs=[].slice.call(document.querySelectorAll(".ch")),nav=document.getElementById("nav");
+  var items=chs.map(function(c,i){
+    var li=document.createElement("li"),a=document.createElement("a");
+    a.href="#"+c.id;a.innerHTML="<small>0"+(i+1)+"</small><span>"+c.dataset.title+"</span>";
+    a.setAttribute("aria-label","Chapter "+(i+1)+": "+c.dataset.title);
+    a.addEventListener("click",function(e){e.preventDefault();go(c);history.replaceState(null,"","#"+c.id)});
+    li.appendChild(a);nav.appendChild(li);return a;
+  });
+  var anim=null;
+  function go(el){
+    var vh=innerHeight,to=Math.max(0,el.getBoundingClientRect().top+scrollY-(innerWidth<=860?48:0));
+    if(reduce){scrollTo(0,to);return}
+    var from=scrollY,t0=performance.now(),d=Math.min(CONFIG.duration,400+Math.abs(to-from)*.25);
+    cancelAnimationFrame(anim);
+    (function step(t){var k=Math.min(1,(t-t0)/d),e=k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;scrollTo(0,from+(to-from)*e);if(k<1)anim=requestAnimationFrame(step)})(t0);
+  }
+  addEventListener("wheel",function(){cancelAnimationFrame(anim)},{passive:true});
+  addEventListener("touchstart",function(){cancelAnimationFrame(anim)},{passive:true});
+  var raf=0;
+  function update(){
+    raf=0;var y=scrollY,vh=innerHeight,line=y+vh*CONFIG.offset,active=0;
+    chs.forEach(function(c,i){
+      var top=c.offsetTop,h=c.offsetHeight;
+      var p=Math.max(0,Math.min(1,(y+vh*.2-top)/(h-vh*.2+vh*.2*0)));
+      items[i].style.setProperty("--p",p.toFixed(3));
+      if(line>=top)active=i;
+    });
+    items.forEach(function(a,i){if(i===active)a.setAttribute("aria-current","location");else a.removeAttribute("aria-current")});
+  }
+  function req(){if(!raf)raf=requestAnimationFrame(update)}
+  addEventListener("scroll",req,{passive:true});addEventListener("resize",req);
+  update();
+})();
+</script>
+</body>
+</html>

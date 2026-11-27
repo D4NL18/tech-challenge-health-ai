@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>97 · Dropdown Nav Morph</title>
+<!--
+PATTERN: A top nav whose dropdown panels share ONE background plate. The plate morphs (position,
+  width, height) from one item's panel to the next instead of each panel popping in separately
+  (Stripe / Motion Primitives style).
+Motion: A single absolutely positioned .plate is moved with transform and sized via width/height
+  to match the active panel's measurements; panel content cross-fades. Transitions use
+  cubic-bezier(.2,.7,.2,1). Leaving the nav closes the plate.
+Accessibility: Triggers are <button aria-expanded aria-controls>. Open via click, Enter, Space,
+  ArrowDown; ArrowLeft/Right move between triggers when open; Escape closes and returns focus.
+  Opens on hover too. Panels are hidden (visibility) when inactive so they leave the tab order.
+  :focus-visible rings. prefers-reduced-motion: plate stops animating, panels just fade.
+Adapting: CONFIG.CLOSE_DELAY (ms), CONFIG.PAD. Libraries: none.
+-->
+<style>
+:root{--paper:#f2ede2;--ink:#1c1a17;--forest:#264a3a;--sand:#e4dac3;--rust:#b0482b;--ease:cubic-bezier(.2,.7,.2,1)}
+*{box-sizing:border-box;margin:0}
+body{background:var(--paper);color:var(--ink);font:1rem/1.55 "Helvetica Neue",Arial,sans-serif;min-height:100vh}
+header{display:flex;align-items:center;gap:2rem;padding:1.2rem 6vw;border-bottom:2px solid var(--ink)}
+.logo{font:700 1.5rem Georgia,"Times New Roman",serif;letter-spacing:-.02em}
+nav{position:relative}
+nav ul{list-style:none;display:flex;gap:.25rem;padding:0}
+.trig{font:inherit;font-weight:500;background:none;border:0;color:var(--ink);padding:.6rem 1rem;border-radius:4px;cursor:pointer}
+.trig[aria-expanded=true]{background:var(--sand)}
+.trig:focus-visible{outline:3px solid var(--rust);outline-offset:2px}
+.trig::after{content:"";display:inline-block;margin-left:.45rem;width:.4em;height:.4em;border:solid currentColor;border-width:0 2px 2px 0;transform:translateY(-.15em) rotate(45deg);transition:transform .3s var(--ease)}
+.trig[aria-expanded=true]::after{transform:translateY(0) rotate(-135deg)}
+.stage{position:absolute;top:100%;left:0;pointer-events:none;padding-top:.5rem}
+.plate{position:absolute;top:.5rem;left:0;background:#fff;border:2px solid var(--ink);border-radius:6px;box-shadow:6px 6px 0 var(--ink);opacity:0;transition:transform .45s var(--ease),width .45s var(--ease),height .45s var(--ease),opacity .25s}
+.stage.on .plate{opacity:1}
+.panel{position:absolute;top:.5rem;left:0;padding:1.2rem;width:max-content;max-width:90vw;opacity:0;visibility:hidden;transition:opacity .3s var(--ease),visibility 0s .3s}
+.panel.on{opacity:1;visibility:visible;pointer-events:auto;transition-delay:.05s,0s}
+.panel h3{font:700 .72rem ui-monospace,monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--forest);margin-bottom:.5rem}
+.panel a{display:block;color:var(--ink);text-decoration:none;padding:.4rem .6rem;margin:0 -.6rem;border-radius:3px;white-space:nowrap}
+.panel a small{display:block;opacity:.75;font-size:.8rem}
+.panel a:hover,.panel a:focus-visible{background:var(--sand)}
+.panel a:focus-visible{outline:3px solid var(--rust);outline-offset:-1px}
+main{padding:14vh 6vw;max-width:46rem;margin-left:8vw}
+h1{font:700 clamp(2.2rem,6vw,4.2rem)/1.02 Georgia,"Times New Roman",serif;letter-spacing:-.03em}
+main p{margin-top:1.2rem;max-width:42ch}
+@media(max-width:560px){header{gap:.6rem 1rem;flex-wrap:wrap}.trig{padding:.5rem .6rem}nav ul{gap:0}.trig::after{margin-left:.3rem}}
+@media (prefers-reduced-motion:reduce){.plate,.trig::after{transition:none}.panel{transition:opacity .2s}}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">Ledgerline</span>
+  <nav aria-label="Primary" id="nav">
+    <ul>
+      <li><button class="trig" type="button" aria-expanded="false" aria-controls="p-pay">Payments</button></li>
+      <li><button class="trig" type="button" aria-expanded="false" aria-controls="p-rep">Reporting</button></li>
+      <li><button class="trig" type="button" aria-expanded="false" aria-controls="p-dev">Developers</button></li>
+    </ul>
+    <div class="stage" id="stage">
+      <div class="plate" id="plate" aria-hidden="true"></div>
+      <div class="panel" id="p-pay"><h3>Collect</h3><a href="#"><strong>Invoices</strong><small>Send and chase in 14 currencies</small></a><a href="#"><strong>Direct debit</strong><small>SEPA and BACS mandates</small></a></div>
+      <div class="panel" id="p-rep"><h3>Close the books</h3><a href="#"><strong>Month-end pack</strong></a><a href="#"><strong>VAT returns</strong><small>Filed to HMRC and Bundeszentralamt</small></a><a href="#"><strong>Audit trail</strong></a><a href="#"><strong>Cash forecast</strong><small>13-week rolling view</small></a></div>
+      <div class="panel" id="p-dev"><h3>Build</h3><a href="#"><strong>REST reference</strong></a><a href="#"><strong>Webhooks</strong><small>Retries with signed payloads</small></a></div>
+    </div>
+  </nav>
+</header>
+<main>
+  <h1>Bookkeeping your accountant will not rewrite.</h1>
+  <p>Move between the menu items and watch one plate resize to fit each list, rather than three separate boxes appearing.</p>
+</main>
+<script>
+(function(){
+  var CONFIG={CLOSE_DELAY:160,PAD:0};
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var nav=document.getElementById("nav"),stage=document.getElementById("stage"),plate=document.getElementById("plate");
+  var trigs=[].slice.call(nav.querySelectorAll(".trig")),cur=-1,timer;
+  function show(i){
+    clearTimeout(timer);
+    trigs.forEach(function(t,j){
+      var on=j===i,p=document.getElementById(t.getAttribute("aria-controls"));
+      t.setAttribute("aria-expanded",on);p.classList.toggle("on",on);
+    });
+    var t=trigs[i],p=document.getElementById(t.getAttribute("aria-controls"));
+    var x=t.getBoundingClientRect().left-nav.getBoundingClientRect().left;
+    var w=p.offsetWidth+CONFIG.PAD,h=p.offsetHeight;
+    var left=Math.max(0,Math.min(x,nav.getBoundingClientRect().width+innerWidth-w-nav.getBoundingClientRect().left-24));
+    var first=cur<0;
+    if(first||reduce)plate.style.transition="none";
+    plate.style.width=w+"px";plate.style.height=h+"px";
+    plate.style.transform="translateX("+left+"px)";
+    p.style.transform="translateX("+left+"px)";
+    if(first||reduce){plate.offsetWidth;plate.style.transition=""}
+    stage.classList.add("on");cur=i;
+  }
+  function hide(){
+    trigs.forEach(function(t){t.setAttribute("aria-expanded","false");document.getElementById(t.getAttribute("aria-controls")).classList.remove("on")});
+    stage.classList.remove("on");cur=-1;
+  }
+  function later(){clearTimeout(timer);timer=setTimeout(hide,CONFIG.CLOSE_DELAY)}
+  trigs.forEach(function(t,i){
+    t.addEventListener("mouseenter",function(){show(i)});
+    t.addEventListener("click",function(){cur===i?hide():show(i)});
+    t.addEventListener("keydown",function(e){
+      if(e.key==="ArrowDown"){e.preventDefault();show(i);var a=document.getElementById(t.getAttribute("aria-controls")).querySelector("a");a&&a.focus()}
+      if(cur>=0&&(e.key==="ArrowRight"||e.key==="ArrowLeft")){
+        e.preventDefault();var n=(i+(e.key==="ArrowRight"?1:trigs.length-1))%trigs.length;trigs[n].focus();show(n);
+      }
+    });
+  });
+  nav.addEventListener("mouseleave",later);
+  nav.addEventListener("mouseenter",function(){clearTimeout(timer)});
+  nav.addEventListener("keydown",function(e){
+    if(e.key==="Escape"&&cur>=0){var t=trigs[cur];hide();t.focus()}
+  });
+  nav.addEventListener("focusout",function(e){if(!nav.contains(e.relatedTarget))hide()});
+})();
+</script>
+</body>
+</html>

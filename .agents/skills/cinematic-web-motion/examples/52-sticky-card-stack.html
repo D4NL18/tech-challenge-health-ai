@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>52 · Sticky Card Stack</title>
+<!--
+PATTERN: Cards stack on top of each other while scrolling.
+Motion: Each card is position:sticky; as the next card slides over it, the previous one scales down and dims (GSAP ScrollTrigger scrub).
+Accessibility: Cards are plain sticky sections in DOM order; reduced-motion keeps the sticky stack but removes scaling/dimming.
+Adapting: Add/remove .card elements and set --h hue inline; tune CONFIG.scaleStep and CONFIG.top.
+-->
+<style>
+:root{--bg:#0e0e0c;--fg:#f1ede4}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif}
+.intro,.outro{height:80vh;display:grid;place-items:center;font-size:clamp(1.5rem,4vw,3rem);font-weight:600;letter-spacing:-.03em;text-align:center;padding:0 6vw}
+.stack{padding:0 6vw}
+.holder{height:100vh;position:sticky;top:0;display:flex;align-items:center}
+.card{width:100%;height:70vh;border-radius:28px;padding:clamp(1.5rem,4vw,3.5rem);display:flex;flex-direction:column;justify-content:space-between;background:hsl(var(--h) 70% 55%);color:#111;transform-origin:50% 0;will-change:transform;overflow:hidden;position:relative}
+.card::after{content:"";position:absolute;right:-8%;bottom:-30%;width:60%;aspect-ratio:1;border-radius:50%;background:hsl(var(--h) 80% 70%/.6)}
+.num{font:600 .85rem ui-monospace,monospace;letter-spacing:.2em}
+h2{font-size:clamp(2rem,7vw,6rem);letter-spacing:-.04em;line-height:.95;max-width:10em;position:relative;z-index:1}
+</style>
+</head>
+<body>
+<div class="intro">Scroll to stack the cards</div>
+<div class="stack">
+  <div class="holder"><article class="card" style="--h:12"><span class="num">01</span><h2>Research the problem</h2></article></div>
+  <div class="holder"><article class="card" style="--h:48"><span class="num">02</span><h2>Sketch and prototype</h2></article></div>
+  <div class="holder"><article class="card" style="--h:160"><span class="num">03</span><h2>Build with motion</h2></article></div>
+  <div class="holder"><article class="card" style="--h:260"><span class="num">04</span><h2>Ship and measure</h2></article></div>
+</div>
+<div class="outro">Fin</div>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  var CONFIG={top:"0px",scaleStep:.06,dim:.55};
+  var holders=[].slice.call(document.querySelectorAll(".holder"));
+  holders.forEach(function(h,i){h.style.top=(i*14)+"px";h.style.zIndex=i+1});
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches||!window.gsap)return;
+  gsap.registerPlugin(ScrollTrigger);
+  holders.forEach(function(h,i){
+    var next=holders[i+1];if(!next)return;
+    var card=h.querySelector(".card");
+    gsap.to(card,{scale:1-CONFIG.scaleStep*(holders.length-i-1)-.04,filter:"brightness("+CONFIG.dim+")",ease:"none",
+      scrollTrigger:{trigger:next,start:"top bottom",end:"top top+="+(i*14),scrub:true}});
+  });
+})();
+</script>
+</body>
+</html>

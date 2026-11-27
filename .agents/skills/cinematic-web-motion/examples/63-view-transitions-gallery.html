@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>63 · View Transitions Gallery</title>
+<!--
+PATTERN: Grid → detail shared-element transition using the View Transitions API.
+Motion: Clicking a tile gives it a unique view-transition-name; document.startViewTransition
+  swaps the DOM to a detail view where the same name is on the hero, so the browser morphs
+  position/size/colour. Back reverses it. Root cross-fade is customised in CSS.
+Accessibility: Tiles are real buttons; focus moves to the detail heading and back to the tile;
+  Escape closes. prefers-reduced-motion: transitions are skipped (instant swap).
+  No API support: same DOM swap without animation (graceful fallback).
+Adapting: Replace the TILES array (hue + title + text). Change ::view-transition-group duration.
+  Libraries: none.
+-->
+<style>
+:root{--bg:#101114;--fg:#f3f1ea;--mut:#9a9aa3}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif;padding:6vh 5vw}
+h1{font-size:clamp(2rem,5vw,4rem);letter-spacing:-.04em;margin-bottom:4vh}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem}
+.tile{aspect-ratio:1;border:0;border-radius:18px;color:#fff;font:600 1.1rem "Helvetica Neue",Arial,sans-serif;text-align:left;padding:1rem;cursor:pointer;
+  display:flex;align-items:flex-end;background:linear-gradient(135deg,hsl(var(--h) 80% 55%),hsl(calc(var(--h) + 50) 80% 35%))}
+.tile:focus-visible,.back:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.detail{display:none;max-width:900px;margin:0 auto}
+.detail .hero{height:min(55vh,460px);border-radius:24px;background:linear-gradient(135deg,hsl(var(--h) 80% 55%),hsl(calc(var(--h) + 50) 80% 35%))}
+.detail h2{font-size:clamp(2rem,5vw,3.5rem);letter-spacing:-.03em;margin:1.5rem 0 .75rem}
+.detail p{color:var(--mut);line-height:1.6;max-width:55ch;font-size:1.15rem}
+.back{margin-bottom:1.5rem;background:#ffffff14;color:var(--fg);border:0;padding:.7rem 1.2rem;border-radius:99px;cursor:pointer;font-size:1rem}
+body.open .grid,body.open h1{display:none}
+body.open .detail{display:block}
+::view-transition-group(*){animation-duration:.55s;animation-timing-function:cubic-bezier(.2,.8,.2,1)}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.3s}
+@media(max-width:480px){.grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<h1>Gallery</h1>
+<div class="grid" id="grid"></div>
+<section class="detail" id="detail" aria-live="polite">
+  <button class="back" id="back">← Back</button>
+  <div class="hero" id="hero"></div>
+  <h2 id="title" tabindex="-1"></h2>
+  <p id="text"></p>
+</section>
+<script>
+(function(){
+  var TILES=[
+    {h:350,t:"Ember",x:"Warm light on a slow evening, rendered as pure gradient."},
+    {h:200,t:"Lagoon",x:"Cool shallows where colour deepens with distance."},
+    {h:270,t:"Violet Hour",x:"The brief window between dusk and night."},
+    {h:130,t:"Meadow",x:"Fresh greens with a hint of gold at the edges."},
+    {h:20,t:"Signal",x:"High-contrast red for things that need attention."},
+    {h:310,t:"Orchid",x:"Soft magenta fading into deep plum."},
+    {h:170,t:"Glacier",x:"Pale blue ice with a darker core."},
+    {h:60,t:"Amber",x:"Honey tones, warm and slightly translucent."}
+  ];
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var grid=document.getElementById("grid"),detail=document.getElementById("detail");
+  var hero=document.getElementById("hero"),title=document.getElementById("title"),text=document.getElementById("text");
+  var lastTile=null;
+
+  function run(fn){
+    if(!document.startViewTransition||reduce){fn();return}
+    document.startViewTransition(fn);
+  }
+  TILES.forEach(function(d){
+    var b=document.createElement("button");
+    b.className="tile";b.style.setProperty("--h",d.h);b.textContent=d.t;
+    b.addEventListener("click",function(){open(b,d)});
+    grid.appendChild(b);
+  });
+  function open(tile,d){
+    lastTile=tile;
+    tile.style.viewTransitionName="card";   // old state: the tile
+    run(function(){
+      tile.style.viewTransitionName="";     // new state: the hero takes the name
+      hero.style.viewTransitionName="card";
+      hero.style.setProperty("--h",d.h);
+      title.textContent=d.t;text.textContent=d.x;
+      document.body.classList.add("open");
+      title.focus({preventScroll:true});
+    });
+  }
+  function close(){
+    if(!lastTile)return;
+    run(function(){
+      hero.style.viewTransitionName="";
+      lastTile.style.viewTransitionName="card";
+      document.body.classList.remove("open");
+      lastTile.focus({preventScroll:true});
+    });
+    var t=lastTile;
+    setTimeout(function(){t.style.viewTransitionName=""},700);
+  }
+  document.getElementById("back").addEventListener("click",close);
+  addEventListener("keydown",function(e){if(e.key==="Escape"&&document.body.classList.contains("open"))close()});
+})();
+</script>
+</body>
+</html>

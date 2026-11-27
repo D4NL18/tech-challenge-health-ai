@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>70 · Text Scramble Hero Intro</title>
+<!--
+PATTERN: Cinematic hero intro timeline: staggered letter drop, line draw, number counter,
+  scrambling subtitle and a subtle animated film grain.
+Motion: One GSAP timeline: letters fall from above with bounce-less expo ease and stagger;
+  an SVG line draws via stroke-dashoffset; a counter tweens 0 to 100; a subtitle resolves from
+  random glyphs (scramble) into the final text; a canvas grain flickers at low opacity.
+Accessibility: Heading keeps full text in aria-label (letters are aria-hidden spans). Replay
+  button is a real <button>. prefers-reduced-motion: final state shown immediately, counter at
+  final value, no scramble and no grain animation. If GSAP fails to load, same static end state.
+Adapting: Edit TITLE, SUBTITLE, COUNT_TO and timeline offsets. Libraries: GSAP 3 (CDN).
+-->
+<style>
+:root{--bg:#0b0b0d;--fg:#f4f1ea;--acc:#ff5a36}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif;overflow:hidden}
+.hero{position:relative;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.5vh;padding:0 5vw;text-align:center}
+h1{font-size:clamp(3rem,13vw,11rem);font-weight:800;letter-spacing:-.05em;line-height:.9;overflow:hidden;padding-bottom:.08em}
+h1 .ch{display:inline-block}
+.line{width:min(70vw,640px);height:6px;overflow:visible}
+.line path{fill:none;stroke:var(--acc);stroke-width:2;stroke-dasharray:1;stroke-dashoffset:0}
+.sub{font:500 clamp(.8rem,1.6vw,1.1rem) ui-monospace,monospace;letter-spacing:.25em;text-transform:uppercase;min-height:1.4em}
+.count{position:absolute;right:5vw;bottom:6vh;font:700 clamp(2rem,6vw,5rem)/1 Georgia,serif;font-variant-numeric:tabular-nums;color:var(--acc)}
+.count small{font-size:.35em;color:var(--fg);opacity:.6;margin-left:.3em}
+#replay{position:absolute;left:5vw;bottom:6vh;background:none;border:1px solid #ffffff44;color:var(--fg);padding:.6rem 1.1rem;border-radius:99px;cursor:pointer;font:500 .75rem ui-monospace,monospace;letter-spacing:.15em;text-transform:uppercase}
+#replay:hover{border-color:var(--acc)}
+#replay:focus-visible{outline:3px solid var(--acc);outline-offset:3px}
+#grain{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;opacity:.09;mix-blend-mode:screen}
+</style>
+</head>
+<body>
+<div class="hero">
+  <h1 id="title" aria-label="NOCTURNE">NOCTURNE</h1>
+  <svg class="line" viewBox="0 0 640 6" preserveAspectRatio="none" aria-hidden="true"><path id="draw" d="M0 3H640" pathLength="1"/></svg>
+  <p class="sub" id="sub">Films after dark</p>
+  <div class="count" aria-hidden="true"><span id="num">100</span><small>%</small></div>
+  <button id="replay" type="button">Replay</button>
+</div>
+<canvas id="grain" aria-hidden="true"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script>
+(function(){
+  var TITLE="NOCTURNE",SUBTITLE="Films after dark",COUNT_TO=100,GLYPHS="!<>-_\\/[]{}=+*^?#01";
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var h1=document.getElementById("title"),sub=document.getElementById("sub"),num=document.getElementById("num"),draw=document.getElementById("draw");
+  // split into letters
+  h1.textContent="";
+  var chars=TITLE.split("").map(function(c){
+    var s=document.createElement("span");s.className="ch";s.setAttribute("aria-hidden","true");s.textContent=c;h1.appendChild(s);return s;
+  });
+  function scramble(el,text,dur){
+    var state={p:0};
+    return gsap.to(state,{p:1,duration:dur,ease:"none",onUpdate:function(){
+      var n=Math.floor(state.p*text.length),out="";
+      for(var i=0;i<text.length;i++){
+        out+=i<n||text[i]===" "?text[i]:GLYPHS[Math.floor(Math.random()*GLYPHS.length)];
+      }
+      el.textContent=out;
+    },onComplete:function(){el.textContent=text}});
+  }
+  // grain
+  var g=document.getElementById("grain"),gx=g.getContext("2d"),gw=0,gh=0,gtimer=0;
+  function grainSize(){gw=g.width=Math.ceil(innerWidth/3);gh=g.height=Math.ceil(innerHeight/3);g.style.imageRendering="pixelated"}
+  function grainFrame(){
+    var img=gx.createImageData(gw,gh),d=img.data;
+    for(var i=0;i<d.length;i+=4){var v=Math.random()*255;d[i]=d[i+1]=d[i+2]=v;d[i+3]=255}
+    gx.putImageData(img,0,0);
+  }
+  grainSize();grainFrame();
+  addEventListener("resize",function(){grainSize();grainFrame()});
+  if(!reduce)gtimer=setInterval(grainFrame,70);
+
+  if(reduce||!window.gsap){num.textContent=COUNT_TO;sub.textContent=SUBTITLE;return}
+
+  var tl;
+  function play(){
+    if(tl)tl.kill();
+    var c={v:0};
+    tl=gsap.timeline({defaults:{ease:"expo.out"}});
+    tl.set(chars,{yPercent:-130,opacity:0,rotation:-6})
+      .set(draw,{strokeDashoffset:1})
+      .set(sub,{textContent:""})
+      .set(num,{textContent:0})
+      .to(chars,{yPercent:0,opacity:1,rotation:0,duration:1.2,stagger:.07},.2)
+      .to(draw,{strokeDashoffset:0,duration:1.4,ease:"power3.inOut"},.9)
+      .add(scramble(sub,SUBTITLE,1.3),1.4)
+      .to(c,{v:COUNT_TO,duration:2.2,ease:"power2.out",onUpdate:function(){num.textContent=Math.round(c.v)}},.4);
+  }
+  document.getElementById("replay").addEventListener("click",play);
+  play();
+})();
+</script>
+</body>
+</html>

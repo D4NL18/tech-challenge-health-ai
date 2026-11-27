@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>31 · Context Menu with Submenu</title>
+<!--
+  PATTERN: Right-click / long-press / Shift+F10 context menu with a nested submenu, checkable items and
+           viewport-aware positioning.
+  Motion: menu appears at the pointer with scale .96 -> 1 anchored to the click point (transform-origin set from
+          the cursor corner), 110ms. Submenu fades in 100ms after a short 120ms hover-intent delay. Item
+          highlight is instant.
+  Accessibility: role="menu"/"menuitem"/"menuitemcheckbox", roving focus, ArrowUp/Down, ArrowRight opens a submenu,
+          ArrowLeft/Esc closes it, Home/End, type-ahead by first letter, Enter/Space activates. Focus returns to
+          the target on close. Context key and Shift+F10 open it from the keyboard.
+  Adapting: edit the ITEMS tree (label, shortcut, check, children, danger). Call run(id) to hook actions. Menu is
+          appended to <body>, so it escapes overflow clipping.
+-->
+<style>
+  :root { --bg:#fafafa; --surface:#fff; --fg:#18181b; --mut:#71717a; --bd:rgba(0,0,0,.08); --bd2:rgba(0,0,0,.18);
+    --acc:#4f46e5; --hover:#f4f4f5; --danger:#dc2626; --shadow:0 10px 30px rgba(0,0,0,.14); }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#09090b; --surface:#18181b; --fg:#fafafa; --mut:#a1a1aa; --bd:rgba(255,255,255,.10); --bd2:rgba(255,255,255,.22);
+      --acc:#818cf8; --hover:#27272a; --danger:#f87171; --shadow:0 10px 30px rgba(0,0,0,.6); }
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { min-height:100vh; padding:2rem; background:var(--bg); color:var(--fg); font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .area { height:60vh; display:grid; place-content:center; text-align:center; border:1px dashed var(--bd2); border-radius:12px;
+    color:var(--mut); user-select:none; }
+  .area:focus-visible { outline:2px solid var(--acc); outline-offset:2px; }
+  .area strong { color:var(--fg); display:block; font-size:16px; margin-bottom:4px; }
+  .log { margin-top:12px; font-size:12px; color:var(--mut); min-height:1.4em; }
+  .menu { position:fixed; z-index:50; min-width:200px; padding:4px; background:var(--surface); border:1px solid var(--bd);
+    border-radius:10px; box-shadow:var(--shadow); list-style:none; animation:in 110ms ease-out; }
+  .menu.sub { animation-duration:100ms; }
+  @keyframes in { from { opacity:0; transform:scale(.96); } to { opacity:1; transform:none; } }
+  .item { display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:6px; cursor:default; outline:0; position:relative; }
+  .item:hover, .item:focus, .item.open { background:var(--hover); }
+  .item .k { margin-left:auto; color:var(--mut); font-size:12px; padding-left:16px; }
+  .item.danger { color:var(--danger); }
+  .item .tick { width:14px; color:var(--acc); }
+  .sep { height:1px; margin:4px -4px; background:var(--bd); }
+  .item[aria-disabled=true] { opacity:.45; pointer-events:none; }
+  @media (prefers-reduced-motion: reduce) { .menu { animation:none; } }
+</style>
+</head>
+<body>
+<div class="area" id="area" tabindex="0" aria-label="Canvas. Right-click or press Shift+F10 for actions">
+  <div><strong>Right-click anywhere here</strong>Or focus and press Shift+F10 · long-press on touch</div>
+</div>
+<p class="log" id="log" role="status" aria-live="polite"></p>
+<script>
+(function () {
+  var state = { grid:true, rulers:false };
+  var ITEMS = [
+    { id:'copy', label:'Copy', key:'Ctrl C' },
+    { id:'paste', label:'Paste', key:'Ctrl V', disabled:true },
+    { id:'dup', label:'Duplicate', key:'Ctrl D' },
+    { sep:true },
+    { label:'Arrange', children:[
+      { id:'front', label:'Bring to front' }, { id:'back', label:'Send to back' },
+      { label:'Align', children:[ { id:'left', label:'Left' }, { id:'center', label:'Center' } ] } ] },
+    { label:'View', children:[ { id:'grid', label:'Show grid', check:'grid' }, { id:'rulers', label:'Show rulers', check:'rulers' } ] },
+    { sep:true },
+    { id:'del', label:'Delete', key:'Del', danger:true }
+  ];
+  var area = document.getElementById('area'), log = document.getElementById('log');
+  var menus = [], returnTo = null, hoverTimer;
+
+  function run(it) { if (it.check) state[it.check] = !state[it.check]; log.textContent = 'Action: ' + it.label + (it.check ? ' (' + (state[it.check] ? 'on' : 'off') + ')' : ''); }
+  function build(items, sub) {
+    var ul = document.createElement('ul'); ul.className = 'menu' + (sub ? ' sub' : ''); ul.setAttribute('role', 'menu');
+    items.forEach(function (it) {
+      var li = document.createElement('li');
+      if (it.sep) { li.className = 'sep'; li.setAttribute('role', 'separator'); ul.appendChild(li); return; }
+      li.className = 'item' + (it.danger ? ' danger' : ''); li.tabIndex = -1; li._it = it;
+      li.setAttribute('role', it.check ? 'menuitemcheckbox' : 'menuitem');
+      if (it.check) li.setAttribute('aria-checked', String(!!state[it.check]));
+      if (it.disabled) li.setAttribute('aria-disabled', 'true');
+      if (it.children) { li.setAttribute('aria-haspopup', 'menu'); li.setAttribute('aria-expanded', 'false'); }
+      li.innerHTML = (it.check ? '<span class="tick">' + (state[it.check] ? '✓' : '') + '</span>' : '') + '<span>' + it.label + '</span>' +
+        (it.children ? '<span class="k">›</span>' : it.key ? '<span class="k">' + it.key + '</span>' : '');
+      ul.appendChild(li);
+    });
+    return ul;
+  }
+  function place(el, x, y, originX, originY) {
+    document.body.appendChild(el);
+    var w = el.offsetWidth, h = el.offsetHeight, flipX = false, flipY = false;
+    if (x + w > innerWidth - 8) { x = originX !== undefined ? originX - w : innerWidth - w - 8; flipX = true; }
+    if (y + h > innerHeight - 8) { y = Math.max(8, innerHeight - h - 8); flipY = true; }
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    el.style.transformOrigin = (flipX ? 'right' : 'left') + ' ' + (flipY ? 'bottom' : 'top');
+  }
+  function closeFrom(level) {
+    while (menus.length > level) {
+      var m = menus.pop(); if (m.owner) { m.owner.classList.remove('open'); m.owner.setAttribute('aria-expanded', 'false'); } m.el.remove();
+    }
+  }
+  function openMenu(items, x, y) {
+    closeFrom(0); var el = build(items, false); place(el, x, y); menus.push({ el:el }); focusFirst(el);
+  }
+  function openSub(li, focus) {
+    var level = menus.findIndex(function (m) { return m.el === li.parentNode; });
+    closeFrom(level + 1);
+    var el = build(li._it.children, true), r = li.getBoundingClientRect();
+    place(el, r.right - 2, r.top - 5, r.left + 2);
+    li.classList.add('open'); li.setAttribute('aria-expanded', 'true');
+    menus.push({ el:el, owner:li }); if (focus) focusFirst(el);
+  }
+  function enabled(el) { return Array.prototype.filter.call(el.children, function (c) { return c.classList.contains('item') && c.getAttribute('aria-disabled') !== 'true'; }); }
+  function focusFirst(el) { var i = enabled(el)[0]; if (i) i.focus(); }
+  function activate(li) {
+    if (li._it.children) return openSub(li, true);
+    run(li._it); closeAll(true);
+  }
+  function closeAll(ret) { closeFrom(0); if (ret && returnTo) returnTo.focus(); }
+
+  area.addEventListener('contextmenu', function (e) { e.preventDefault(); returnTo = area; openMenu(ITEMS, e.clientX, e.clientY); });
+  area.addEventListener('keydown', function (e) {
+    if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+      e.preventDefault(); var r = area.getBoundingClientRect(); returnTo = area; openMenu(ITEMS, r.left + r.width / 2, r.top + r.height / 2);
+    }
+  });
+  var press; area.addEventListener('touchstart', function (e) { var t = e.touches[0]; press = setTimeout(function () { returnTo = area; openMenu(ITEMS, t.clientX, t.clientY); }, 500); }, { passive:true });
+  ['touchend', 'touchmove'].forEach(function (n) { area.addEventListener(n, function () { clearTimeout(press); }); });
+
+  document.addEventListener('mouseover', function (e) {
+    var li = e.target.closest('.menu .item'); if (!li) return;
+    li.focus(); clearTimeout(hoverTimer);
+    var level = menus.findIndex(function (m) { return m.el === li.parentNode; });
+    hoverTimer = setTimeout(function () { if (li._it.children) openSub(li, false); else closeFrom(level + 1); }, 120);
+  });
+  document.addEventListener('click', function (e) {
+    var li = e.target.closest('.menu .item'); if (li) activate(li); else closeAll(false);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (!menus.length) return;
+    var cur = document.activeElement, ul = cur.closest && cur.closest('.menu'); if (!ul) return;
+    var items = enabled(ul), i = items.indexOf(cur), level = menus.findIndex(function (m) { return m.el === ul; });
+    if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+    else if (e.key === 'Home') { e.preventDefault(); items[0].focus(); }
+    else if (e.key === 'End') { e.preventDefault(); items[items.length - 1].focus(); }
+    else if (e.key === 'ArrowRight' && cur._it && cur._it.children) { e.preventDefault(); openSub(cur, true); }
+    else if (e.key === 'ArrowLeft' && level > 0) { e.preventDefault(); var o = menus[level].owner; closeFrom(level); o.focus(); }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(cur); }
+    else if (e.key === 'Escape') { e.preventDefault(); if (level > 0) { var ow = menus[level].owner; closeFrom(level); ow.focus(); } else closeAll(true); }
+    else if (e.key === 'Tab') { e.preventDefault(); closeAll(true); }
+    else if (e.key.length === 1) {
+      var ch = e.key.toLowerCase(), n = items.slice(i + 1).concat(items.slice(0, i + 1)).find(function (x) { return x._it.label[0].toLowerCase() === ch; });
+      if (n) n.focus();
+    }
+  });
+  addEventListener('blur', function () { closeAll(false); });
+  addEventListener('resize', function () { closeAll(false); });
+})();
+</script>
+</body>
+</html>

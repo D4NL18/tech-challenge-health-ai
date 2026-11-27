@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>07 · Split Text Reveal</title>
+<!--
+EFFECT: Headlines/paragraphs are split into lines, words or chars. Each unit sits inside an
+overflow:hidden mask and rises from yPercent:110 to 0 when scrolled into view (ScrollTrigger).
+HOW TO ADAPT:
+  - Add data-split="lines|words|chars" to any element with class .reveal.
+  - Tune duration/stagger/ease in the CONFIG object below.
+  - Hand-rolled splitter (no paid plugin). With GSAP 3.13 you may swap in SplitText({type:"lines",mask:"lines"}).
+  - Lines are detected by measuring offsetTop of words, and re-split on resize (debounced).
+REDUCED MOTION: text is shown statically, no animation.
+-->
+<style>
+:root{--bg:#0e0e0c;--fg:#f1ede4;--mut:#8b877c;--acc:#ff5a36}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+section{min-height:100vh;padding:14vh 8vw;display:flex;flex-direction:column;justify-content:center;gap:2.5rem;border-bottom:1px solid #ffffff14}
+.tag{font:500 .75rem/1 ui-monospace,monospace;letter-spacing:.2em;text-transform:uppercase;color:var(--acc)}
+h1,h2{font-weight:600;letter-spacing:-.04em;line-height:.98}
+h1{font-size:clamp(3rem,10vw,9rem)}
+h2{font-size:clamp(2.2rem,6vw,5.5rem)}
+p{font-size:clamp(1.1rem,1.8vw,1.6rem);line-height:1.45;max-width:46ch;color:var(--mut)}
+.line-mask,.word-mask,.char-mask{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.12em;margin-bottom:-.12em}
+.line-mask{display:block}
+.unit{display:inline-block;will-change:transform}
+.em{color:var(--acc);font-style:italic;font-family:Georgia,serif;font-weight:400}
+</style>
+</head>
+<body>
+<section>
+  <span class="tag">Lines · rising mask</span>
+  <h1 class="reveal" data-split="lines">Motion is the <span class="em">quiet</span> language of good interfaces.</h1>
+</section>
+<section>
+  <span class="tag">Words</span>
+  <h2 class="reveal" data-split="words">Every word arrives on its own beat, rising from beneath an invisible edge.</h2>
+</section>
+<section>
+  <span class="tag">Characters</span>
+  <h2 class="reveal" data-split="chars">Letter by letter.</h2>
+  <p class="reveal" data-split="lines">Split once, mask each unit, and let a short stagger do the storytelling. Resize the window and the lines re-flow and re-split cleanly.</p>
+</section>
+<section>
+  <span class="tag">Fin</span>
+  <h2 class="reveal" data-split="words">Scroll back up to watch it again.</h2>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function(){
+  gsap.registerPlugin(ScrollTrigger);
+  var CONFIG={lines:{d:1.1,s:.12},words:{d:.9,s:.07},chars:{d:.8,s:.03},ease:"expo.out",start:"top 85%"};
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var els=[].slice.call(document.querySelectorAll(".reveal"));
+  els.forEach(function(el){el._html=el.innerHTML});
+
+  function wrap(node,cls){var m=document.createElement("span");m.className=cls;var u=document.createElement("span");u.className="unit";m.appendChild(u);node.parentNode.insertBefore(m,node);u.appendChild(node);return u}
+
+  function split(el){
+    el.innerHTML=el._html;
+    var mode=el.dataset.split,words=[];
+    // wrap words, preserving inline elements
+    (function walk(n){
+      [].slice.call(n.childNodes).forEach(function(c){
+        if(c.nodeType===3){
+          var parts=c.textContent.split(/(\s+)/),frag=document.createDocumentFragment();
+          parts.forEach(function(p){
+            if(!p)return;
+            if(/^\s+$/.test(p)){frag.appendChild(document.createTextNode(" "));return}
+            var w=document.createElement("span");w.className="w";w.style.display="inline-block";w.textContent=p;frag.appendChild(w);words.push(w)});
+          c.parentNode.replaceChild(frag,c);
+        } else if(c.nodeType===1) walk(c);
+      });
+    })(el);
+    var units=[];
+    if(mode==="words"){words.forEach(function(w){var t=w.textContent;w.textContent="";var inner=document.createElement("span");inner.textContent=t;w.appendChild(inner);w.className="word-mask";units.push(wrap_in(w,inner))})}
+    else if(mode==="chars"){words.forEach(function(w){var t=w.textContent;w.textContent="";w.style.whiteSpace="nowrap";t.split("").forEach(function(ch){var m=document.createElement("span");m.className="char-mask";var u=document.createElement("span");u.className="unit";u.textContent=ch;m.appendChild(u);w.appendChild(m);units.push(u)})})}
+    else{
+      var rows=[],last=null;
+      words.forEach(function(w){var top=w.offsetTop;if(last===null||Math.abs(top-last)>4){rows.push([]);last=top}rows[rows.length-1].push(w)});
+      rows.forEach(function(r){
+        var m=document.createElement("span");m.className="line-mask";var u=document.createElement("span");u.className="unit";u.style.display="block";m.appendChild(u);
+        r[0].parentNode.insertBefore(m,r[0]);
+        r.forEach(function(w,i){u.appendChild(w);if(i<r.length-1)u.appendChild(document.createTextNode(" "))});
+        units.push(u);
+      });
+      // remove stray text nodes (spaces) left outside masks
+      [].slice.call(el.childNodes).forEach(function(n){if(n.nodeType===3&&!n.textContent.trim())n.remove()});
+    }
+    return units;
+  }
+  function wrap_in(w,inner){inner.className="unit";return inner}
+
+  var built=[];
+  function build(){
+    built.forEach(function(t){t.kill()});built=[];
+    els.forEach(function(el){
+      var units=split(el);
+      if(reduce)return;
+      var c=CONFIG[el.dataset.split]||CONFIG.words;
+      gsap.set(units,{yPercent:115});
+      var tw=gsap.to(units,{yPercent:0,duration:c.d,stagger:c.s,ease:CONFIG.ease,paused:true});
+      built.push(ScrollTrigger.create({trigger:el,start:CONFIG.start,onEnter:function(){tw.play()},onLeaveBack:function(){tw.pause(0)}}));
+    });
+  }
+  function init(){build();ScrollTrigger.refresh()}
+  (document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(init);
+  var rt;addEventListener("resize",function(){clearTimeout(rt);rt=setTimeout(init,250)});
+})();
+</script>
+</body>
+</html>

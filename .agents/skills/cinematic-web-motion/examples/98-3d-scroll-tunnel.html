@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>98 · 3D Scroll Tunnel</title>
+<!--
+PATTERN: A pinned stage holds a stack of nested frames laid out along the Z axis. Scrolling pushes
+  the whole stack toward the camera so each frame swells past the viewer like a tunnel.
+Motion: Pure CSS 3D (perspective on the stage, transform-style:preserve-3d on the rig). One scroll
+  progress value p (0..1) sets --z on the rig; each frame sits at translateZ(-i*GAP). Frames fade
+  as they pass the camera. Scroll height is a tall spacer; stage is position:sticky.
+Accessibility: Frames are decorative (aria-hidden); the chapter list below the stage carries the
+  same content as real text. Current chapter is announced in a polite status line with a number
+  (not colour alone). Keyboard scroll (Space/PageDown/arrows) drives it natively.
+  prefers-reduced-motion: tunnel is flattened into a static stacked list, no 3D.
+Adapting: GAP (px between frames), DEPTH (total travel), FRAMES in CONFIG. Libraries: none.
+-->
+<style>
+:root{--ink:#14110f;--bone:#efe8d8;--ember:#d1562f;--sage:#7d9a7a;--ease:cubic-bezier(.2,.7,.2,1);--z:0px}
+*{box-sizing:border-box;margin:0}
+body{background:var(--ink);color:var(--bone);font:1rem/1.5 "Helvetica Neue",Arial,sans-serif}
+.track{height:520vh}
+.stage{position:sticky;top:0;height:100vh;overflow:hidden;perspective:700px;perspective-origin:50% 45%}
+.rig{position:absolute;inset:0;transform-style:preserve-3d;transform:translateZ(var(--z))}
+.frame{position:absolute;left:50%;top:50%;width:min(70vw,720px);height:min(48vh,420px);margin:calc(min(48vh,420px)/-2) 0 0 calc(min(70vw,720px)/-2);border:2px solid var(--bone);display:flex;align-items:flex-end;padding:1.2rem;transform:translateZ(var(--fz))}
+.frame:nth-child(even){border-color:var(--ember)}
+.frame span{font:700 clamp(1.4rem,4vw,3rem)/1 Georgia,"Times New Roman",serif;letter-spacing:-.02em}
+.hud{position:absolute;left:6vw;bottom:6vh;z-index:2;max-width:22rem;background:var(--ink);padding:.6rem .8rem .5rem 0;box-shadow:0 0 0 .6rem var(--ink)}
+.hud b{font:600 .75rem ui-monospace,monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--sage)}
+.hud p{font:700 1.4rem Georgia,serif;margin-top:.3rem}
+.bar{height:3px;width:12rem;background:rgba(239,232,216,.25);margin-top:.8rem}
+.bar i{display:block;height:100%;width:100%;background:var(--ember);transform-origin:left;transform:scaleX(var(--p,0))}
+.list{display:none;padding:6vh 6vw;list-style:none}
+.list li{padding:1rem 0;border-top:1px solid var(--bone);font:700 1.6rem Georgia,serif}
+@media (prefers-reduced-motion:reduce){.track{height:auto}.stage{position:static;height:auto;perspective:none}.rig,.hud{display:none}.list{display:block}}
+</style>
+</head>
+<body>
+<div class="track" id="track">
+  <div class="stage" id="stage">
+    <div class="rig" id="rig" aria-hidden="true"></div>
+    <div class="hud"><b id="count">01 / 06</b><p id="chap">Departure</p><div class="bar"><i></i></div></div>
+  </div>
+</div>
+<ol class="list" id="list" aria-label="Route chapters"></ol>
+<script>
+(function(){
+  var CONFIG={GAP:420,FRAMES:["Departure","Cut through the pass","Switchbacks at dusk","The tunnel itself","Valley floor","Arrival"]};
+  var n=CONFIG.FRAMES.length,rig=document.getElementById("rig"),root=document.documentElement;
+  var track=document.getElementById("track"),stage=document.getElementById("stage");
+  var count=document.getElementById("count"),chap=document.getElementById("chap"),list=document.getElementById("list");
+  var DEPTH=(n-1)*CONFIG.GAP,last=-1,ticking=false;
+  CONFIG.FRAMES.forEach(function(t,i){
+    var f=document.createElement("div");f.className="frame";f.style.setProperty("--fz",(-i*CONFIG.GAP)+"px");
+    f.innerHTML="<span>"+String(i+1).padStart(2,"0")+" "+t+"</span>";rig.appendChild(f);
+    var li=document.createElement("li");li.textContent=(i+1)+". "+t;list.appendChild(li);
+  });
+  var frames=[].slice.call(rig.children);
+  function update(){
+    ticking=false;
+    var r=track.getBoundingClientRect(),max=track.offsetHeight-innerHeight;
+    var p=Math.min(1,Math.max(0,-r.top/max));
+    var z=p*DEPTH;
+    rig.style.setProperty("--z",z+"px");
+    stage.style.setProperty("--p",p);
+    frames.forEach(function(f,i){
+      var d=z-i*CONFIG.GAP;                 // >0 means frame has reached/passed camera plane
+      var o=d>CONFIG.GAP*.55?Math.max(0,1-(d-CONFIG.GAP*.55)/(CONFIG.GAP*.35)):1;
+      f.style.opacity=Math.min(o,1-Math.max(0,(-d-CONFIG.GAP*2.4))/(CONFIG.GAP*1.2)).toFixed(2);
+    });
+    var idx=Math.min(n-1,Math.round(p*(n-1)));
+    if(idx!==last){last=idx;count.textContent=String(idx+1).padStart(2,"0")+" / "+String(n).padStart(2,"0");chap.textContent=CONFIG.FRAMES[idx]}
+    stage.style.setProperty("--p",p);
+  }
+  addEventListener("scroll",function(){if(!ticking){ticking=true;requestAnimationFrame(update)}},{passive:true});
+  addEventListener("resize",update);
+  update();
+})();
+</script>
+</body>
+</html>

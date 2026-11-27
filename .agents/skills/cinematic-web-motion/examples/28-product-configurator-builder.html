@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bowl builder (concept)</title>
+<style>
+:root{--purple:#2A0A4A;--cream:#FFF6E6;--mango:#FFD23F}
+*{margin:0;box-sizing:border-box}body{background:var(--purple);color:var(--purple);font-family:system-ui,sans-serif}
+.wrap{display:grid;grid-template-columns:1fr 1fr;min-height:100vh}
+.left{display:grid;place-items:center;background:var(--purple)}
+.cup{position:relative;width:260px;height:300px;clip-path:polygon(8% 0,92% 0,80% 100%,20% 100%);background:#fff3;border:2px solid #fff4}
+.layer{position:absolute;left:50%;translate:-50% 0;width:70px;height:70px;border-radius:50%;display:grid;place-items:center;font-size:2rem}
+.base{position:absolute;inset:auto 0 0 0;height:55%;background:#5b1a8f}
+.card{background:var(--cream);margin:auto;padding:2rem;border-radius:28px;width:min(34rem,90%)}
+h2{font:italic 800 2.4rem Georgia,serif;margin-bottom:1rem}
+.row{display:flex;flex-wrap:wrap;gap:.6rem;margin:.6rem 0 1.2rem}
+button.opt{border:2px solid var(--purple);background:transparent;border-radius:999px;padding:.6rem 1rem;font-weight:700;cursor:pointer;color:var(--purple)}
+button.opt.on{background:var(--purple);color:#fff}button.opt:disabled{opacity:.35;cursor:not-allowed}
+.total{display:flex;justify-content:space-between;align-items:center;margin-top:1rem;font-weight:800}
+.go{background:var(--mango);border:0;border-radius:999px;padding:.9rem 1.6rem;font-weight:800;cursor:pointer}
+dialog{border:0;border-radius:24px;padding:2rem;max-width:26rem}
+@media(max-width:800px){.wrap{grid-template-columns:1fr}}
+</style></head><body>
+<div class="wrap">
+ <div class="left"><div class="cup" id="cup"><div class="base"></div></div></div>
+ <div style="display:grid;place-items:center;padding:2rem"><div class="card">
+  <h2>Monte seu bowl</h2>
+  <b>Tamanho</b><div class="row" id="sizes"></div>
+  <b>Base</b><div class="row" id="bases"></div>
+  <b>Toppings <span id="count">0 de 7</span></b><div class="row" id="tops"></div>
+  <div class="total"><span id="total"></span><button class="go" id="go">Finalizar</button></div>
+ </div></div>
+</div>
+<dialog id="dlg"><h2>Pedido simulado</h2><p id="sum"></p><br><button class="go" onclick="dlg.close()">Fechar</button></dialog>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script>
+const SIZES=[{n:'ONE 270 ml',p:19.9},{n:'CLASSIC 350 ml',p:25.9},{n:'WORKS 500 ml',p:34.9}];
+const BASES=[{n:'Açaí',p:0},{n:'Cupuaçu',p:2}];
+const TOPS=[['Banana','🍌'],['Morango','🍓'],['Granola','🌾'],['Blueberry','🫐'],['Coco','🥥'],['Mel','🍯'],['Amendoim','🥜'],['Manga','🥭']];
+const MAX=7, st={size:1,base:0,tops:[]};
+const $=id=>document.getElementById(id), fmt=v=>'R$ '+v.toFixed(2).replace('.',',');
+function chips(el,list,key){el.innerHTML='';list.forEach((o,i)=>{const b=document.createElement('button');b.className='opt'+(st[key]===i?' on':'');b.textContent=o.n+(o.p?` ${fmt(o.p)}`:'');b.onclick=()=>{st[key]=i;draw()};el.append(b)})}
+function draw(){chips($('sizes'),SIZES,'size');chips($('bases'),BASES,'base');
+ const t=$('tops');t.innerHTML='';TOPS.forEach(([n,e])=>{const on=st.tops.includes(n),b=document.createElement('button');
+  b.className='opt'+(on?' on':'');b.textContent=e+' '+n;b.disabled=!on&&st.tops.length>=MAX;b.onclick=()=>toggle(n,e);t.append(b)});
+ $('count').textContent=`${st.tops.length} de ${MAX}`;
+ $('total').textContent='Total '+fmt(SIZES[st.size].p+BASES[st.base].p);}
+function toggle(n,e){const i=st.tops.indexOf(n);const cup=$('cup');
+ if(i>-1){st.tops.splice(i,1);cup.querySelector(`[data-n="${n}"]`)?.remove()}
+ else{st.tops.push(n);const l=document.createElement('div');l.className='layer';l.dataset.n=n;l.textContent=e;
+  l.style.bottom=(40+Math.random()*30)+'%';l.style.marginLeft=(Math.random()*80-40)+'px';cup.append(l);
+  gsap.from(l,{y:-120,opacity:0,duration:.7,ease:'bounce.out'})}
+ draw()}
+$('go').onclick=()=>{$('sum').innerHTML=`${SIZES[st.size].n} · ${BASES[st.base].n}<br>${st.tops.join(', ')||'sem toppings'}<br><b>${$('total').textContent}</b>`;$('dlg').showModal()};
+draw();
+</script></body></html>
